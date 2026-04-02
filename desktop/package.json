@@ -3,19 +3,14 @@
   "version": "1.0.0",
   "description": "Nexo Messenger Desktop Application",
   "main": "main.js",
+  "author": "Nexo Team",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win",
+    "build": "electron-builder --win --x64",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
-  "keywords": [
-    "messenger",
-    "chat",
-    "desktop"
-  ],
-  "author": "Nexo Team",
-  "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
@@ -32,7 +27,14 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "logo.png"
+      "icon": "logo.png",
+      "artifactName": "Nexo-Messenger-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

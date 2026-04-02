@@ -1,0 +1,20 @@
+{
+  "name": "nexo-mobile",
+  "version": "1.0.0",
+  "description": "Nexo Messenger Mobile Application",
+  "main": "index.js",
+  "author": "Nexo Team",
+  "license": "MIT",
+  "scripts": {
+    "build": "npx cap sync",
+    "open:android": "npx cap open android",
+    "build:android": "npx cap build android",
+    "build:ios": "npx cap build ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.0.0",
+    "@capacitor/core": "^5.0.0",
+    "@capacitor/cli": "^5.0.0",
+    "@capacitor/ios": "^5.0.0"
+  }
+}
