@@ -21,6 +21,10 @@ COPY . .
 WORKDIR /app/apps/web
 RUN npm run build
 
+# Generate Prisma client
+WORKDIR /app/apps/server
+RUN npx prisma generate
+
 # Production stage
 FROM node:20-alpine AS production
 
@@ -35,9 +39,10 @@ RUN npm install --legacy-peer-deps
 # Copy built web files
 COPY --from=builder /app/apps/web/dist ../web/dist
 
-# Copy server source (no compilation needed - using tsx)
+# Copy server source with generated Prisma client
 COPY --from=builder /app/apps/server/src ./src
 COPY --from=builder /app/apps/server/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create uploads directory
 RUN mkdir -p uploads
