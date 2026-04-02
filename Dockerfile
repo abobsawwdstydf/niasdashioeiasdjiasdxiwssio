@@ -8,11 +8,11 @@ COPY package*.json ./
 COPY apps/server/package*.json ./apps/server/
 COPY apps/web/package*.json ./apps/web/
 
-# Delete old lock files and reinstall
+# Delete old lock files and reinstall with legacy peer deps
 RUN rm -f package-lock.json apps/server/package-lock.json apps/web/package-lock.json
-RUN npm install
-RUN cd apps/server && npm install
-RUN cd apps/web && npm install
+RUN npm install --legacy-peer-deps
+RUN cd apps/server && npm install --legacy-peer-deps
+RUN cd apps/web && npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -30,7 +30,7 @@ WORKDIR /app
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 WORKDIR /app/apps/server
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy built web files
 COPY --from=builder /app/apps/web/dist ../web/dist
