@@ -24,21 +24,22 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine AS production
 
-WORKDIR /app/apps/server
+WORKDIR /app
 
 # Install all dependencies (including tsx for runtime compilation)
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/apps/server/package*.json ./
+COPY --from=builder /app/apps/server/package*.json ./apps/server/
 RUN npm install --legacy-peer-deps
 
-# Copy built web files to correct location
+# Copy built web files
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
 # Copy server source
-COPY --from=builder /app/apps/server/src ./src
-COPY --from=builder /app/apps/server/prisma ./prisma
+COPY --from=builder /app/apps/server/src ./apps/server/src
+COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
 
 # Generate Prisma client in production stage
+WORKDIR /app/apps/server
 RUN npx prisma generate
 
 # Create uploads directory
@@ -56,4 +57,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
 # Start server with tsx (no TypeScript compilation needed)
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["npx", "tsx", "apps/server/src/index.ts"]

@@ -131,6 +131,15 @@ app.get('/admin', (_req, res) => {
   res.sendFile(path.join(__dirname, 'admin-panel.html'));
 });
 
+// Serve static files from web dist
+const webDistPath = path.join(__dirname, '..', 'web', 'dist');
+app.use(express.static(webDistPath));
+
+// SPA fallback - serve index.html for all other routes
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(webDistPath, 'index.html'));
+});
+
 // ICE серверы для WebRTC звонков
 app.get('/api/ice-servers', authenticateToken, (_req: AuthRequest, res) => {
   const iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [];
