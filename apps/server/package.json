@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "echo 'Build not needed - using tsx'",
+    "start": "tsx src/index.ts",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
@@ -22,6 +22,7 @@
     "multer": "^1.4.5-lts.1",
     "redis": "^5.11.0",
     "socket.io": "^4.8.1",
+    "tsx": "^4.19.2",
     "uuid": "^11.0.5",
     "web-push": "^3.6.7"
   },
