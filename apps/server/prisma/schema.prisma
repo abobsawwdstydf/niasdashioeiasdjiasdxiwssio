@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  displayName String   @default("")
+  email       String?  @unique
+  phone       String?
+  password    String
+  avatar      String?
+  bio         String?
+  birthday    String?
+  createdAt   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  isOnline    Boolean  @default(false)
+  hideStoryViews Boolean @default(false)
+  registrationIp String?
+  pushSubscription String?  // Web Push subscription (JSON string)
+  pinnedChannelId String?  // Закреплённый канал
+  notifyAll   Boolean  @default(true)
+  notifyMessages Boolean @default(true)
+  notifyCalls Boolean  @default(true)
+  notifyFriends Boolean @default(true)
+
+  messages    Message[]
+  chatMembers ChatMember[]
+  reactions   Reaction[]
+  readReceipts ReadReceipt[]
+  forwardedMessages Message[] @relation("ForwardedFrom")
+  stories     Story[]
+  storyViews  StoryView[]
+  friendshipsSent     Friendship[] @relation("FriendshipsSent")
+  friendshipsReceived Friendship[] @relation("FriendshipsReceived")
+  callerCalls CallLog[] @relation("CallerCalls")
+  calleeCalls CallLog[] @relation("CalleeCalls")
+  pinnedChannel Chat? @relation("PinnedChannels", fields: [pinnedChannelId], references: [id])
+  uploadedFiles TelegramFile[]
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  type      String   @default("personal")
+  name      String?
+  username  String?  @unique
+  avatar    String?
+  description String?
+  createdAt DateTime @default(now())
+
+  members        ChatMember[]
+  messages       Message[]
+  pinnedMessages PinnedMessage[]
+  pinnedByUsers  User[] @relation("PinnedChannels")
+}
+
+model ChatMember {
+  id         String    @id @default(uuid())
+  chatId     String
+  userId     String
+  role       String    @default("member")
+  joinedAt   DateTime  @default(now())
+  isMuted    Boolean   @default(false)
+  isArchived Boolean   @default(false)
+  isPinned   Boolean   @default(false)
+  clearedAt  DateTime?
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  chatId    String
+  senderId  String
+  content   String?
+  type      String   @default("text")
+  replyToId String?
+  quote     String?
+  forwardedFromId String?
+  isEdited  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
+  scheduledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chat    Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender  User     @relation(fields: [senderId], references: [id])
+  replyTo Message? @relation("Reply", fields: [replyToId], references: [id])
+  replies Message[] @relation("Reply")
+  forwardedFrom User? @relation("ForwardedFrom", fields: [forwardedFromId], references: [id])
+
+  media          Media[]
+  reactions      Reaction[]
+  readBy         ReadReceipt[]
+  pinnedIn       PinnedMessage[]
+  hiddenBy       HiddenMessage[]
+  views          MessageView[]
+}
+
+model MessageView {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  deviceId  String?  // For tracking unique devices
+  viewedAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, deviceId])
+}
+
+model Media {
+  id        String  @id @default(uuid())
+  messageId String
+  type      String
+  url       String
+  filename  String?
+  thumbnail String?
+  size      Int?
+  duration  Float?
+  width     Int?
+  height    Int?
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+}
+
+model ReadReceipt {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+}
+
+model PinnedMessage {
+  id        String   @id @default(uuid())
+  chatId    String
+  messageId String
+  pinnedAt  DateTime @default(now())
+
+  chat    Chat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, messageId])
+}
+
+model Story {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   @default("text")
+  mediaUrl  String?
+  content   String?
+  bgColor   String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views StoryView[]
+}
+
+model StoryView {
+  id       String   @id @default(uuid())
+  storyId  String
+  userId   String
+  viewedAt DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([storyId, userId])
+}
+
+model HiddenMessage {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  hiddenAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userId    String
+  friendId  String
+  status    String   @default("pending") // pending | accepted | declined
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User @relation("FriendshipsSent", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("FriendshipsReceived", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+}
+
+model CallLog {
+  id         String   @id @default(uuid())
+  callerId   String
+  calleeId   String?
+  chatId     String?
+  type       String   @default("voice") // voice | video | group
+  status     String   @default("completed") // completed | missed | declined | failed
+  duration   Float    @default(0) // in seconds
+  createdAt  DateTime @default(now())
+
+  caller     User     @relation("CallerCalls", fields: [callerId], references: [id], onDelete: Cascade)
+  callee     User?    @relation("CalleeCalls", fields: [calleeId], references: [id], onDelete: Cascade)
+}
+
+// Telegram file storage metadata
+model TelegramFile {
+  id              String   @id @default(uuid())
+  fileId          String   @unique // Unique file identifier
+  userId          String   // Owner user ID
+  originalName    String   // Original filename
+  mimeType        String   // File MIME type
+  totalSize       Int      // Total file size in bytes
+  encryptionLevel Int      @default(2) // 0=none, 1=basic, 2=standard, 3=max
+  createdAt       DateTime @default(now())
+  lastAccessed    DateTime @default(now())
+  accessCount     Int      @default(0)
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks          FileChunk[]
+  
+  @@index([userId])
+  @@index([fileId])
+}
+
+model FileChunk {
+  id          String   @id @default(uuid())
+  fileId      String   // Reference to TelegramFile.fileId
+  telegramFileId String // Foreign key to TelegramFile
+  chunkIndex  Int      // Chunk order (0-based)
+  channelId   Int      // Telegram channel ID (1-4)
+  messageId   Int      // Telegram message ID
+  botId       Int      // Telegram bot ID (1-14)
+  size        Int      // Chunk size in bytes
+  createdAt   DateTime @default(now())
+  
+  telegramFile TelegramFile @relation(fields: [telegramFileId], references: [id], onDelete: Cascade)
+  
+  @@index([fileId])
+  @@index([telegramFileId])
+  @@unique([telegramFileId, chunkIndex])
+}
