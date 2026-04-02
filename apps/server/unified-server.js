@@ -6,7 +6,10 @@ const app = express();
 const PORT = process.env.PORT || 5032;
 
 // Serve static files from web dist
-app.use(express.static(path.join(__dirname, 'apps/web/dist')));
+const webDistPath = path.join(__dirname, '..', 'web', 'dist');
+console.log('Serving web from:', webDistPath);
+
+app.use(express.static(webDistPath));
 
 // Proxy API requests to backend
 app.use('/api', createProxyMiddleware({
@@ -21,7 +24,7 @@ app.use('/socket.io', createProxyMiddleware({
   changeOrigin: true,
 }));
 
-// Serve uploads
+// Proxy uploads
 app.use('/uploads', createProxyMiddleware({
   target: 'http://localhost:3001',
   changeOrigin: true,
@@ -29,7 +32,9 @@ app.use('/uploads', createProxyMiddleware({
 
 // All other routes serve index.html (SPA)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'apps/web/dist/index.html'));
+  const indexPath = path.join(webDistPath, 'index.html');
+  console.log('Serving index.html from:', indexPath);
+  res.sendFile(indexPath);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
