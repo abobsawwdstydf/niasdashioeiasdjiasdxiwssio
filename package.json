@@ -11,7 +11,7 @@
     "db:seed": "npm run db:seed -w apps/server",
     "setup": "npm install && npm run db:push && npm run db:seed",
     "start": "npm run dev",
-    "portyu": "npm run build && node apps/server/unified-server.js",
+    "portyu": "npm run build && concurrently -k -n backend,proxy \"npx tsx apps/server/src/index.ts\" \"node apps/server/unified-server.js\"",
     "build:apk": "echo Building APK... && cd apps/web && npm run build && echo \"APK build complete! Check apps/web/dist/\"",
     "build:exe": "echo Building EXE... && cd apps/web && npm run build && echo \"EXE build complete! Check apps/web/dist/\"",
     "build:all": "npm run build:apk && npm run build:exe"
