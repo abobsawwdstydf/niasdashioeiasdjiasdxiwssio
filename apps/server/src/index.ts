@@ -25,6 +25,7 @@ import storyRoutes from './routes/stories';
 import friendRoutes from './routes/friends';
 import callLogRoutes from './routes/callLogs';
 import messageViewRoutes from './routes/messageViews';
+import adminRoutes from './routes/admin';
 import { setupSocket } from './socket';
 import { authenticateToken, AuthRequest } from './middleware/auth';
 import { decryptFileToBuffer, isEncryptionEnabled } from './encrypt';
@@ -118,10 +119,16 @@ app.use('/api/friends', apiLimiter, authenticateToken, friendRoutes);
 app.use('/api/call-logs', apiLimiter, authenticateToken, callLogRoutes);
 app.use('/api/messages', apiLimiter, authenticateToken, messageViewRoutes);
 app.use('/api/messages', apiLimiter, authenticateToken, messageRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Проверка здоровья
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', name: 'Nexo Server' });
+});
+
+// Админ панель
+app.get('/admin', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-panel.html'));
 });
 
 // ICE серверы для WebRTC звонков
