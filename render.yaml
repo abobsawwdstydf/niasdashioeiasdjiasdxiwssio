@@ -6,6 +6,8 @@ services:
     plan: starter
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,5 +23,3 @@ services:
       name: uploads
       mountPath: /app/apps/server/uploads
       sizeGB: 1
-    healthCheckPath: /api/health
-    autoDeploy: true

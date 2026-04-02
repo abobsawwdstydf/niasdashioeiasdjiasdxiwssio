@@ -10,6 +10,14 @@ import mime from 'mime-types';
 import { config } from './config';
 import { prisma } from './db';
 import authRoutes from './routes/auth';
+
+// Initialize database connection
+prisma.$connect().then(() => {
+  console.log('  ✓ БД подключена');
+}).catch(err => {
+  console.error('Failed to connect DB:', err);
+  process.exit(1);
+});
 import userRoutes from './routes/users';
 import chatRoutes from './routes/chats';
 import messageRoutes from './routes/messages';

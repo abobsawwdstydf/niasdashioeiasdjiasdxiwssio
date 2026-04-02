@@ -17,10 +17,11 @@ COPY . .
 WORKDIR /app/apps/web
 RUN npm run build
 
-# Build server
+# Build server (compile to dist)
 WORKDIR /app/apps/server
 RUN npx prisma generate
 RUN npx prisma migrate deploy
+RUN npx tsc
 
 # Production stage
 FROM node:20-alpine AS production
