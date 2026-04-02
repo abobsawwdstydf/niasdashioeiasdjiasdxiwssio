@@ -24,16 +24,15 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine AS production
 
-WORKDIR /app
+WORKDIR /app/apps/server
 
 # Install all dependencies (including tsx for runtime compilation)
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/apps/server/package*.json ./apps/server/
-WORKDIR /app/apps/server
+COPY --from=builder /app/apps/server/package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy built web files
-COPY --from=builder /app/apps/web/dist ../web/dist
+# Copy built web files to correct location
+COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
 # Copy server source
 COPY --from=builder /app/apps/server/src ./src
