@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY apps/server/package*.json ./apps/server/
 COPY apps/web/package*.json ./apps/web/
 
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -32,7 +32,7 @@ WORKDIR /app
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 WORKDIR /app/apps/server
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Copy built files
 COPY --from=builder /app/apps/server/dist ./dist
