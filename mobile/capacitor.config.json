@@ -1,0 +1,8 @@
+{
+  "appId": "com.nexo.messenger",
+  "appName": "Nexo Messenger",
+  "webDir": ".",
+  "server": {
+    "url": "https://nexo-0hs3.onrender.com"
+  }
+}
