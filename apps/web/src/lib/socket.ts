@@ -1,9 +1,21 @@
 import { io, Socket } from 'socket.io-client';
+import { API_URL } from '../config';
 
 let socket: Socket | null = null;
 let connectAttempts = 0;
 const MAX_CONNECT_ATTEMPS = 5;
 const CONNECT_TIMEOUT = 10000; // 10 seconds
+
+// Get socket URL - use API_URL for mobile/desktop, relative for web
+const getSocketUrl = () => {
+  if (typeof window === 'undefined') return API_URL;
+  // For mobile/desktop apps or production, use API_URL
+  if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168')) {
+    return API_URL;
+  }
+  // For local development, use current origin
+  return window.location.origin;
+};
 
 export function connectSocket(token: string): Socket {
   if (socket?.connected) {
@@ -17,7 +29,10 @@ export function connectSocket(token: string): Socket {
     socket = null;
   }
 
-  socket = io(window.location.origin, {
+  const socketUrl = getSocketUrl();
+  console.log('🔌 Connecting to socket:', socketUrl);
+
+  socket = io(socketUrl, {
     auth: { token },
     transports: ['websocket', 'polling'],
     reconnection: true,
