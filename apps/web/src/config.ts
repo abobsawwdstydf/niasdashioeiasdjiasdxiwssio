@@ -1,5 +1,5 @@
 // Nexo App Configuration 
-export const API_URL = 'https://nexo-0hs3.onrender.com'; 
+export const API_URL = 'http://localhost:5032'; 
 export const SOCKET_CONFIG = { 
   transports: ['websocket', 'polling'], 
   reconnection: true, 
