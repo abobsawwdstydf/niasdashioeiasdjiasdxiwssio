@@ -1,0 +1,4 @@
+[icon]
+width=256
+height=256
+colors=32
