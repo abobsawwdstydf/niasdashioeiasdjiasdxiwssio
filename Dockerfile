@@ -3,12 +3,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (force fresh install)
 COPY package*.json ./
 COPY apps/server/package*.json ./apps/server/
 COPY apps/web/package*.json ./apps/web/
 
+# Delete old lock files and reinstall
+RUN rm -f package-lock.json apps/server/package-lock.json apps/web/package-lock.json
 RUN npm install
+RUN cd apps/server && npm install
+RUN cd apps/web && npm install
 
 # Copy source code
 COPY . .
