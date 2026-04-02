@@ -25,7 +25,6 @@ import storyRoutes from './routes/stories';
 import friendRoutes from './routes/friends';
 import callLogRoutes from './routes/callLogs';
 import messageViewRoutes from './routes/messageViews';
-import fileRoutes from './routes/files';
 import { setupSocket } from './socket';
 import { authenticateToken, AuthRequest } from './middleware/auth';
 import { decryptFileToBuffer, isEncryptionEnabled } from './encrypt';
@@ -119,7 +118,6 @@ app.use('/api/friends', apiLimiter, authenticateToken, friendRoutes);
 app.use('/api/call-logs', apiLimiter, authenticateToken, callLogRoutes);
 app.use('/api/messages', apiLimiter, authenticateToken, messageViewRoutes);
 app.use('/api/messages', apiLimiter, authenticateToken, messageRoutes);
-app.use('/api/files', apiLimiter, authenticateToken, fileRoutes);
 
 // Проверка здоровья
 app.get('/api/health', (_req, res) => {
