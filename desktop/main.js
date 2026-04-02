@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
 const SERVER_URL = 'https://nexo-0hs3.onrender.com';
@@ -18,8 +18,13 @@ function createWindow() {
     },
     icon: path.join(__dirname, 'build', 'icon.ico'),
     title: 'Nexo Messenger',
-    backgroundColor: '#09090b'
+    backgroundColor: '#09090b',
+    autoHideMenuBar: true,  // Hide menu bar
+    show: false
   });
+
+  // Hide menu bar completely
+  Menu.setApplicationMenu(null);
 
   mainWindow.loadURL(SERVER_URL);
   
@@ -44,6 +49,3 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
-
-ipcMain.handle('get-server-url', () => SERVER_URL);
-ipcMain.handle('get-platform', () => process.platform);

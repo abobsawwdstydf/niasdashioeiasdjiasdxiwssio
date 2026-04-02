@@ -1,7 +1,7 @@
 {
   "name": "nexo-desktop",
   "version": "1.0.0",
-  "description": "Nexo Messenger - Modern Real-time Messaging",
+  "description": "Nexo Messenger Desktop",
   "main": "main.js",
   "author": "Nexo Team",
   "license": "MIT",
@@ -22,18 +22,10 @@
     },
     "files": [
       "**/*",
-      "!dist/**",
-      "!.git/**"
-    ],
-    "extraResources": [
-      {
-        "from": "build/*.*",
-        "to": "resources"
-      }
+      "!dist/**"
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico",
       "artifactName": "Nexo-Messenger-Setup-${version}.${ext}"
     },
     "nsis": {
@@ -43,23 +35,8 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "shortcutName": "Nexo Messenger",
-      "include": "build/installer.nsh",
-      "language": "1049",
-      "languages": ["1033", "1049"],
-      "installerHeaderIcon": "build/icon.ico",
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "deleteInstallDirectory": true,
-      "allowElevation": true,
-      "perMachine": false,
-      "unicode": true,
-      "warningsAsErrors": false,
-      "customize": {
-        "title": "Nexo Messenger Setup",
-        "welcome": "Welcome to Nexo Messenger - Modern Real-time Messaging",
-        "install": "Installing Nexo Messenger...",
-        "finish": "Installation Complete!"
-      }
+      "deleteAppDataOnUninstall": true,
+      "warningsAsErrors": false
     }
   }
 }
