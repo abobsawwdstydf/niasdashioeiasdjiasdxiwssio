@@ -1,7 +1,7 @@
 {
   "name": "nexo-desktop",
   "version": "1.0.0",
-  "description": "Nexo Messenger Desktop Application",
+  "description": "Nexo Messenger - Modern Real-time Messaging",
   "main": "main.js",
   "author": "Nexo Team",
   "license": "MIT",
@@ -19,22 +19,79 @@
     "appId": "com.nexo.messenger",
     "productName": "Nexo Messenger",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "**/*",
-      "!dist/**"
+      "!dist/**",
+      "!.git/**",
+      "!.github/**",
+      "!*.md"
     ],
     "win": {
       "target": "nsis",
       "icon": "logo.png",
-      "artifactName": "Nexo-Messenger-Setup-${version}.${ext}"
+      "artifactName": "Nexo-Messenger-Setup-${version}.${ext}",
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nexo Messenger",
+      "runAfterFinish": true,
+      "installerHeaderIcon": "build/installer-icon.ico",
+      "installerIcon": "build/installer-icon.ico",
+      "uninstallerIcon": "build/installer-icon.ico",
+      "installerSidebar": "build/installer-sidebar.bmp",
+      "uninstallerSidebar": "build/installer-sidebar.bmp",
+      "include": "build/installer.nsh",
+      "license": "LICENSE",
+      "deleteInstallDirectory": true,
+      "allowElevation": true,
+      "perMachine": false,
+      "unicode": true,
+      "language": "1033",
+      "languages": [
+        "1033",
+        "1049"
+      ],
+      "customMessages": {
+        "en": {
+          "welcomeMessage": "Welcome to Nexo Messenger Setup",
+          "clickNext": "Click Next to continue, or Cancel to exit.",
+          "selectDir": "Select Installation Folder",
+          "selectDirLabel": "Choose where to install Nexo Messenger:",
+          "defaultDirName": "Nexo Messenger",
+          "browseButtonLabel": "Browse...",
+          "installingLabel": "Installing Nexo Messenger, please wait...",
+          "createdUninstaller": "Created uninstaller",
+          "installationData": "Installation Data",
+          "removeDataLabel": "Remove application data",
+          "removeDataTip": "Also delete application data and settings"
+        },
+        "ru": {
+          "welcomeMessage": "Добро пожаловать в установщик Nexo Messenger",
+          "clickNext": "Нажмите Далее для продолжения, или Отмена для выхода.",
+          "selectDir": "Выберите папку для установки",
+          "selectDirLabel": "Выберите где установить Nexo Messenger:",
+          "defaultDirName": "Nexo Messenger",
+          "browseButtonLabel": "Обзор...",
+          "installingLabel": "Установка Nexo Messenger, пожалуйста подождите...",
+          "createdUninstaller": "Создан деинсталлятор",
+          "installationData": "Данные установки",
+          "removeDataLabel": "Удалить данные приложения",
+          "removeDataTip": "Также удалить данные приложения и настройки"
+        }
+      }
+    },
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ]
   }
 }
