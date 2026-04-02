@@ -28,18 +28,20 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Install production dependencies only
-COPY package*.json ./
-COPY apps/server/package*.json ./apps/server/
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/apps/server/package*.json ./apps/server/
+WORKDIR /app/apps/server
 RUN npm ci --only=production
 
 # Copy built files
-COPY --from=builder /app/apps/server/dist ./apps/server/dist
-COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
-COPY --from=builder /app/apps/server/src/shared.ts ./apps/server/src/
-COPY --from=builder /app/apps/server/src/encrypt.ts ./apps/server/src/
-COPY --from=builder /app/apps/web/dist ./apps/web/dist
+COPY --from=builder /app/apps/server/dist ./dist
+COPY --from=builder /app/apps/server/prisma ./prisma
+COPY --from=builder /app/apps/server/src/shared.ts ./src/
+COPY --from=builder /app/apps/server/src/encrypt.ts ./src/
+COPY --from=builder /app/apps/web/dist ../web/dist
 
-WORKDIR /app/apps/server
+# Create uploads directory
+RUN mkdir -p uploads
 
 # Set environment variables
 ENV NODE_ENV=production

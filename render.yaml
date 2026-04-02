@@ -1,8 +1,25 @@
-# Build web app
-npm run build
-
-# Generate Prisma client
-cd apps/server && npx prisma generate && npx prisma migrate deploy
-
-# Start server
-node apps/server/dist/index.js
+services:
+  - type: web
+    name: nexo-messenger
+    env: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+    disk:
+      name: uploads
+      mountPath: /app/apps/server/uploads
+      sizeGB: 1
+    healthCheckPath: /api/health
+    autoDeploy: true
