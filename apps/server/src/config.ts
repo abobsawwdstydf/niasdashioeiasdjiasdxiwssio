@@ -12,6 +12,41 @@ if (process.env.ENCRYPTION_KEY) {
   initEncryption(process.env.ENCRYPTION_KEY);
 }
 
+// Telegram bots configuration
+export const TELEGRAM_BOTS = [
+  { id: 'bot1', token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
+  { id: 'bot2', token: '8733182475:AAFBitv4g4LVRuvGnssyqHQpttBydeAda9Y' },
+  { id: 'bot3', token: '8774720953:AAGvExABKj4Z-DYfKdqF-OMEdoeySeOeOoY' },
+  { id: 'bot4', token: '8141008503:AAEaCM1RrN2ppbZmUzhpW4EeLUgT1qQ2QS0' },
+  { id: 'bot5', token: '8687986079:AAGPYjnq4gdXCkf2wT81f0l2tQalKCIIyds' },
+  { id: 'bot6', token: '8758985233:AAF7QfRApnccaByBYa1qjGs7u-erQ47OZcQ' },
+  { id: 'bot7', token: '8554202189:AAGN0wLfcgkqK3KJ9XOJFl40rp2kjkIcm1Y' },
+  { id: 'bot8', token: '8748554768:AAEnJcHklmilbjih9glo3GITnQXSx4YmM_8' },
+  { id: 'bot9', token: '8744960493:AAHB5bn3VxlZWKJjCr70yLYJnVTyXp2zHIs' },
+  { id: 'bot10', token: '8734408678:AAH7eTD97tepfwqdYKieNOoxsGZaEdPYWhI' },
+  { id: 'bot11', token: '8141208214:AAFOOel84oRN3Uj8rEOWI_6H3LaAa6Z76Q0' },
+  { id: 'bot12', token: '8758209438:AAEnaXcJ7ke88fjjHNPwQVTt_u9LYrSzPFk' },
+  { id: 'bot13', token: '8680953724:AAFbz6yKdLC0ANkwTbLsZ0GSN78zVbTWUb8' },
+  { id: 'bot14', token: '8743205528:AAF2V2Z8UU5A3aJiSd5JveswVen_immyp9E' },
+];
+
+// Telegram storage channels
+export const TELEGRAM_CHANNELS = [
+  { id: 'ch1', chatId: '-1003850596987' },
+  { id: 'ch2', chatId: '-1003878106202' },
+  { id: 'ch3', chatId: '-1003868880877' },
+  { id: 'ch4', chatId: '-1003738083520' },
+];
+
+// Redis instances
+export const REDIS_INSTANCES = [
+  { id: 'redis1', url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
+  { id: 'redis2', url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
+];
+
+// Chunk size for Telegram uploads (19MB)
+export const TELEGRAM_CHUNK_SIZE = 19 * 1024 * 1024;
+
 export const config = {
   port: Number(process.env.PORT) || 3001,
   jwtSecret: process.env.JWT_SECRET || 'nexo-dev-fallback-not-for-production',
@@ -25,4 +60,12 @@ export const config = {
   turnSecret: process.env.TURN_SECRET || '',
   stunUrls: (process.env.STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302')
     .split(',').map(s => s.trim()).filter(Boolean),
+  // Storage mode: 'local' or 'telegram'
+  storageMode: (process.env.STORAGE_MODE || 'telegram') as 'local' | 'telegram',
+  // Database URL - Neon PostgreSQL by default
+  databaseUrl: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_mHu8QNo4czxK@ep-divine-smoke-aintwcj6-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  // Redis - primary instance
+  redisUrl: process.env.REDIS_URL || 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158',
+  // Redis - secondary instance (for sessions/cache)
+  redisSessionUrl: process.env.REDIS_SESSION_URL || 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102',
 };

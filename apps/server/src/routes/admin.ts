@@ -3,32 +3,7 @@ import { prisma } from '../db';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
-
 const ADMIN_PASSWORD = 'b2323vgn7v672n7823478t92BRGMV7tv83';
-
-// In-memory storage for bots and channels (in production, use DB)
-interface Bot {
-  id: string;
-  token: string;
-  username?: string;
-  firstName?: string;
-  online: boolean;
-  addedAt: Date;
-}
-
-interface Channel {
-  id: string;
-  channelId: string;
-  title?: string;
-  botId: string;
-  botUsername?: string;
-  online: boolean;
-  addedAt: Date;
-}
-
-const bots: Bot[] = [];
-const channels: Channel[] = [];
-let storageMode: 'local' | 'telegram' = 'local';
 
 // Login
 router.post('/login', (req, res) => {
@@ -43,21 +18,15 @@ router.post('/login', (req, res) => {
 // Stats
 router.get('/stats', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const [userCount, chatCount, messageCount, onlineCount] = await Promise.all([
+    const [userCount, chatCount, messageCount, onlineCount, verifiedCount, bannedCount] = await Promise.all([
       prisma.user.count(),
       prisma.chat.count(),
       prisma.message.count(),
-      prisma.user.count({ where: { isOnline: true } })
+      prisma.user.count({ where: { isOnline: true } }),
+      prisma.verifiedEntity.count(),
+      prisma.user.count({ where: { isBanned: true } })
     ]);
-
-    res.json({
-      users: userCount,
-      chats: chatCount,
-      messages: messageCount,
-      online: onlineCount,
-      bots: bots.length,
-      channels: channels.length
-    });
+    res.json({ users: userCount, chats: chatCount, messages: messageCount, online: onlineCount, verified: verifiedCount, banned: bannedCount });
   } catch (error) {
     res.status(500).json({ error: 'Ошибка получения статистики' });
   }
@@ -69,20 +38,9 @@ router.get('/status/postgres', authenticateToken, async (req: AuthRequest, res) 
     const dbUrl = process.env.DATABASE_URL || '';
     const result = await prisma.$queryRaw`SELECT version(), current_database(), pg_database_size(current_database()) as size`;
     const data = (result as any[])[0];
-    
-    res.json({
-      connected: true,
-      url: dbUrl.replace(/:\/\/[^@]+@/, '://***@'),
-      version: data?.version?.split(' ')[0] || 'Unknown',
-      database: data?.current_database || 'Unknown',
-      size: formatBytes(data?.size || 0)
-    });
+    res.json({ connected: true, url: dbUrl.replace(/:\/\/[^@]+@/, '://***@'), version: data?.version?.split(' ')[0] || 'Unknown', database: data?.current_database || 'Unknown', size: formatBytes(data?.size || 0) });
   } catch (error: any) {
-    res.json({
-      connected: false,
-      url: (process.env.DATABASE_URL || '').replace(/:\/\/[^@]+@/, '://***@') || 'Не настроено',
-      error: error?.message || 'Не удалось подключиться'
-    });
+    res.json({ connected: false, url: (process.env.DATABASE_URL || '').replace(/:\/\/[^@]+@/, '://***@') || 'Не настроено', error: error?.message || 'Не удалось подключиться' });
   }
 });
 
@@ -90,10 +48,7 @@ router.get('/status/postgres', authenticateToken, async (req: AuthRequest, res) 
 router.get('/status/redis', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const redisUrl = process.env.REDIS_URL || '';
-    if (!redisUrl) {
-      return res.json({ connected: false, url: 'Не настроено', error: 'Redis URL не указан' });
-    }
-
+    if (!redisUrl) return res.json({ connected: false, url: 'Не настроено', error: 'Redis URL не указан' });
     const { createClient } = await import('redis');
     const client = createClient({ url: redisUrl });
     await client.connect();
@@ -101,178 +56,22 @@ router.get('/status/redis', authenticateToken, async (req: AuthRequest, res) => 
     const dbsize = await client.dbSize();
     const versionMatch = info.match(/redis_version:([\d.]+)/);
     await client.quit();
-    
-    res.json({
-      connected: true,
-      url: redisUrl.replace(/:\/\/[^@]+@/, '://***@'),
-      version: versionMatch ? versionMatch[1] : 'Unknown',
-      keys: dbsize.toString()
-    });
+    res.json({ connected: true, url: redisUrl.replace(/:\/\/[^@]+@/, '://***@'), version: versionMatch ? versionMatch[1] : 'Unknown', keys: dbsize.toString() });
   } catch (error: any) {
-    res.json({
-      connected: false,
-      url: (process.env.REDIS_URL || '').replace(/:\/\/[^@]+@/, '://***@') || 'Не настроено',
-      error: error?.message || 'Не удалось подключиться'
-    });
+    res.json({ connected: false, url: (process.env.REDIS_URL || '').replace(/:\/\/[^@]+@/, '://***@') || 'Не настроено', error: error?.message || 'Не удалось подключиться' });
   }
 });
 
-// Telegram status
-router.get('/status/telegram', authenticateToken, async (req: AuthRequest, res) => {
-  const activeBots = bots.filter(b => b.online).length;
-  const activeChannels = channels.filter(c => c.online).length;
-  
-  res.json({
-    bots: bots.length,
-    channels: channels.length,
-    active: activeBots + activeChannels
-  });
-});
-
-// Get all bots
-router.get('/bots', authenticateToken, async (req: AuthRequest, res) => {
-  res.json(bots);
-});
-
-// Add bot
-router.post('/bots', authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const { token: botToken } = req.body;
-    if (!botToken) return res.status(400).json({ error: 'Токен обязателен' });
-
-    // Check bot via Telegram API
-    const axios = require('axios');
-    const response = await axios.get(`https://api.telegram.org/bot${botToken}/getMe`, { timeout: 10000 });
-    
-    if (!response.data.ok) {
-      return res.status(400).json({ error: 'Неверный токен. Бот не найден.' });
-    }
-
-    const bot = response.data.result;
-    const newBot: Bot = {
-      id: 'bot_' + Date.now(),
-      token: botToken,
-      username: bot.username,
-      firstName: bot.first_name,
-      online: true,
-      addedAt: new Date()
-    };
-
-    bots.push(newBot);
-    res.json({ success: true, username: bot.username, botName: bot.first_name });
-  } catch (error: any) {
-    res.status(400).json({ error: error?.response?.data?.description || error?.message || 'Ошибка проверки бота' });
-  }
-});
-
-// Delete bot
-router.delete('/bots/:id', authenticateToken, async (req: AuthRequest, res) => {
-  const idx = bots.findIndex(b => b.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Бот не найден' });
-  
-  // Also delete channels using this bot
-  const botChannels = channels.filter(c => c.botId === req.params.id);
-  botChannels.forEach(c => {
-    const cIdx = channels.findIndex(ch => ch.id === c.id);
-    if (cIdx !== -1) channels.splice(cIdx, 1);
-  });
-  
-  bots.splice(idx, 1);
-  res.json({ success: true });
-});
-
-// Get all channels
-router.get('/channels', authenticateToken, async (req: AuthRequest, res) => {
-  res.json(channels);
-});
-
-// Add channel
-router.post('/channels', authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const { channelId, botId } = req.body;
-    if (!channelId || !botId) return res.status(400).json({ error: 'channelId и botId обязательны' });
-
-    const bot = bots.find(b => b.id === botId);
-    if (!bot) return res.status(400).json({ error: 'Бот не найден' });
-
-    // Check channel via Telegram API
-    const axios = require('axios');
-    const cleanChannelId = channelId.replace('@', '');
-    const chatId = channelId.startsWith('-') ? channelId : '@' + cleanChannelId;
-    
-    try {
-      const response = await axios.get(`https://api.telegram.org/bot${bot.token}/getChat`, {
-        params: { chat_id: chatId },
-        timeout: 10000
-      });
-
-      if (!response.data.ok) {
-        return res.status(400).json({ error: 'Канал не найден. Убедитесь что бот добавлен в канал.' });
-      }
-
-      const chat = response.data.result;
-      const newChannel: Channel = {
-        id: 'ch_' + Date.now(),
-        channelId: chatId,
-        title: chat.title || chat.username || channelId,
-        botId: bot.id,
-        botUsername: bot.username,
-        online: true,
-        addedAt: new Date()
-      };
-
-      channels.push(newChannel);
-      res.json({ success: true, title: newChannel.title });
-    } catch (tgError: any) {
-      res.status(400).json({ error: tgError?.response?.data?.description || 'Не удалось найти канал. Бот должен быть администратором канала.' });
-    }
-  } catch (error: any) {
-    res.status(400).json({ error: error?.message || 'Ошибка добавления канала' });
-  }
-});
-
-// Test channel - send test message
-router.post('/channels/:id/test', authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const channel = channels.find(c => c.id === req.params.id);
-    if (!channel) return res.status(404).json({ error: 'Канал не найден' });
-
-    const bot = bots.find(b => b.id === channel.botId);
-    if (!bot) return res.status(400).json({ error: 'Бот не найден' });
-
-    const axios = require('axios');
-    await axios.post(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-      chat_id: channel.channelId,
-      text: `✅ Тестовое сообщение от Nexo Admin\nВремя: ${new Date().toLocaleString('ru-RU')}\nБот: ${bot.username}`,
-      parse_mode: 'HTML'
-    }, { timeout: 10000 });
-
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(400).json({ error: error?.response?.data?.description || error?.message || 'Ошибка отправки' });
-  }
-});
-
-// Delete channel
-router.delete('/channels/:id', authenticateToken, async (req: AuthRequest, res) => {
-  const idx = channels.findIndex(c => c.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Канал не найден' });
-  channels.splice(idx, 1);
-  res.json({ success: true });
-});
-
-// Get users
+// Get all users
 router.get('/users', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, displayName: true, isOnline: true, createdAt: true },
+      select: { id: true, username: true, displayName: true, isOnline: true, isVerified: true, isBanned: true, createdAt: true, avatar: true },
       orderBy: { createdAt: 'desc' },
-      take: 100
+      take: 200
     });
     res.json(users);
-  } catch {
-    res.status(500).json({ error: 'Ошибка получения пользователей' });
-  }
+  } catch { res.status(500).json({ error: 'Ошибка получения пользователей' }); }
 });
 
 // Delete user
@@ -280,52 +79,138 @@ router.delete('/users/:id', authenticateToken, async (req: AuthRequest, res) => 
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message || 'Ошибка удаления' });
-  }
+  } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка удаления' }); }
 });
 
-// Update storage mode
+// Get all verified entities
+router.get('/verified', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const entities = await prisma.verifiedEntity.findMany({
+      include: { chat: { include: { members: { include: { user: true } } } } }
+    });
+    const result = entities.map(e => {
+      let name = '', members = 0, owner = '', avatar = '';
+      if (e.entityType === 'user') {
+        // Handled separately
+      } else if (e.chat) {
+        name = e.chat.name || e.chat.username || '';
+        members = e.chat.members.length;
+        const admin = e.chat.members.find(m => m.role === 'admin');
+        owner = admin?.user?.displayName || admin?.user?.username || '';
+        avatar = e.chat.avatar || '';
+      }
+      return { ...e, name, members, owner, avatar };
+    });
+    // Add users
+    const verifiedUsers = await prisma.user.findMany({
+      where: { isVerified: true },
+      select: { id: true, displayName: true, username: true, avatar: true, verifiedBadgeUrl: true, verifiedBadgeType: true }
+    });
+    const userEntities = verifiedUsers.map(u => ({
+      entityType: 'user',
+      entityId: u.id,
+      name: u.displayName || u.username,
+      members: 0,
+      owner: '',
+      avatar: u.avatar || '',
+      badgeUrl: u.verifiedBadgeUrl || '',
+      badgeType: u.verifiedBadgeType || 'default'
+    }));
+    res.json([...result, ...userEntities]);
+  } catch { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+// Verify entity
+router.post('/verify', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { entityType, entityId, badgeUrl, badgeType } = req.body;
+    if (entityType === 'user') {
+      await prisma.user.update({
+        where: { id: entityId },
+        data: { isVerified: true, verifiedBadgeUrl: badgeUrl || null, verifiedBadgeType: badgeType || 'default', verifiedAt: new Date() }
+      });
+    } else {
+      await prisma.verifiedEntity.upsert({
+        where: { entityType_entityId: { entityType, entityId } },
+        update: { badgeUrl: badgeUrl || null, badgeType: badgeType || 'default', verifiedAt: new Date() },
+        create: { entityType, entityId, badgeUrl: badgeUrl || null, badgeType: badgeType || 'default', verifiedBy: req.userId! }
+      });
+      if (entityType === 'channel' || entityType === 'group') {
+        await prisma.chat.update({ where: { id: entityId }, data: { isVerified: true, verifiedBadgeUrl: badgeUrl || null, verifiedBadgeType: badgeType || 'default', verifiedAt: new Date() } });
+      }
+    }
+    res.json({ success: true });
+  } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
+});
+
+// Remove verification
+router.delete('/verify/:type/:id', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { type, id } = req.params;
+    if (type === 'user') {
+      await prisma.user.update({ where: { id }, data: { isVerified: false, verifiedBadgeUrl: null, verifiedBadgeType: null, verifiedAt: null } });
+    } else {
+      await prisma.verifiedEntity.deleteMany({ where: { entityType: type, entityId: id } });
+      await prisma.chat.updateMany({ where: { id }, data: { isVerified: false, verifiedBadgeUrl: null, verifiedBadgeType: null, verifiedAt: null } });
+    }
+    res.json({ success: true });
+  } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
+});
+
+// Ban user
+router.post('/ban', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { userId, reason, expiresAt } = req.body;
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isBanned: true, banReason: reason, banExpiresAt: expiresAt ? new Date(expiresAt) : null, bannedAt: new Date(), bannedBy: req.userId }
+    });
+    await prisma.userBan.create({
+      data: { userId, reason, expiresAt: expiresAt ? new Date(expiresAt) : null, bannedBy: req.userId! }
+    });
+    res.json({ success: true });
+  } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
+});
+
+// Unban user
+router.delete('/ban/:id', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    await prisma.user.update({ where: { id: req.params.id }, data: { isBanned: false, banReason: null, banExpiresAt: null, bannedAt: null, bannedBy: null } });
+    await prisma.userBan.updateMany({ where: { userId: req.params.id, isActive: true }, data: { isActive: false, liftedAt: new Date(), liftedBy: req.userId } });
+    res.json({ success: true });
+  } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
+});
+
+// Storage config
 router.post('/config/storage', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { mode } = req.body;
     if (mode === 'local' || mode === 'telegram') {
-      storageMode = mode;
       res.json({ success: true, message: `Режим хранилища: ${mode === 'local' ? 'Локальный' : 'Telegram'}` });
-    } else {
-      res.status(400).json({ error: 'Неверный режим' });
-    }
-  } catch {
-    res.status(500).json({ error: 'Ошибка' });
-  }
+    } else { res.status(400).json({ error: 'Неверный режим' }); }
+  } catch { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-// Update database
+// Database config
 router.post('/config/database', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { databaseUrl } = req.body;
     if (!databaseUrl) return res.status(400).json({ error: 'URL базы данных обязателен' });
     res.json({ success: true, message: 'Конфигурация обновлена. Перезапустите сервер.' });
-  } catch {
-    res.status(500).json({ error: 'Ошибка обновления' });
-  }
+  } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
 });
 
-// Update Redis
+// Redis config
 router.post('/config/redis', authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    res.json({ success: true, message: 'Redis настроен' });
-  } catch {
-    res.status(500).json({ error: 'Ошибка настройки' });
-  }
+  try { res.json({ success: true, message: 'Redis настроен' }); }
+  catch { res.status(500).json({ error: 'Ошибка настройки' }); }
 });
 
 // Get config
 router.get('/config', authenticateToken, async (req: AuthRequest, res) => {
   res.json({
     database: { type: process.env.DATABASE_URL?.includes('postgres') ? 'postgresql' : 'sqlite', url: process.env.DATABASE_URL?.replace(/:\/\/[^@]+@/, '://***@') },
-    redis: { enabled: !!process.env.REDIS_URL, url: process.env.REDIS_URL?.replace(/:\/\/[^@]+@/, '://***@') },
-    storage: { mode: storageMode }
+    redis: { enabled: !!process.env.REDIS_URL, url: process.env.REDIS_URL?.replace(/:\/\/[^@]+@/, '://***@') }
   });
 });
 
@@ -339,14 +224,7 @@ router.get('/system/info', authenticateToken, async (req: AuthRequest, res) => {
   const uptime = process.uptime();
   const hours = Math.floor(uptime / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
-  
-  res.json({
-    nodeVersion: process.version,
-    env: process.env.NODE_ENV || 'development',
-    port: process.env.PORT || '3001',
-    uptime: `${hours}ч ${minutes}м`,
-    memory: formatBytes(process.memoryUsage().rss)
-  });
+  res.json({ nodeVersion: process.version, env: process.env.NODE_ENV || 'development', port: process.env.PORT || '3001', uptime: `${hours}ч ${minutes}м`, memory: formatBytes(process.memoryUsage().rss) });
 });
 
 // Restart

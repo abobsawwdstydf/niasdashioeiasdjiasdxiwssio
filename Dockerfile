@@ -56,4 +56,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
 # Start server with tsx (apply DB schema first)
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx tsx src/index.ts"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx prisma generate && npx tsx src/index.ts"]

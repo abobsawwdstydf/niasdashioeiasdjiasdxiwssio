@@ -136,6 +136,10 @@ const webDistPath = path.resolve(__dirname, '..', 'web', 'dist');
 console.log('Serving web from:', webDistPath);
 app.use(express.static(webDistPath));
 
+// Serve public files (badges, etc.)
+const publicPath = path.resolve(__dirname, '..', 'web', 'public');
+app.use(express.static(publicPath));
+
 // SPA fallback - serve index.html for all other routes
 app.get('*', (_req, res) => {
   const indexPath = path.join(webDistPath, 'index.html');

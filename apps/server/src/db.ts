@@ -1,8 +1,14 @@
 import { PrismaClient } from '@prisma/client';
+import { config } from './config';
 import { encryptText, decryptText, isEncryptionEnabled } from './encrypt';
 
 // Create Prisma client with encryption extension
 export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: config.databaseUrl
+    }
+  },
   log: [], // No logging for performance
 }).$extends({
   query: {

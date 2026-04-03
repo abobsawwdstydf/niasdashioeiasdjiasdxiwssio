@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -28,6 +28,19 @@ model User {
   notifyMessages Boolean @default(true)
   notifyCalls Boolean  @default(true)
   notifyFriends Boolean @default(true)
+  
+  // Verification & badges
+  isVerified  Boolean  @default(false)
+  verifiedBadgeUrl String? // Custom badge URL (photo/video/gif)
+  verifiedBadgeType String? // 'default' | 'image' | 'video' | 'gif' | 'url'
+  verifiedAt    DateTime?
+  
+  // Ban system
+  isBanned    Boolean  @default(false)
+  banReason   String?
+  banExpiresAt DateTime? // null = permanent ban
+  bannedAt    DateTime?
+  bannedBy    String? // Admin user ID
 
   messages    Message[]
   chatMembers ChatMember[]
@@ -42,6 +55,8 @@ model User {
   calleeCalls CallLog[] @relation("CalleeCalls")
   pinnedChannel Chat? @relation("PinnedChannels", fields: [pinnedChannelId], references: [id])
   uploadedFiles TelegramFile[]
+  verifiedEntities VerifiedEntity[] @relation("VerifiedBy")
+  bansIssued UserBan[] @relation("BansIssued")
 }
 
 model Chat {
@@ -52,11 +67,18 @@ model Chat {
   avatar    String?
   description String?
   createdAt DateTime @default(now())
+  
+  // Verification for channels/groups
+  isVerified  Boolean  @default(false)
+  verifiedBadgeUrl String?
+  verifiedBadgeType String?
+  verifiedAt    DateTime?
 
   members        ChatMember[]
   messages       Message[]
   pinnedMessages PinnedMessage[]
   pinnedByUsers  User[] @relation("PinnedChannels")
+  verifiedEntity VerifiedEntity?
 }
 
 model ChatMember {
@@ -234,6 +256,44 @@ model CallLog {
   callee     User?    @relation("CalleeCalls", fields: [calleeId], references: [id], onDelete: Cascade)
 }
 
+// Verified entities (users, channels, groups)
+model VerifiedEntity {
+  id          String   @id @default(uuid())
+  entityType  String   // 'user' | 'channel' | 'group'
+  entityId    String   // User.id or Chat.id
+  badgeUrl    String?  // Custom badge URL (default: built-in blue check)
+  badgeType   String   @default("default") // 'default' | 'image' | 'video' | 'gif' | 'url'
+  verifiedBy  String   // Admin user ID
+  verifiedAt  DateTime @default(now())
+  note        String?  // Admin note
+
+  user        User?    @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+  chat        Chat?    @relation(fields: [entityId], references: [id])
+
+  @@unique([entityType, entityId])
+  @@index([entityType])
+  @@index([verifiedBy])
+}
+
+// User ban history
+model UserBan {
+  id          String   @id @default(uuid())
+  userId      String   // Banned user
+  reason      String
+  expiresAt   DateTime? // null = permanent
+  bannedBy    String   // Admin who issued ban
+  createdAt   DateTime @default(now())
+  isActive    Boolean  @default(true)
+  liftedAt    DateTime?
+  liftedBy    String?
+
+  user        User     @relation("BansIssued", fields: [bannedBy], references: [id])
+
+  @@index([userId])
+  @@index([bannedBy])
+  @@index([isActive])
+}
+
 // Telegram file storage metadata
 model TelegramFile {
   id              String   @id @default(uuid())
@@ -246,10 +306,10 @@ model TelegramFile {
   createdAt       DateTime @default(now())
   lastAccessed    DateTime @default(now())
   accessCount     Int      @default(0)
-  
+
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chunks          FileChunk[]
-  
+
   @@index([userId])
   @@index([fileId])
 }
@@ -264,9 +324,9 @@ model FileChunk {
   botId       Int      // Telegram bot ID (1-14)
   size        Int      // Chunk size in bytes
   createdAt   DateTime @default(now())
-  
+
   telegramFile TelegramFile @relation(fields: [telegramFileId], references: [id], onDelete: Cascade)
-  
+
   @@index([fileId])
   @@index([telegramFileId])
   @@unique([telegramFileId, chunkIndex])
