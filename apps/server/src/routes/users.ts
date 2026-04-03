@@ -65,6 +65,60 @@ router.get('/channels/search', async (req: AuthRequest, res) => {
   }
 });
 
+// Получить настройки уведомлений (должен быть ДО /:id)
+router.get('/notifications', async (req: AuthRequest, res) => {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Требуется авторизация' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: {
+        notifyAll: true,
+        notifyMessages: true,
+        notifyCalls: true,
+        notifyFriends: true
+      }
+    });
+
+    res.json(user || {
+      notifyAll: true,
+      notifyMessages: true,
+      notifyCalls: true,
+      notifyFriends: true
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Failed to get notification settings' });
+  }
+});
+
+// Обновить настройки уведомлений
+router.put('/notifications', async (req: AuthRequest, res) => {
+  try {
+    const { notifyAll, notifyMessages, notifyCalls, notifyFriends } = req.body;
+
+    const updateData: any = {};
+    if (notifyAll !== undefined) updateData.notifyAll = notifyAll;
+    if (notifyMessages !== undefined) updateData.notifyMessages = notifyMessages;
+    if (notifyCalls !== undefined) updateData.notifyCalls = notifyCalls;
+    if (notifyFriends !== undefined) updateData.notifyFriends = notifyFriends;
+
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: updateData,
+      select: USER_SELECT
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Update notifications error:', error);
+    res.status(500).json({ error: 'Failed to update notification settings' });
+  }
+});
+
 // Профиль пользователя
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
@@ -392,60 +446,6 @@ router.get('/:id/channels', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Get channels error:', error);
     res.status(500).json({ error: 'Ошибка получения каналов' });
-  }
-});
-
-// Обновить настройки уведомлений
-router.put('/notifications', async (req: AuthRequest, res) => {
-  try {
-    const { notifyAll, notifyMessages, notifyCalls, notifyFriends } = req.body;
-    
-    const updateData: any = {};
-    if (notifyAll !== undefined) updateData.notifyAll = notifyAll;
-    if (notifyMessages !== undefined) updateData.notifyMessages = notifyMessages;
-    if (notifyCalls !== undefined) updateData.notifyCalls = notifyCalls;
-    if (notifyFriends !== undefined) updateData.notifyFriends = notifyFriends;
-
-    const user = await prisma.user.update({
-      where: { id: req.userId },
-      data: updateData,
-      select: USER_SELECT
-    });
-
-    res.json(user);
-  } catch (error) {
-    console.error('Update notifications error:', error);
-    res.status(500).json({ error: 'Failed to update notification settings' });
-  }
-});
-
-// Получить настройки уведомлений
-router.get('/notifications', async (req: AuthRequest, res) => {
-  try {
-    if (!req.userId) {
-      res.status(401).json({ error: 'Требуется авторизация' });
-      return;
-    }
-    
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      select: {
-        notifyAll: true,
-        notifyMessages: true,
-        notifyCalls: true,
-        notifyFriends: true
-      }
-    });
-
-    res.json(user || {
-      notifyAll: true,
-      notifyMessages: true,
-      notifyCalls: true,
-      notifyFriends: true
-    });
-  } catch (error) {
-    console.error('Get notifications error:', error);
-    res.status(500).json({ error: 'Failed to get notification settings' });
   }
 });
 
