@@ -132,12 +132,15 @@ app.get('/admin', (_req, res) => {
 });
 
 // Serve static files from web dist
-const webDistPath = path.join(__dirname, '..', 'web', 'dist');
+const webDistPath = path.resolve(__dirname, '..', 'apps', 'web', 'dist');
+console.log('Serving web from:', webDistPath);
 app.use(express.static(webDistPath));
 
 // SPA fallback - serve index.html for all other routes
 app.get('*', (_req, res) => {
-  res.sendFile(path.join(webDistPath, 'index.html'));
+  const indexPath = path.join(webDistPath, 'index.html');
+  console.log('Serving index.html from:', indexPath);
+  res.sendFile(indexPath);
 });
 
 // ICE серверы для WebRTC звонков

@@ -31,12 +31,12 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 RUN npm install --legacy-peer-deps
 
-# Copy built web files
-COPY --from=builder /app/apps/web/dist ./apps/web/dist
-
 # Copy server source
 COPY --from=builder /app/apps/server/src ./src
 COPY --from=builder /app/apps/server/prisma ./prisma
+
+# Copy built web files (must be at ../apps/web/dist relative to src)
+COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
 # Generate Prisma client in production stage
 RUN npx prisma generate
