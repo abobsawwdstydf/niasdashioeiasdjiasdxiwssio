@@ -122,7 +122,7 @@ router.post('/register', registerLimiter, async (req, res) => {
     res.json({ token, user: { ...user, isOnline: true } });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: 'Ошибка сервера', details: error instanceof Error ? error.message : String(error) });
   }
 });
 

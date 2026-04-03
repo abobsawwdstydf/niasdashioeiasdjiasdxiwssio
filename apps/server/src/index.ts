@@ -35,7 +35,7 @@ import { UPLOADS_ROOT } from './shared';
 if (process.env.NODE_ENV === 'production') {
   console.log = () => {};
   console.warn = () => {};
-  console.error = () => {};
+  // Keep console.error for debugging
 }
 
 const app = express();
