@@ -74,20 +74,28 @@ export function setupSocket(io: Server) {
     }
     onlineUsers.get(userId)!.add(socket.id);
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isOnline: true, lastSeen: new Date() },
-    });
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { isOnline: true, lastSeen: new Date() },
+      });
+      socket.broadcast.emit('user_online', { userId });
+    } catch (e) {
+      // User might not exist yet, skip silently
+      console.error('Socket: failed to update user online status:', e);
+    }
 
-    socket.broadcast.emit('user_online', { userId });
+    try {
+      const userChats = await prisma.chatMember.findMany({
+        where: { userId },
+        select: { chatId: true },
+      });
 
-    const userChats = await prisma.chatMember.findMany({
-      where: { userId },
-      select: { chatId: true },
-    });
-
-    for (const { chatId } of userChats) {
-      socket.join(`chat:${chatId}`);
+      for (const { chatId } of userChats) {
+        socket.join(`chat:${chatId}`);
+      }
+    } catch (e) {
+      console.error('Socket: failed to join chats:', e);
     }
 
     socket.on('join_chat', async (chatId: string) => {
@@ -1185,15 +1193,19 @@ export function setupSocket(io: Server) {
         if (userSockets.size === 0) {
           onlineUsers.delete(userId);
 
-          await prisma.user.update({
-            where: { id: userId },
-            data: { isOnline: false, lastSeen: new Date() },
-          });
+          try {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { isOnline: false, lastSeen: new Date() },
+            });
 
           socket.broadcast.emit('user_offline', {
             userId,
             lastSeen: new Date().toISOString(),
           });
+          } catch (e) {
+            console.error('Socket: failed to update user offline status:', e);
+          }
         }
       }
     });
