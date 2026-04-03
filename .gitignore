@@ -34,3 +34,5 @@ Thumbs.db
 *.swo
 apps/server/uploads/
 desktop/dist/
+apps/server/web/node_modules/
+apps/server/web/dist/

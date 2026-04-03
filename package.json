@@ -2,16 +2,17 @@
   "name": "nexo-messenger",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "apps/server/web"
   ],
   "scripts": {
-    "dev": "concurrently -k -n server,web -c \"#6366f1\",\"#8b5cf6\" \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
-    "build": "npm run build -w apps/server && npm run build -w apps/web",
+    "dev": "concurrently -k -n server,web -c \"#6366f1\",\"#8b5cf6\" \"npm run dev -w apps/server\" \"npm run dev -w apps/server/web\"",
+    "build": "npm run build -w apps/server && npm run build -w apps/server/web",
     "db:push": "npm run db:push -w apps/server",
     "db:seed": "npm run db:seed -w apps/server",
     "setup": "npm install && npm run db:push && npm run db:seed",
     "start": "npm run dev",
-    "portyu": "npm run build && concurrently -k -n backend,proxy \"npx tsx apps/server/src/index.ts\" \"node apps/server/unified-server.js\"",
+    "portyu": "npm run build && npx tsx apps/server/src/index.ts",
     "build:apk": "echo Building APK... && cd apps/web && npm run build && echo \"APK build complete! Check apps/web/dist/\"",
     "build:exe": "echo Building EXE... && cd apps/web && npm run build && echo \"EXE build complete! Check apps/web/dist/\"",
     "build:all": "npm run build:apk && npm run build:exe"

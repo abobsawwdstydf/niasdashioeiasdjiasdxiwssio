@@ -131,8 +131,8 @@ app.get('/admin', (_req, res) => {
   res.sendFile(path.join(__dirname, 'admin-panel.html'));
 });
 
-// Serve static files from web dist
-const webDistPath = path.resolve(__dirname, '..', 'apps', 'web', 'dist');
+// Serve static files from web dist (../web/dist relative to src/)
+const webDistPath = path.resolve(__dirname, '..', 'web', 'dist');
 console.log('Serving web from:', webDistPath);
 app.use(express.static(webDistPath));
 
