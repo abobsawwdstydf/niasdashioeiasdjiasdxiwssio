@@ -14,7 +14,7 @@ services:
       - key: PORT
         value: 3001
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_mHu8QNo4czxK@ep-divine-smoke-aintwcj6-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+        value: postgresql://neondb_owner:npg_HtISpB5j2how@ep-flat-haze-aijugpbg-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: REDIS_URL
         value: redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158
       - key: REDIS_SESSION_URL
