@@ -47,6 +47,9 @@ RUN mkdir -p uploads
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV DATABASE_URL=postgresql://neondb_owner:npg_mHu8QNo4czxK@ep-divine-smoke-aintwcj6-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+ENV REDIS_URL=redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158
+ENV STORAGE_MODE=telegram
 
 # Expose port
 EXPOSE 3001
