@@ -48,8 +48,13 @@ class TelegramStorage {
       }),
       available: true,
     }));
+    console.log(`\n🤖 TELEGRAM STORAGE:`);
     console.log(`  ✓ Инициализировано ${this.bots.length} Telegram ботов`);
     console.log(`  ✓ Каналов хранения: ${TELEGRAM_CHANNELS.length}`);
+    TELEGRAM_CHANNELS.forEach((ch, i) => {
+      console.log(`    ${i + 1}. ${ch.name} (${ch.chatId})`);
+    });
+    console.log('');
   }
 
   private getNextBot(): TelegramBot {
@@ -89,17 +94,21 @@ class TelegramStorage {
     });
 
     try {
+      console.log(`   ⬆️ Отправка чанка в канал ${channelId}...`);
       const response = await bot.client.post('/sendDocument', formData, {
         headers: formData.getHeaders(),
         timeout: 60000,
       });
 
+      const messageId = response.data.result.message_id;
+      console.log(`   ✅ Чанк отправлен! Message ID: ${messageId}`);
+
       return {
-        messageId: response.data.result.message_id,
+        messageId,
         botId: bot.id,
       };
     } catch (error: any) {
-      console.error('Upload error:', error.response?.data || error.message);
+      console.error(`   ❌ ОШИБКА отправки чанка:`, error.response?.data || error.message);
       bot.available = false;
       throw error;
     }
@@ -145,21 +154,28 @@ class TelegramStorage {
   ): Promise<StoredFile> {
     const fileId = `tg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const chunks: UploadedChunk[] = [];
-    
+
     // Split file into chunks
     const chunkCount = Math.ceil(fileBuffer.length / CHUNK_SIZE);
-    console.log(`  📦 Файл ${filename} разбит на ${chunkCount} чанков`);
+    const fileSizeMB = (fileBuffer.length / 1024 / 1024).toFixed(2);
+    
+    console.log(`\n📦 ФАЙЛ: ${filename}`);
+    console.log(`   Размер: ${fileSizeMB} MB`);
+    console.log(`   MIME: ${mimeType}`);
+    console.log(`   Пользователь: ${userId}`);
+    console.log(`   Чанков: ${chunkCount}`);
+    console.log(`   File ID: ${fileId}`);
 
     for (let i = 0; i < chunkCount; i++) {
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, fileBuffer.length);
       const chunk = fileBuffer.slice(start, end);
-      
+
       // Select channel (round-robin)
       const channel = TELEGRAM_CHANNELS[i % TELEGRAM_CHANNELS.length];
-      
-      console.log(`  ⬆️ Загрузка чанка ${i + 1}/${chunkCount} в ${channel.name}...`);
-      
+
+      console.log(`\n   📤 Чанк ${i + 1}/${chunkCount} → ${channel.name}`);
+
       const { messageId, botId } = await this.uploadChunk(
         chunk,
         `${fileId}_part${i}`,
@@ -177,6 +193,9 @@ class TelegramStorage {
       // Small delay to avoid rate limits
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+
+    console.log(`\n✅ ФАЙЛ ПОЛНОСТЬЮ ЗАГРУЖЕН В TELEGRAM!`);
+    console.log(`   ${filename} → ${chunks.length} чанков в ${new Set(chunks.map(c => c.channelId)).size} каналах`);
 
     const storedFile: StoredFile = {
       fileId,

@@ -146,15 +146,11 @@ const BLOCKED_EXTENSIONS = new Set([
   '.hta', '.cpl', '.inf', '.reg',
 ]);
 
-/** Multer middleware for general file uploads (max 25GB, all formats allowed). */
+/** Multer middleware for general file uploads (max 25GB, all formats allowed). 
+ * Uses memory storage - files are kept in RAM and sent to Telegram, NOT saved locally!
+ */
 export const uploadFile = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadsRoot),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, `${uuidv4()}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(), // Store in memory buffer, NOT on disk
   limits: {
     fileSize: 25 * 1024 * 1024 * 1024, // 25 GB
     files: 1200, // Max 1200 files per request (for album support)

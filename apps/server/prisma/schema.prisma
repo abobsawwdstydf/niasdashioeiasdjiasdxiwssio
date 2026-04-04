@@ -149,8 +149,10 @@ model Media {
   duration  Float?
   width     Int?
   height    Int?
+  telegramFileId String? // Reference to TelegramFile if stored in Telegram
 
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  telegramFile TelegramFile? @relation(fields: [telegramFileId], references: [id])
 }
 
 model Reaction {
@@ -307,6 +309,7 @@ model TelegramFile {
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chunks          FileChunk[]
+  media           Media[]
 
   @@index([userId])
   @@index([fileId])

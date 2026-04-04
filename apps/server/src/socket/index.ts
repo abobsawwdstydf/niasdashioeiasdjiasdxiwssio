@@ -173,15 +173,17 @@ export function setupSocket(io: Server) {
           return;
         }
 
-        // Validate mediaUrl — only /uploads/ paths or https URLs allowed
+        // Validate mediaUrl — only tg:// (Telegram), https URLs, or /uploads/ (legacy) allowed
         if (data.mediaUrl) {
           if (typeof data.mediaUrl !== 'string') {
             socket.emit('error', { message: 'Некорректный mediaUrl' });
             return;
           }
-          const isLocalUpload = data.mediaUrl.startsWith('/uploads/');
+          const isTelegramFile = data.mediaUrl.startsWith('tg://');
           const isExternalUrl = data.mediaUrl.startsWith('https://');
-          if (!isLocalUpload && !isExternalUrl) {
+          const isLocalUpload = data.mediaUrl.startsWith('/uploads/');
+          
+          if (!isTelegramFile && !isExternalUrl && !isLocalUpload) {
             socket.emit('error', { message: 'Недопустимый mediaUrl' });
             return;
           }
@@ -230,6 +232,7 @@ export function setupSocket(io: Server) {
                   filename: m.filename,
                   size: m.size,
                   duration: m.duration,
+                  telegramFileId: m.fileId || null, // Telegram file reference
                 })) }
               : data.mediaUrl
                 ? { create: {
@@ -238,6 +241,7 @@ export function setupSocket(io: Server) {
                     filename: data.fileName,
                     size: data.fileSize,
                     duration: data.duration,
+                    telegramFileId: data.mediaUrl.startsWith('tg://') ? data.mediaUrl.replace('tg://', '') : null,
                   }}
                 : undefined,
           },

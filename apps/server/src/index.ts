@@ -53,44 +53,8 @@ app.set('trust proxy', 1);
 app.use(cors({ origin: config.corsOrigins }));
 app.use(express.json({ limit: '10mb' }));
 
-// Serve uploads — decrypts encrypted files on the fly
-app.use('/uploads', (req, res, next) => {
-  // Security headers
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'none'");
-  res.setHeader('Cache-Control', 'private, max-age=86400');
-
-  // Resolve file path safely
-  const urlPath = decodeURIComponent(req.path);
-  if (urlPath.includes('..')) {
-    res.status(400).end();
-    return;
-  }
-
-  const filePath = path.resolve(UPLOADS_ROOT, urlPath.replace(/^\//, ''));
-  if (!filePath.startsWith(UPLOADS_ROOT) || !fs.existsSync(filePath)) {
-    res.status(404).end();
-    return;
-  }
-
-  // Set Content-Type from extension
-  const contentType = mime.lookup(filePath) || 'application/octet-stream';
-  res.setHeader('Content-Type', contentType);
-
-  // If encryption is enabled, try to decrypt
-  if (isEncryptionEnabled()) {
-    const decrypted = decryptFileToBuffer(filePath);
-    if (decrypted) {
-      res.setHeader('Content-Length', decrypted.length);
-      res.end(decrypted);
-      return;
-    }
-    // Decryption failed — file is likely unencrypted (legacy), fall through to static
-  }
-
-  // Serve unencrypted file as-is
-  next();
-}, express.static(UPLOADS_ROOT));
+// Файлы больше не хранятся локально - всё в Telegram!
+// Serve uploads удален - файлы скачиваются из Telegram по запросу
 
 // Rate limiting for auth endpoints (prevent brute-force)
 const authLimiter = rateLimit({
@@ -178,6 +142,65 @@ app.get('/api/ice-servers', authenticateToken, (_req: AuthRequest, res) => {
 
 // Socket.io
 setupSocket(io);
+
+// Endpoint для скачивания файлов из Telegram
+import { telegramStorage } from './lib/telegramStorage';
+import { prisma } from './db';
+
+app.get('/api/files/:fileId/download', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    
+    if (!fileId || !fileId.startsWith('tg_')) {
+      res.status(400).json({ error: 'Неверный ID файла' });
+      return;
+    }
+
+    console.log(`\n📥 СКАЧИВАНИЕ ФАЙЛА: ${fileId}`);
+
+    // Получаем метаданные из БД
+    const telegramFile = await prisma.telegramFile.findUnique({
+      where: { fileId },
+      include: { chunks: { orderBy: { chunkIndex: 'asc' } } }
+    });
+
+    if (!telegramFile) {
+      res.status(404).json({ error: 'Файл не найден в БД' });
+      return;
+    }
+
+    console.log(`📄 Файл: ${telegramFile.originalName}`);
+    console.log(`   Размер: ${(telegramFile.totalSize / 1024).toFixed(2)} KB`);
+    console.log(`   Чанков: ${telegramFile.chunks.length}`);
+
+    // Скачиваем файл из Telegram
+    const fileBuffer = await telegramStorage.downloadFile(
+      telegramFile.fileId,
+      telegramFile.chunks
+    );
+
+    console.log(`✅ ФАЙЛ СКАЧАН ИЗ TELEGRAM!`);
+
+    // Обновляем статистику
+    await prisma.telegramFile.update({
+      where: { fileId },
+      data: {
+        lastAccessed: new Date(),
+        accessCount: { increment: 1 }
+      }
+    });
+
+    // Отправляем файл клиенту
+    res.setHeader('Content-Type', telegramFile.mimeType);
+    res.setHeader('Content-Length', fileBuffer.length);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(telegramFile.originalName)}"`);
+    res.end(fileBuffer);
+
+  } catch (error: any) {
+    console.error('❌ ОШИБКА СКАЧИВАНИЯ:', error.message);
+    res.status(500).json({ error: 'Ошибка скачивания: ' + error.message });
+  }
+});
 
 // При старте сервера сбросить всех в offline
 prisma.user.updateMany({ data: { isOnline: false, lastSeen: new Date() } })

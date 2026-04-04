@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
-import { SENDER_SELECT, MESSAGE_INCLUDE, uploadFile, deleteUploadedFile, encryptUploadedFile } from '../shared';
+import { SENDER_SELECT, MESSAGE_INCLUDE, uploadFile } from '../shared';
+import { telegramStorage } from '../lib/telegramStorage';
 
 const router = Router();
 
@@ -50,8 +51,8 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   }
 });
 
-// Загрузка файлов (поддержка нескольких файлов - альбом)
-router.post('/upload', uploadFile.array('files', 20), encryptUploadedFile, async (req: AuthRequest, res) => {
+// Загрузка файлов - ОТПРАВКА В TELEGRAM (не локально!)
+router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, res) => {
   try {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -59,22 +60,66 @@ router.post('/upload', uploadFile.array('files', 20), encryptUploadedFile, async
       return;
     }
 
-    const uploadedFiles = files.map(file => {
-      const fileUrl = `/uploads/${file.filename}`;
-      // multer decodes multipart filenames as latin1 — re-decode as UTF-8
-      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      return {
-        url: fileUrl,
-        filename: originalName,
-        size: file.size,
-        mimetype: file.mimetype,
-      };
-    });
+    console.log(`\n📤 ЗАГРУЗКА ФАЙЛОВ: ${files.length} файл(ов)`);
+    console.log(`👤 Пользователь: ${req.userId}`);
 
+    const uploadedFiles = [];
+
+    for (const file of files) {
+      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      console.log(`\n📄 Файл: ${originalName}`);
+      console.log(`   Размер: ${(file.size / 1024).toFixed(2)} KB`);
+      console.log(`   MIME: ${file.mimetype}`);
+
+      // Отправляем файл в Telegram каналы
+      const storedFile = await telegramStorage.uploadFile(
+        file.buffer,
+        originalName,
+        file.mimetype,
+        req.userId!
+      );
+
+      // Сохраняем метаданные в БД
+      const telegramFile = await prisma.telegramFile.create({
+        data: {
+          fileId: storedFile.fileId,
+          userId: req.userId!,
+          originalName: storedFile.originalName,
+          mimeType: storedFile.mimeType,
+          totalSize: storedFile.totalSize,
+          encryptionLevel: storedFile.encryptionLevel,
+          chunks: {
+            create: storedFile.chunks.map(chunk => ({
+              fileId: storedFile.fileId,
+              chunkIndex: chunk.chunkIndex,
+              channelId: chunk.channelId,
+              messageId: chunk.messageId,
+              botId: chunk.botId,
+              size: chunk.size,
+            }))
+          }
+        },
+        include: { chunks: true }
+      });
+
+      console.log(`💾 Метаданные сохранены в БД`);
+
+      // Сохраняем информацию о файле для клиента
+      uploadedFiles.push({
+        fileId: telegramFile.fileId,
+        filename: telegramFile.originalName,
+        size: telegramFile.totalSize,
+        mimetype: telegramFile.mimeType,
+        url: `tg://${telegramFile.fileId}`,
+      });
+    }
+
+    console.log(`\n✅ ВСЕ ФАЙЛЫ (${uploadedFiles.length}) ОТПРАВЛЕНЫ В TELEGRAM И СОХРАНЕНЫ В БД\n`);
     res.json(uploadedFiles);
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Ошибка загрузки' });
+  } catch (error: any) {
+    console.error('❌ ОШИБКА ЗАГРУЗКИ В TELEGRAM:', error.message);
+    console.error(error);
+    res.status(500).json({ error: 'Ошибка загрузки: ' + (error.message || 'Неизвестная ошибка') });
   }
 });
 
