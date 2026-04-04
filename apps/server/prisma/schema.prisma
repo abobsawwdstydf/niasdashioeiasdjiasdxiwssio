@@ -268,7 +268,6 @@ model VerifiedEntity {
   note        String?  // Admin note
 
   user        User?    @relation("VerifiedBy", fields: [verifiedBy], references: [id])
-  chat        Chat?    @relation(fields: [entityId], references: [id])
 
   @@unique([entityType, entityId])
   @@index([entityType])

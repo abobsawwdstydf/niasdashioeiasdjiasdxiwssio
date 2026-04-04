@@ -1,18 +1,110 @@
 import express from 'express';
 import { prisma } from '../db';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import crypto from 'crypto';
 
 const router = express.Router();
 const ADMIN_PASSWORD = 'b2323vgn7v672n7823478t92BRGMV7tv83';
+
+// In-memory session store
+interface AdminSession {
+  token: string;
+  ip: string;
+  userAgent: string;
+  device: string;
+  loginAt: Date;
+  lastActive: Date;
+}
+
+const sessions: Map<string, AdminSession> = new Map();
+
+// Helper to detect device from user agent
+function detectDevice(userAgent: string): string {
+  if (!userAgent) return 'Unknown';
+  if (/mobile|android|iphone/i.test(userAgent)) return '📱 Mobile';
+  if (/tablet|ipad/i.test(userAgent)) return '📱 Tablet';
+  if (/windows/i.test(userAgent)) return '🖥️ Windows';
+  if (/macintosh|mac os/i.test(userAgent)) return '🖥️ macOS';
+  if (/linux/i.test(userAgent)) return '🐧 Linux';
+  return '🖥️ Desktop';
+}
+
+// Helper to get browser name
+function getBrowser(userAgent: string): string {
+  if (!userAgent) return 'Unknown';
+  if (/chrome/i.test(userAgent)) return 'Chrome';
+  if (/firefox/i.test(userAgent)) return 'Firefox';
+  if (/safari/i.test(userAgent)) return 'Safari';
+  if (/edge/i.test(userAgent)) return 'Edge';
+  return 'Browser';
+}
 
 // Login
 router.post('/login', (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
-    res.json({ success: true, token: 'admin-token-' + Date.now() });
+    const token = 'admin-token-' + Date.now() + '-' + crypto.randomBytes(8).toString('hex');
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    
+    sessions.set(token, {
+      token,
+      ip,
+      userAgent,
+      device: detectDevice(userAgent),
+      loginAt: new Date(),
+      lastActive: new Date()
+    });
+    
+    res.json({ success: true, token });
   } else {
     res.status(401).json({ error: 'Неверный пароль' });
   }
+});
+
+// Get all sessions
+router.get('/sessions', authenticateToken, (req: AuthRequest, res) => {
+  const sessionList = Array.from(sessions.values()).map(s => ({
+    token: s.token,
+    ip: s.ip,
+    device: s.device,
+    browser: getBrowser(s.userAgent),
+    userAgent: s.userAgent.substring(0, 100) + '...',
+    loginAt: s.loginAt,
+    lastActive: s.lastActive,
+    isCurrent: s.token === req.headers.authorization?.replace('Bearer ', '')
+  }));
+  res.json(sessionList);
+});
+
+// Logout from specific session
+router.delete('/sessions/:token', authenticateToken, (req: AuthRequest, res) => {
+  const { token } = req.params;
+  if (sessions.delete(token)) {
+    res.json({ success: true, message: 'Сессия завершена' });
+  } else {
+    res.status(404).json({ error: 'Сессия не найдена' });
+  }
+});
+
+// Logout from all sessions except current
+router.post('/sessions/logout-all', authenticateToken, (req: AuthRequest, res) => {
+  const currentToken = req.headers.authorization?.replace('Bearer ', '');
+  let count = 0;
+  for (const [token] of sessions) {
+    if (token !== currentToken) {
+      sessions.delete(token);
+      count++;
+    }
+  }
+  res.json({ success: true, message: `Завершено ${count} сессий` });
+});
+
+// Logout current session
+router.post('/sessions/logout-current', authenticateToken, (req: AuthRequest, res) => {
+  const currentToken = req.headers.authorization?.replace('Bearer ', '');
+  sessions.delete(currentToken || '');
+  res.json({ success: true, message: 'Сессия завершена' });
 });
 
 // Stats

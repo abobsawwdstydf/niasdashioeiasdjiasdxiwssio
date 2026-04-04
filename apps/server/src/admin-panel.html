@@ -135,6 +135,7 @@
         <div class="tab active" onclick="switchTab('dashboard')">📊 Дашборд</div>
         <div class="tab" onclick="switchTab('users')">👥 Пользователи</div>
         <div class="tab" onclick="switchTab('verification')">✅ Верификация</div>
+        <div class="tab" onclick="switchTab('sessions')">🔑 Сессии</div>
         <div class="tab" onclick="switchTab('storage')">💾 Хранилище</div>
         <div class="tab" onclick="switchTab('system')">⚙️ Система</div>
       </div>
@@ -214,6 +215,23 @@
             <table>
               <thead><tr><th>Тип</th><th>Имя</th><th>Подписчики</th><th>Владелец</th><th>Бейдж</th><th>Действия</th></tr></thead>
               <tbody id="verifiedTable"><tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Загрузка...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Sessions Tab -->
+      <div id="tab-sessions" class="tab-content">
+        <div class="section">
+          <div class="section-title"><span>🔑 Активные сессии админ-панели</span></div>
+          <p style="color:var(--text-secondary);margin-bottom:20px;">Управляйте устройствами, вошедшими в админ-панель</p>
+          <div class="flex-row" style="margin-bottom:20px;">
+            <button class="btn-danger" onclick="logoutAllSessions()">🚪 Выйти со всех устройств</button>
+            <button class="btn-warning" onclick="logoutCurrentSession()">🚪 Выйти с этого устройства</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Устройство</th><th>Браузер</th><th>IP адрес</th><th>Вход</th><th>Активность</th><th>Статус</th><th>Действия</th></tr></thead>
+              <tbody id="sessionsTable"><tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Загрузка...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -378,6 +396,7 @@
       document.getElementById('tab-' + tab).classList.add('active');
       if (tab === 'users') loadUsers();
       if (tab === 'verification') loadVerified();
+      if (tab === 'sessions') loadSessions();
     }
 
     async function loadAll() {
@@ -477,6 +496,58 @@
         allEntities = await api('/verified');
         renderVerified(allEntities);
       } catch {}
+    }
+
+    async function loadSessions() {
+      try {
+        const sessions = await api('/sessions');
+        renderSessions(sessions);
+      } catch {}
+    }
+
+    function renderSessions(sessions) {
+      const tbody = document.getElementById('sessionsTable');
+      if (!sessions.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Нет активных сессий</td></tr>'; return; }
+      tbody.innerHTML = sessions.map(s => `
+        <tr>
+          <td>${s.device}</td>
+          <td>${s.browser}</td>
+          <td><code>${s.ip}</code></td>
+          <td>${new Date(s.loginAt).toLocaleString('ru-RU')}</td>
+          <td>${new Date(s.lastActive).toLocaleString('ru-RU')}</td>
+          <td>${s.isCurrent ? '<span style="color:var(--neon-green);">● Текущая</span>' : '<span style="color:var(--text-secondary);">○ Активная</span>'}</td>
+          <td>
+            ${s.isCurrent ? '<button class="btn-warning btn-small" onclick="logoutCurrentSession()">Выйти</button>' : `<button class="btn-danger btn-small" onclick="logoutSession('${s.token}')">Завершить</button>`}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function logoutSession(token) {
+      if (!confirm('Завершить эту сессию?')) return;
+      try {
+        const data = await api('/sessions/' + token, { method: 'DELETE' });
+        if (data.success) { notify(data.message); loadSessions(); }
+        else notify(data.error, 'error');
+      } catch { notify('Ошибка', 'error'); }
+    }
+
+    async function logoutAllSessions() {
+      if (!confirm('Завершить все сессии кроме текущей?')) return;
+      try {
+        const data = await api('/sessions/logout-all', { method: 'POST' });
+        if (data.success) { notify(data.message); loadSessions(); }
+        else notify(data.error, 'error');
+      } catch { notify('Ошибка', 'error'); }
+    }
+
+    async function logoutCurrentSession() {
+      if (!confirm('Выйти из админ-панели?')) return;
+      try {
+        await api('/sessions/logout-current', { method: 'POST' });
+        notify('Сессия завершена');
+        setTimeout(() => logout(), 1000);
+      } catch { notify('Ошибка', 'error'); }
     }
 
     function renderVerified(entities) {
