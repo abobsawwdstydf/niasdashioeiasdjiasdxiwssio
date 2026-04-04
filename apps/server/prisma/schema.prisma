@@ -78,7 +78,6 @@ model Chat {
   messages       Message[]
   pinnedMessages PinnedMessage[]
   pinnedByUsers  User[] @relation("PinnedChannels")
-  verifiedEntity VerifiedEntity?
 }
 
 model ChatMember {
