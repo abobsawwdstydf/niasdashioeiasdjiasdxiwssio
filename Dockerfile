@@ -1,6 +1,9 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Force rebuild - 2026-04-04 admin auth fix
+LABEL rebuild="2026-04-04-admin-fix"
+
 WORKDIR /app
 
 # Install dependencies
