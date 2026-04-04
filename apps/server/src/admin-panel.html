@@ -136,6 +136,7 @@
         <div class="tab" onclick="switchTab('users')">👥 Пользователи</div>
         <div class="tab" onclick="switchTab('verification')">✅ Верификация</div>
         <div class="tab" onclick="switchTab('sessions')">🔑 Сессии</div>
+        <div class="tab" onclick="switchTab('devices')">📱 Устройства</div>
         <div class="tab" onclick="switchTab('storage')">💾 Хранилище</div>
         <div class="tab" onclick="switchTab('system')">⚙️ Система</div>
       </div>
@@ -232,6 +233,20 @@
             <table>
               <thead><tr><th>Устройство</th><th>Браузер</th><th>IP адрес</th><th>Вход</th><th>Активность</th><th>Статус</th><th>Действия</th></tr></thead>
               <tbody id="sessionsTable"><tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Загрузка...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Devices Tab -->
+      <div id="tab-devices" class="tab-content">
+        <div class="section">
+          <div class="section-title"><span>📱 Устройства пользователей</span></div>
+          <p style="color:var(--text-secondary);margin-bottom:20px;">Информация об устройствах, с которых пользователи входят в систему</p>
+          <input type="text" class="search-box" id="deviceSearch" placeholder="🔍 Поиск по устройству, IP, пользователю..." oninput="filterDevices()">
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Пользователь</th><th>Устройство</th><th>Браузер</th><th>IP адрес</th><th>Авторизован</th><th>Активность</th><th>Статус</th></tr></thead>
+              <tbody id="devicesTable"><tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Загрузка...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -397,6 +412,7 @@
       if (tab === 'users') loadUsers();
       if (tab === 'verification') loadVerified();
       if (tab === 'sessions') loadSessions();
+      if (tab === 'devices') loadDevices();
     }
 
     async function loadAll() {
@@ -462,14 +478,17 @@
 
     async function loadUsers() {
       try {
-        allUsers = await api('/users');
+        const data = await api('/users');
+        allUsers = Array.isArray(data) ? data : [];
         renderUsers(allUsers);
-      } catch {}
+      } catch {
+        allUsers = [];
+      }
     }
 
     function renderUsers(users) {
       const tbody = document.getElementById('usersTable');
-      if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Нет пользователей</td></tr>'; return; }
+      if (!Array.isArray(users) || !users.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Нет пользователей</td></tr>'; return; }
       tbody.innerHTML = users.map(u => `
         <tr>
           <td><div class="user-cell"><div class="user-avatar">${(u.displayName || u.username)[0].toUpperCase()}</div><span>${u.displayName || u.username}</span></div></td>
@@ -488,26 +507,71 @@
 
     function filterUsers() {
       const q = document.getElementById('userSearch').value.toLowerCase();
+      if (!Array.isArray(allUsers)) {
+        allUsers = [];
+      }
       renderUsers(allUsers.filter(u => (u.username || '').toLowerCase().includes(q) || (u.displayName || '').toLowerCase().includes(q)));
     }
 
     async function loadVerified() {
       try {
-        allEntities = await api('/verified');
+        const data = await api('/verified');
+        allEntities = Array.isArray(data) ? data : [];
         renderVerified(allEntities);
-      } catch {}
+      } catch {
+        allEntities = [];
+      }
+    }
+
+    async function loadDevices() {
+      try {
+        const data = await api('/devices');
+        const devices = Array.isArray(data) ? data : [];
+        renderDevices(devices);
+      } catch {
+        renderDevices([]);
+      }
+    }
+
+    function renderDevices(devices) {
+      const tbody = document.getElementById('devicesTable');
+      if (!Array.isArray(devices) || !devices.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Нет устройств</td></tr>'; return; }
+      tbody.innerHTML = devices.map(d => `
+        <tr>
+          <td><div class="user-cell"><div class="user-avatar">${(d.userName || 'U')[0].toUpperCase()}</div><span>${d.userName}</span></div></td>
+          <td>${d.device || '—'}</td>
+          <td>${d.browser || '—'}</td>
+          <td><code>${d.ip || '—'}</code></td>
+          <td>${new Date(d.loginAt).toLocaleString('ru-RU')}</td>
+          <td>${new Date(d.lastActive).toLocaleString('ru-RU')}</td>
+          <td>${d.isActive ? '<span style="color:var(--neon-green);">● Активно</span>' : '<span style="color:var(--text-secondary);">○ Неактивно</span>'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function filterDevices() {
+      const q = document.getElementById('deviceSearch').value.toLowerCase();
+      const tbody = document.getElementById('devicesTable');
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+      });
     }
 
     async function loadSessions() {
       try {
-        const sessions = await api('/sessions');
+        const data = await api('/sessions');
+        const sessions = Array.isArray(data) ? data : [];
         renderSessions(sessions);
-      } catch {}
+      } catch {
+        renderSessions([]);
+      }
     }
 
     function renderSessions(sessions) {
       const tbody = document.getElementById('sessionsTable');
-      if (!sessions.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Нет активных сессий</td></tr>'; return; }
+      if (!Array.isArray(sessions) || !sessions.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Нет активных сессий</td></tr>'; return; }
       tbody.innerHTML = sessions.map(s => `
         <tr>
           <td>${s.device}</td>
@@ -552,7 +616,7 @@
 
     function renderVerified(entities) {
       const tbody = document.getElementById('verifiedTable');
-      if (!entities.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Нет верифицированных</td></tr>'; return; }
+      if (!Array.isArray(entities) || !entities.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Нет верифицированных</td></tr>'; return; }
       tbody.innerHTML = entities.map(e => `
         <tr>
           <td>${e.entityType === 'user' ? '👤' : e.entityType === 'channel' ? '📢' : '👥'} ${e.entityType}</td>
@@ -571,6 +635,9 @@
     function filterVerified() {
       const q = document.getElementById('verifySearch').value.toLowerCase();
       const type = document.getElementById('verifyType').value;
+      if (!Array.isArray(allEntities)) {
+        allEntities = [];
+      }
       let filtered = allEntities.filter(e => (e.name || '').toLowerCase().includes(q));
       if (type !== 'all') filtered = filtered.filter(e => e.entityType === type);
       renderVerified(filtered);

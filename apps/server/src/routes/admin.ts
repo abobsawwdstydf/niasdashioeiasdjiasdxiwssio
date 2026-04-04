@@ -127,6 +127,46 @@ router.post('/sessions/logout-current', authenticateAdmin, (req, res) => {
   res.json({ success: true, message: 'Сессия завершена' });
 });
 
+// Get all user devices (from regular user sessions)
+router.get('/devices', authenticateAdmin, async (req, res) => {
+  try {
+    // Get recent active users with their last seen info
+    const users = await prisma.user.findMany({
+      where: {
+        isOnline: true,
+        lastSeen: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        lastSeen: true,
+        isOnline: true
+      },
+      orderBy: { lastSeen: 'desc' },
+      take: 100
+    });
+
+    // Map users to device-like entries
+    // Since we don't store detailed device info for regular users,
+    // we'll create entries based on available data
+    const devices = users.map(user => ({
+      userId: user.id,
+      userName: user.displayName || user.username,
+      device: user.isOnline ? '🟢 Online' : '⚫ Offline',
+      browser: 'Web Client',
+      ip: 'N/A',
+      loginAt: user.lastSeen,
+      lastActive: user.lastSeen,
+      isActive: user.isOnline
+    }));
+
+    res.json(devices);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка получения устройств' });
+  }
+});
+
 // Stats
 router.get('/stats', authenticateAdmin, async (req, res) => {
   try {

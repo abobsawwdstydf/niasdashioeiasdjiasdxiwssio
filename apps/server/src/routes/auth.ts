@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '../db';
 import { config } from '../config';
 import { USER_SELECT } from '../shared';
@@ -183,6 +184,119 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
     res.json({ user });
   } catch {
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Generate QR session (for logged-in users to show QR for other devices)
+router.post('/qr-session', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    // Generate 37-char auth key
+    const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(18)))
+      .map(b => b.toString(36).padStart(2, '0'))
+      .join('')
+      .slice(0, 32);
+    const authKey = `nexo-${randomPart}`; // 5 + 32 = 37 chars
+    
+    // Store session in DB
+    const session = await prisma.authSession.create({
+      data: {
+        key: authKey,
+        userId: req.userId!,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+        used: false
+      }
+    });
+    
+    res.json({ 
+      authKey,
+      expiresIn: 300, // seconds
+      serverUrl: req.protocol + '://' + req.get('host')
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка создания сессии' });
+  }
+});
+
+// Check QR session status
+router.get('/qr-session/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    
+    const session = await prisma.authSession.findUnique({
+      where: { key },
+      include: { user: { select: USER_SELECT } }
+    });
+    
+    if (!session) {
+      res.status(404).json({ error: 'Сессия не найдена' });
+      return;
+    }
+    
+    if (session.expiresAt < new Date()) {
+      res.json({ status: 'expired' });
+      return;
+    }
+    
+    if (session.used) {
+      res.json({ 
+        status: 'used',
+        user: session.user,
+        token: jwt.sign({ userId: session.userId }, config.jwtSecret, { expiresIn: '30d' })
+      });
+      return;
+    }
+    
+    res.json({ status: 'pending' });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка сервера' });
+  }
+});
+
+// Login with auth key
+router.post('/key-login', async (req, res) => {
+  try {
+    const { key } = req.body;
+    
+    if (!key || typeof key !== 'string' || key.length !== 37) {
+      res.status(400).json({ error: 'Неверный формат ключа. Должен быть 37 символов' });
+      return;
+    }
+    
+    const session = await prisma.authSession.findUnique({
+      where: { key },
+      include: { user: { select: USER_SELECT } }
+    });
+    
+    if (!session) {
+      res.status(404).json({ error: 'Ключ не найден' });
+      return;
+    }
+    
+    if (session.expiresAt < new Date()) {
+      res.status(401).json({ error: 'Ключ истёк' });
+      return;
+    }
+    
+    if (session.used) {
+      res.status(401).json({ error: 'Ключ уже использован' });
+      return;
+    }
+    
+    // Mark as used
+    await prisma.authSession.update({
+      where: { id: session.id },
+      data: { used: true, usedAt: new Date() }
+    });
+    
+    const token = jwt.sign({ userId: session.userId }, config.jwtSecret, { expiresIn: '30d' });
+    
+    res.json({ 
+      success: true,
+      token,
+      user: session.user
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка сервера' });
   }
 });
 

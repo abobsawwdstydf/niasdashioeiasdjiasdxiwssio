@@ -98,6 +98,11 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const recordingTimeRef = useRef<number>(0);
+  const streamRef = useRef<MediaStream | null>(null);
   const [liveBars, setLiveBars] = useState<number[]>(() => Array(32).fill(5));
 
   useEffect(() => {
@@ -873,13 +878,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     </div>
   );
 }
-
-// Missing refs that were in original
-const audioContextRef = { current: null as AudioContext | null };
-const analyserRef = { current: null as AnalyserNode | null };
-const animFrameRef = { current: 0 };
-const recordingTimeRef = { current: 0 };
-const streamRef = { current: null as MediaStream | null };
 
 // Schedule Calendar Component
 function ScheduleCalendar({

@@ -36,3 +36,11 @@ apps/server/uploads/
 desktop/dist/
 apps/server/web/node_modules/
 apps/server/web/dist/
+
+# App build artifacts
+pppdison/*/app/dist/
+pppdison/windows/app/dist/
+*.exe
+*.apk
+*.dmg
+*.app

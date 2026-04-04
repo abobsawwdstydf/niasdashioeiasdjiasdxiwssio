@@ -42,6 +42,7 @@ import { useLang } from '../lib/i18n';
 import { useThemeStore, ChatTheme } from '../stores/themeStore';
 import { useCallSettingsStore } from '../stores/callSettingsStore';
 import { useUIThemeStore } from '../stores/uiThemeStore';
+import { setServerUrl, getServerUrl } from '../config';
 import DatePicker from './DatePicker';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
 
@@ -56,6 +57,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const { user, updateUser, logout } = useAuthStore();
   const { clearStore } = useChatStore();
   const { chatTheme, setChatTheme } = useThemeStore();
+  const [serverUrl, setServerUrlState] = useState(getServerUrl());
   const [notificationSettings, setNotificationSettings] = useState<{
     notifyAll: boolean;
     notifyMessages: boolean;
@@ -596,6 +598,37 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             </div>
             <ChevronRight size={18} className="text-zinc-500 group-hover:text-zinc-300 transition-colors" />
           </button>
+        </div>
+        {/* Server Settings */}
+        <div className="px-5 py-3">
+          <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+            🌐 Сервер
+          </h4>
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-zinc-400 mb-1 block">URL сервера</label>
+              <input
+                type="text"
+                value={serverUrl}
+                onChange={(e) => setServerUrlState(e.target.value)}
+                placeholder="http://localhost:3001"
+                className="w-full px-3 py-2.5 rounded-xl bg-surface-tertiary/50 border border-white/10 text-sm text-zinc-200 placeholder-zinc-500 focus:border-nexo-500 focus:outline-none transition-colors"
+              />
+              <p className="text-[10px] text-zinc-600 mt-1">
+                ⚠️ После изменения серверы приложение перезагрузится
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                if (serverUrl.trim()) {
+                  setServerUrl(serverUrl.trim());
+                }
+              }}
+              className="w-full px-4 py-2.5 rounded-xl bg-nexo-500/20 hover:bg-nexo-500/30 text-nexo-400 text-sm font-medium transition-colors"
+            >
+              Применить
+            </button>
+          </div>
         </div>
         <div className="px-5 py-3">
           <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3">{t('privacy')}</h4>
