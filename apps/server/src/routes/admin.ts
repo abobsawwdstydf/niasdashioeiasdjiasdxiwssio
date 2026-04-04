@@ -1,6 +1,5 @@
 import express from 'express';
 import { prisma } from '../db';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -17,6 +16,27 @@ interface AdminSession {
 }
 
 const sessions: Map<string, AdminSession> = new Map();
+
+// Middleware для проверки админ-токена
+function authenticateAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Требуется авторизация' });
+  }
+
+  // Проверяем, что токен начинается с 'admin-token-' и существует в сессиях
+  if (!token.startsWith('admin-token-') || !sessions.has(token)) {
+    return res.status(403).json({ error: 'Недействительный токен' });
+  }
+
+  // Обновляем lastActive
+  const session = sessions.get(token)!;
+  session.lastActive = new Date();
+
+  next();
+}
 
 // Helper to detect device from user agent
 function detectDevice(userAgent: string): string {
@@ -63,7 +83,7 @@ router.post('/login', (req, res) => {
 });
 
 // Get all sessions
-router.get('/sessions', authenticateToken, (req: AuthRequest, res) => {
+router.get('/sessions', authenticateAdmin, (req, res) => {
   const sessionList = Array.from(sessions.values()).map(s => ({
     token: s.token,
     ip: s.ip,
@@ -78,7 +98,7 @@ router.get('/sessions', authenticateToken, (req: AuthRequest, res) => {
 });
 
 // Logout from specific session
-router.delete('/sessions/:token', authenticateToken, (req: AuthRequest, res) => {
+router.delete('/sessions/:token', authenticateAdmin, (req, res) => {
   const { token } = req.params;
   if (sessions.delete(token)) {
     res.json({ success: true, message: 'Сессия завершена' });
@@ -88,7 +108,7 @@ router.delete('/sessions/:token', authenticateToken, (req: AuthRequest, res) => 
 });
 
 // Logout from all sessions except current
-router.post('/sessions/logout-all', authenticateToken, (req: AuthRequest, res) => {
+router.post('/sessions/logout-all', authenticateAdmin, (req, res) => {
   const currentToken = req.headers.authorization?.replace('Bearer ', '');
   let count = 0;
   for (const [token] of sessions) {
@@ -101,14 +121,14 @@ router.post('/sessions/logout-all', authenticateToken, (req: AuthRequest, res) =
 });
 
 // Logout current session
-router.post('/sessions/logout-current', authenticateToken, (req: AuthRequest, res) => {
+router.post('/sessions/logout-current', authenticateAdmin, (req, res) => {
   const currentToken = req.headers.authorization?.replace('Bearer ', '');
   sessions.delete(currentToken || '');
   res.json({ success: true, message: 'Сессия завершена' });
 });
 
 // Stats
-router.get('/stats', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/stats', authenticateAdmin, async (req, res) => {
   try {
     const [userCount, chatCount, messageCount, onlineCount, verifiedCount, bannedCount] = await Promise.all([
       prisma.user.count(),
@@ -125,7 +145,7 @@ router.get('/stats', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // PostgreSQL status
-router.get('/status/postgres', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/status/postgres', authenticateAdmin, async (req, res) => {
   try {
     const dbUrl = process.env.DATABASE_URL || '';
     const result = await prisma.$queryRaw`SELECT version(), current_database(), pg_database_size(current_database()) as size`;
@@ -137,7 +157,7 @@ router.get('/status/postgres', authenticateToken, async (req: AuthRequest, res) 
 });
 
 // Redis status
-router.get('/status/redis', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/status/redis', authenticateAdmin, async (req, res) => {
   try {
     const redisUrl = process.env.REDIS_URL || '';
     if (!redisUrl) return res.json({ connected: false, url: 'Не настроено', error: 'Redis URL не указан' });
@@ -155,7 +175,7 @@ router.get('/status/redis', authenticateToken, async (req: AuthRequest, res) => 
 });
 
 // Get all users
-router.get('/users', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/users', authenticateAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       select: { id: true, username: true, displayName: true, isOnline: true, isVerified: true, isBanned: true, createdAt: true, avatar: true },
@@ -167,7 +187,7 @@ router.get('/users', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Delete user
-router.delete('/users/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.delete('/users/:id', authenticateAdmin, async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ success: true });
@@ -175,7 +195,7 @@ router.delete('/users/:id', authenticateToken, async (req: AuthRequest, res) => 
 });
 
 // Get all verified entities
-router.get('/verified', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/verified', authenticateAdmin, async (req, res) => {
   try {
     const entities = await prisma.verifiedEntity.findMany({
       include: { chat: { include: { members: { include: { user: true } } } } }
@@ -213,7 +233,7 @@ router.get('/verified', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Verify entity
-router.post('/verify', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/verify', authenticateAdmin, async (req, res) => {
   try {
     const { entityType, entityId, badgeUrl, badgeType } = req.body;
     if (entityType === 'user') {
@@ -225,7 +245,7 @@ router.post('/verify', authenticateToken, async (req: AuthRequest, res) => {
       await prisma.verifiedEntity.upsert({
         where: { entityType_entityId: { entityType, entityId } },
         update: { badgeUrl: badgeUrl || null, badgeType: badgeType || 'default', verifiedAt: new Date() },
-        create: { entityType, entityId, badgeUrl: badgeUrl || null, badgeType: badgeType || 'default', verifiedBy: req.userId! }
+        create: { entityType, entityId, badgeUrl: badgeUrl || null, badgeType: badgeType || 'default', verifiedBy: 'admin' }
       });
       if (entityType === 'channel' || entityType === 'group') {
         await prisma.chat.update({ where: { id: entityId }, data: { isVerified: true, verifiedBadgeUrl: badgeUrl || null, verifiedBadgeType: badgeType || 'default', verifiedAt: new Date() } });
@@ -236,7 +256,7 @@ router.post('/verify', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Remove verification
-router.delete('/verify/:type/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.delete('/verify/:type/:id', authenticateAdmin, async (req, res) => {
   try {
     const { type, id } = req.params;
     if (type === 'user') {
@@ -250,31 +270,31 @@ router.delete('/verify/:type/:id', authenticateToken, async (req: AuthRequest, r
 });
 
 // Ban user
-router.post('/ban', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/ban', authenticateAdmin, async (req, res) => {
   try {
     const { userId, reason, expiresAt } = req.body;
     await prisma.user.update({
       where: { id: userId },
-      data: { isBanned: true, banReason: reason, banExpiresAt: expiresAt ? new Date(expiresAt) : null, bannedAt: new Date(), bannedBy: req.userId }
+      data: { isBanned: true, banReason: reason, banExpiresAt: expiresAt ? new Date(expiresAt) : null, bannedAt: new Date(), bannedBy: 'admin' }
     });
     await prisma.userBan.create({
-      data: { userId, reason, expiresAt: expiresAt ? new Date(expiresAt) : null, bannedBy: req.userId! }
+      data: { userId, reason, expiresAt: expiresAt ? new Date(expiresAt) : null, bannedBy: 'admin' }
     });
     res.json({ success: true });
   } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
 });
 
 // Unban user
-router.delete('/ban/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.delete('/ban/:id', authenticateAdmin, async (req, res) => {
   try {
     await prisma.user.update({ where: { id: req.params.id }, data: { isBanned: false, banReason: null, banExpiresAt: null, bannedAt: null, bannedBy: null } });
-    await prisma.userBan.updateMany({ where: { userId: req.params.id, isActive: true }, data: { isActive: false, liftedAt: new Date(), liftedBy: req.userId } });
+    await prisma.userBan.updateMany({ where: { userId: req.params.id, isActive: true }, data: { isActive: false, liftedAt: new Date(), liftedBy: 'admin' } });
     res.json({ success: true });
   } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
 });
 
 // Storage config
-router.post('/config/storage', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/config/storage', authenticateAdmin, async (req, res) => {
   try {
     const { mode } = req.body;
     if (mode === 'local' || mode === 'telegram') {
@@ -284,7 +304,7 @@ router.post('/config/storage', authenticateToken, async (req: AuthRequest, res) 
 });
 
 // Database config
-router.post('/config/database', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/config/database', authenticateAdmin, async (req, res) => {
   try {
     const { databaseUrl } = req.body;
     if (!databaseUrl) return res.status(400).json({ error: 'URL базы данных обязателен' });
@@ -293,13 +313,13 @@ router.post('/config/database', authenticateToken, async (req: AuthRequest, res)
 });
 
 // Redis config
-router.post('/config/redis', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/config/redis', authenticateAdmin, async (req, res) => {
   try { res.json({ success: true, message: 'Redis настроен' }); }
   catch { res.status(500).json({ error: 'Ошибка настройки' }); }
 });
 
 // Get config
-router.get('/config', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/config', authenticateAdmin, async (req, res) => {
   res.json({
     database: { type: process.env.DATABASE_URL?.includes('postgres') ? 'postgresql' : 'sqlite', url: process.env.DATABASE_URL?.replace(/:\/\/[^@]+@/, '://***@') },
     redis: { enabled: !!process.env.REDIS_URL, url: process.env.REDIS_URL?.replace(/:\/\/[^@]+@/, '://***@') }
@@ -307,12 +327,12 @@ router.get('/config', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Clear cache
-router.post('/cache/clear', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/cache/clear', authenticateAdmin, async (req, res) => {
   res.json({ success: true, message: 'Кэш очищен' });
 });
 
 // System info
-router.get('/system/info', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/system/info', authenticateAdmin, async (req, res) => {
   const uptime = process.uptime();
   const hours = Math.floor(uptime / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
@@ -320,7 +340,7 @@ router.get('/system/info', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Restart
-router.post('/system/restart', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/system/restart', authenticateAdmin, async (req, res) => {
   res.json({ success: true, message: 'Сервер перезагружается...' });
   setTimeout(() => process.exit(0), 1000);
 });
