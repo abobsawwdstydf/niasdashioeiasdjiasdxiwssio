@@ -24,6 +24,10 @@ COPY . .
 WORKDIR /app/apps/server/web
 RUN npm run build
 
+# Generate Prisma client in builder (where prisma is installed)
+WORKDIR /app/apps/server
+RUN npx prisma generate
+
 # Production stage
 FROM node:20-alpine AS production
 
@@ -34,15 +38,13 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 RUN npm install --legacy-peer-deps
 
-# Copy server source
+# Copy server source (including generated prisma client)
 COPY --from=builder /app/apps/server/src ./src
 COPY --from=builder /app/apps/server/prisma ./prisma
+COPY --from=builder /app/apps/server/node_modules/.prisma ./node_modules/.prisma
 
 # Copy built web files (../web/dist relative to src/)
 COPY --from=builder /app/apps/server/web/dist ./web/dist
-
-# Generate Prisma client in production stage
-RUN npx prisma generate
 
 # Create uploads directory
 RUN mkdir -p uploads
@@ -59,4 +61,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
 # Start server with tsx (apply DB schema first)
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx prisma generate && npx tsx src/index.ts"]
+CMD ["sh", "-c", "npx prisma@6.3.0 db push --accept-data-loss && npx tsx src/index.ts"]
