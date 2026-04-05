@@ -13,6 +13,7 @@ interface AuthState {
   logout: () => void;
   checkAuth: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
+  loginWithToken: (token: string, user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -96,5 +97,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user) {
       set({ user: { ...user, ...data } });
     }
+  },
+
+  loginWithToken: (token, user) => {
+    localStorage.setItem('nexo_token', token);
+    api.setToken(token);
+    connectSocket(token);
+    set({ token, user, isLoading: false });
   },
 }));

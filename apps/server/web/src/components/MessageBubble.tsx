@@ -357,7 +357,7 @@ function MessageBubble({
 
     // First, extract and render URLs
     const urlRegex = /(https?:\/\/[^\s<]+)/gi;
-    const parts: (string | { type: 'url'; url: string } | { type: 'format'; content: string; format: string })[] = [];
+    const parts: (string | { type: 'url'; url: string })[] = [];
     let lastIndex = 0;
     let match;
 

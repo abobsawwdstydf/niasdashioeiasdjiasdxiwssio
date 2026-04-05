@@ -77,6 +77,9 @@ export interface MessageSender {
   username: string;
   displayName: string;
   avatar?: string | null;
+  isVerified?: boolean;
+  verifiedBadgeUrl?: string | null;
+  verifiedBadgeType?: string | null;
 }
 
 export interface Message {
