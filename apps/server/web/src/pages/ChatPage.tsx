@@ -95,6 +95,23 @@ export default function ChatPage() {
     initialized.current = true;
     loadChats();
 
+    // Pre-request media permissions so browser only asks once
+    (async () => {
+      try {
+        // Check if permissions were already granted
+        const audioPerm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        const videoPerm = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        
+        if (audioPerm.state !== 'granted' || videoPerm.state !== 'granted') {
+          // Request permissions silently
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          stream.getTracks().forEach(t => t.stop()); // Stop immediately, just to get permission
+        }
+      } catch {
+        // Permissions not supported or denied - will be requested when needed
+      }
+    })();
+
     // Restore active chat from localStorage ONLY if it exists in current chats
     const savedChatId = localStorage.getItem('nexo_active_chat');
     if (savedChatId) {

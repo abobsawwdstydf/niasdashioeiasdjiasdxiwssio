@@ -48,6 +48,7 @@ import { setServerUrl, getServerUrl } from '../config';
 import DatePicker from './DatePicker';
 import QRAuthModal from './QRAuthModal';
 import DevicesTab from './DevicesTab';
+import LegalPage from './LegalPage';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
 
 type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends';
@@ -121,6 +122,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [friendSearchLoading, setFriendSearchLoading] = useState(false);
   const [showQRAuth, setShowQRAuth] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
+  const [legalPage, setLegalPage] = useState<'terms' | 'privacy' | null>(null);
 
   const themeCards: { id: ChatTheme; color: string; accent: string; name: string; nameEn: string; desc: string; descEn: string; animated?: boolean; gradient?: string }[] = [
     { id: 'midnight', color: '#0f0f13', accent: '#6366f1', name: 'Полночь', nameEn: 'Midnight', desc: 'Тёмная тема с мягкими акцентами', descEn: 'Dark theme with soft accents' },
@@ -929,11 +931,26 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
         <img src="/logo.png" alt="Nexo" className="w-20 h-20 rounded-2xl object-cover mb-4 ring-2 ring-white/10" />
         <h2 className="text-xl font-bold gradient-text mb-1">Nexo Messenger</h2>
-        <p className="text-sm text-zinc-400 mb-6">{t('version')} 1.0.0</p>
+        <p className="text-sm text-zinc-400 mb-6">{t('version')} 1.3.0</p>
         <div className="text-xs text-zinc-500 space-y-1">
           <p>{t('modernMessenger')}</p>
           <p>{t('onPrivacy')}</p>
           <p className="mt-4 text-zinc-600">© 2026 Dark Heavens Corporate</p>
+        </div>
+        {/* Legal links */}
+        <div className="mt-8 space-y-2 w-full">
+          <button
+            onClick={() => setLegalPage('terms')}
+            className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-sm transition-colors"
+          >
+            📄 Пользовательское соглашение
+          </button>
+          <button
+            onClick={() => setLegalPage('privacy')}
+            className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-sm transition-colors"
+          >
+            🔒 Политика конфиденциальности
+          </button>
         </div>
       </div>
     </motion.div>
@@ -970,6 +987,30 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
         {showDevices && (
           <div className="fixed inset-0 z-[60]">
             <DevicesTab onClose={() => setShowDevices(false)} />
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Legal Page */}
+      <AnimatePresence>
+        {legalPage && (
+          <div className="fixed inset-0 z-[70]">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setLegalPage(null)}
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-surface-secondary border-l border-border/50"
+            >
+              <LegalPage type={legalPage} onClose={() => setLegalPage(null)} />
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
