@@ -16,8 +16,6 @@ RUN rm -f package-lock.json apps/server/package-lock.json apps/server/web/packag
 RUN npm install --legacy-peer-deps
 RUN cd apps/server && npm install --legacy-peer-deps
 RUN cd apps/server/web && npm install --legacy-peer-deps
-# Install TypeScript for compilation (needed in builder)
-RUN npm install typescript --save-dev --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -26,11 +24,8 @@ COPY . .
 WORKDIR /app/apps/server/web
 RUN npm run build
 
-# Build server TypeScript to JavaScript
-WORKDIR /app
-RUN ./node_modules/.bin/tsc -p apps/server/tsconfig.json
-
 # Generate Prisma client in builder (where prisma is installed)
+WORKDIR /app/apps/server
 RUN npx prisma generate
 
 # Production stage
@@ -38,15 +33,16 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install production dependencies + prisma CLI
+# Install production dependencies + tsx runtime
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 RUN npm install --legacy-peer-deps
 RUN cd apps/server && npm install --production --legacy-peer-deps
+RUN npm install tsx@4.19.2 --save-dev
 RUN npm install prisma@6.3.0 --save-dev
 
-# Copy server source
-COPY --from=builder /app/apps/server/dist ./dist
+# Copy server source (TypeScript)
+COPY --from=builder /app/apps/server/src ./src
 COPY --from=builder /app/apps/server/prisma ./prisma
 
 # Copy built web files (../web/dist relative to src/)
@@ -66,5 +62,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start server (apply DB schema first)
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
+# Start server (apply DB schema first, then run with tsx)
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node_modules/.bin/tsx src/index.ts"]
