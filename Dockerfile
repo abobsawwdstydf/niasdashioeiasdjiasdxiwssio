@@ -16,6 +16,8 @@ RUN rm -f package-lock.json apps/server/package-lock.json apps/server/web/packag
 RUN npm install --legacy-peer-deps
 RUN cd apps/server && npm install --legacy-peer-deps
 RUN cd apps/server/web && npm install --legacy-peer-deps
+# Install TypeScript for compilation (needed in builder)
+RUN npm install typescript --save-dev --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -25,8 +27,8 @@ WORKDIR /app/apps/server/web
 RUN npm run build
 
 # Build server TypeScript to JavaScript
-WORKDIR /app/apps/server
-RUN ./node_modules/.bin/tsc
+WORKDIR /app
+RUN ./node_modules/.bin/tsc -p apps/server/tsconfig.json
 
 # Generate Prisma client in builder (where prisma is installed)
 RUN npx prisma generate
