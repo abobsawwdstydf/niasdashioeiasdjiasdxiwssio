@@ -4,7 +4,8 @@ import { useAuthStore } from '../stores/authStore';
 import { useLang } from '../lib/i18n';
 import { api } from '../lib/api';
 import { requestPushPermission } from '../lib/webPush';
-import { Eye, EyeOff, ArrowRight, UserPlus, LogIn, Check, X } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, UserPlus, LogIn, Check, X, QrCode } from 'lucide-react';
+import QRAuthModal from '../components/QRAuthModal';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,6 +18,7 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [showQRAuth, setShowQRAuth] = useState(false);
   const { login, register } = useAuthStore();
   const { t } = useLang();
 
@@ -312,8 +314,22 @@ export default function AuthPage() {
             </motion.button>
           </form>
 
+          {/* QR Auth Button */}
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <button
+              onClick={() => setShowQRAuth(true)}
+              className="w-full py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white font-medium transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              <QrCode size={18} />
+              Войти по QR-коду или ключу
+            </button>
+          </div>
+
         </div>
       </motion.div>
+
+      {/* QR Auth Modal */}
+      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} />
     </motion.div>
   );
 }
