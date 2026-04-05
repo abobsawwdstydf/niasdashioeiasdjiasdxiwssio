@@ -48,11 +48,11 @@ COPY --from=builder /app/apps/server/prisma ./prisma
 # Copy server node_modules from builder
 COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 
-# Copy built web files (../web/dist relative to src/)
-COPY --from=builder /app/apps/server/web/dist ./web/dist
+# Copy built web files
+COPY --from=builder /app/apps/server/web/dist ./apps/server/web/dist
 
 # Create uploads directory
-RUN mkdir -p uploads
+RUN mkdir -p apps/server/uploads
 
 # Set environment variables
 ENV NODE_ENV=production
