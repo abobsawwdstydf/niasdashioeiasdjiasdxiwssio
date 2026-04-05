@@ -371,8 +371,15 @@ export function setupSocket(io: Server) {
           }
         }
 
+        // Transform media URLs from tg:// to /api/files/.../download
+        const transformMedia = (media: any[]) => (media || []).map((m: any) => ({
+          ...m,
+          url: m.url?.startsWith('tg://') ? `/api/files/${m.url.replace('tg://', '')}/download` : m.url,
+        }));
+
         io.to(`chat:${data.chatId}`).emit('new_message', {
           ...message,
+          media: transformMedia(message.media),
           readBy: [{ userId }],
         });
 

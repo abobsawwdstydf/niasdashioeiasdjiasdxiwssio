@@ -32,7 +32,6 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
         chatId,
         isDeleted: false,
         hiddenBy: { none: { userId: req.userId! } },
-        // Scheduled messages: only visible to the sender until delivered
         OR: [
           { scheduledAt: null },
           { senderId: req.userId! },
@@ -44,7 +43,18 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
       take,
     });
 
-    res.json(messages.reverse());
+    // Convert tg:// URLs to downloadable API URLs for all media
+    const transformMedia = (media: any[]) => media.map(m => ({
+      ...m,
+      url: m.url?.startsWith('tg://') ? `/api/files/${m.url.replace('tg://', '')}/download` : m.url,
+    }));
+
+    const transformedMessages = messages.map(msg => ({
+      ...msg,
+      media: transformMedia(msg.media || []),
+    }));
+
+    res.json(transformedMessages.reverse());
   } catch (error) {
     console.error('Get messages error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });

@@ -1,21 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Check, QrCode, Camera, CameraOff, Smartphone } from 'lucide-react';
+import { X, Copy, Check, QrCode, Camera, CameraOff, Smartphone, LogIn } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
-import { useLang } from '../lib/i18n';
 import QrScanner from 'qr-scanner';
 import QrCodeSvg from 'qrcode';
 
 interface QRAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  isLoggedIn: boolean; // Whether user is already logged in
+  mode: 'login' | 'confirm'; // 'login' = незалогинен, 'confirm' = залогинен
 }
 
-export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModalProps) {
+export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps) {
   const { loginWithToken, user } = useAuthStore();
-  const { t } = useLang();
   const [authKey, setAuthKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,13 +21,11 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScanner | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Generate QR session on mount
   const generateSession = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -39,7 +35,6 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
       setAuthKey(response.authKey);
       setTimeLeft(response.expiresIn || 300);
 
-      // Generate QR code SVG that points to confirm page
       const qrUrl = `${response.serverUrl}/auth/verify/${response.authKey}`;
       const dataUrl = await QrCodeSvg.toDataURL(qrUrl, {
         width: 200,
@@ -48,8 +43,7 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
       });
       setQrDataUrl(dataUrl);
 
-      // If logged in, start polling for confirmation
-      if (isLoggedIn) {
+      if (mode === 'confirm') {
         if (pollingRef.current) clearInterval(pollingRef.current);
         pollingRef.current = setInterval(async () => {
           try {
@@ -62,37 +56,29 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
               setError('QR код истёк. Создайте новый.');
               clearInterval(pollingRef.current!);
             }
-          } catch {
-            // Silent - will retry
-          }
+          } catch {}
         }, 3000);
       }
     } catch (e: any) {
-      setError(e.message || 'Ошибка создания сессии');
+      setError(e.message || 'Ошибка');
     } finally {
       setIsLoading(false);
     }
-  }, [isLoggedIn, onClose]);
+  }, [mode, onClose]);
 
   useEffect(() => {
-    if (isOpen && !authKey) {
-      generateSession();
-    }
+    if (isOpen && !authKey) generateSession();
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       stopCamera();
     };
   }, [isOpen, authKey, generateSession]);
 
-  // Timer countdown
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(interval); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -105,32 +91,23 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setCameraActive(true);
-        scannerRef.current = new QrScanner(
-          videoRef.current,
-          async (result) => {
-            // Parse QR result - should contain URL with key
-            const url = result.data;
-            const keyMatch = url.match(/\/auth\/verify\/([a-zA-Z0-9-]+)/);
-            if (keyMatch && isLoggedIn) {
-              stopCamera();
-              await confirmLogin(keyMatch[1]);
-            }
-          },
-          { returnDetailedScanResult: true }
-        );
+        scannerRef.current = new QrScanner(videoRef.current, async (result) => {
+          const url = result.data;
+          const keyMatch = url.match(/\/auth\/verify\/([a-zA-Z0-9-]+)/);
+          if (keyMatch) {
+            stopCamera();
+            await confirmLogin(keyMatch[1]);
+          }
+        }, { returnDetailedScanResult: true });
         scannerRef.current.start();
       }
     } catch (e: any) {
-      setError('Не удалось открыть камеру: ' + e.message);
+      setError('Камера: ' + e.message);
     }
   };
 
   const stopCamera = () => {
-    if (scannerRef.current) {
-      scannerRef.current.stop();
-      scannerRef.current.destroy();
-      scannerRef.current = null;
-    }
+    if (scannerRef.current) { scannerRef.current.stop(); scannerRef.current.destroy(); scannerRef.current = null; }
     if (videoRef.current?.srcObject) {
       (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
@@ -139,17 +116,15 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
   };
 
   const confirmLogin = async (key: string) => {
-    if (!isLoggedIn) return;
-    setConfirming(true);
-    setError('');
+    setIsLoading(true);
     try {
       await api.confirmQRLogin(key);
       setConfirmed(true);
       setTimeout(onClose, 2000);
     } catch (e: any) {
-      setError(e.message || 'Ошибка подтверждения');
+      setError(e.message || 'Ошибка');
     } finally {
-      setConfirming(false);
+      setIsLoading(false);
     }
   };
 
@@ -159,107 +134,70 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-surface-strong rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+          className="bg-surface-strong rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">
-              {isLoggedIn ? '📱 Подтвердить вход' : '📱 Вход по QR-коду'}
+              {mode === 'login' ? '📱 Вход по QR-коду' : '✅ Подтвердить вход'}
             </h2>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400">
-              <X size={20} />
-            </button>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400"><X size={20} /></button>
           </div>
 
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
-            >
-              {error}
-            </motion.div>
+            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
           )}
 
           {confirmed && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mb-4 p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center"
-            >
+            <div className="mb-4 p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
               <Check size={48} className="mx-auto text-emerald-400 mb-3" />
-              <p className="text-emerald-400 font-medium">Вход подтверждён!</p>
-            </motion.div>
+              <p className="text-emerald-400 font-medium">{mode === 'login' ? 'Вы вошли!' : 'Подтверждено!'}</p>
+            </div>
           )}
 
-          {isLoading ? (
+          {isLoading && !confirmed ? (
             <div className="w-48 h-48 flex items-center justify-center mx-auto">
               <div className="w-10 h-10 border-3 border-nexo-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              {!isLoggedIn ? (
-                // NOT LOGGED IN - Show QR code for scanning
+              {mode === 'login' ? (
+                /* НЕЗАЛОГИНЕН: показывает QR код для сканирования */
                 <div className="flex flex-col items-center">
                   {qrDataUrl && (
                     <div className="w-48 h-48 bg-white rounded-xl p-4 flex items-center justify-center mb-4">
-                      <img src={qrDataUrl} alt="QR Code" className="w-full h-full" />
+                      <img src={qrDataUrl} alt="QR" className="w-full h-full" />
                     </div>
                   )}
-
                   <p className="text-sm text-zinc-400 mb-3 text-center">
-                    Отсканируйте QR-код камерой телефона<br />с открытым приложением Nexo
+                    Отсканируйте QR-код в приложении Nexo<br />или введите ключ ниже
                   </p>
-
                   <div className="w-full bg-white/5 rounded-xl p-4 mb-3">
-                    <label className="text-xs text-zinc-500 mb-2 block">Или используйте ключ на другом устройстве:</label>
+                    <label className="text-xs text-zinc-500 mb-2 block">Ключ авторизации:</label>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-black/30 rounded-lg px-3 py-2 text-sm font-mono text-nexo-400 break-all text-center">
-                        {authKey}
-                      </code>
-                      <button
-                        onClick={copyKey}
-                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white transition-colors flex-shrink-0"
-                      >
+                      <code className="flex-1 bg-black/30 rounded-lg px-3 py-2 text-sm font-mono text-nexo-400 break-all text-center">{authKey}</code>
+                      <button onClick={copyKey} className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white flex-shrink-0">
                         {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
                       </button>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-2 text-sm text-zinc-500">
-                    <span>Истекает через: {formatTime(timeLeft)}</span>
-                    <button
-                      onClick={generateSession}
-                      className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-                    >
+                    <span>Истекает: {formatTime(timeLeft)}</span>
+                    <button onClick={generateSession} className="p-1 rounded hover:bg-white/10 text-zinc-400">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                     </button>
                   </div>
                 </div>
               ) : (
-                // LOGGED IN - Show camera for scanning OR wait for confirmation
+                /* ЗАЛОГИНЕН: сканирует QR для подтверждения */
                 <div className="flex flex-col items-center">
                   {cameraActive ? (
                     <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden mb-4">
@@ -273,35 +211,13 @@ export default function QRAuthModal({ isOpen, onClose, isLoggedIn }: QRAuthModal
                       <Smartphone size={64} className="text-zinc-600" />
                     </div>
                   )}
-
                   <p className="text-sm text-zinc-400 mb-4 text-center">
-                    {cameraActive
-                      ? 'Наведите камеру на QR-код на экране входа'
-                      : 'Отсканируйте QR-код с экрана входа другого устройства'}
+                    {cameraActive ? 'Наведите на QR-код' : 'Отсканируйте QR-код с экрана входа'}
                   </p>
-
-                  <button
-                    onClick={cameraActive ? stopCamera : startCamera}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-nexo-500 to-purple-600 text-white font-medium mb-3"
-                  >
-                    {cameraActive ? '⏹️ Остановить камеру' : '📷 Открыть камеру'}
+                  <button onClick={cameraActive ? stopCamera : startCamera}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-nexo-500 to-purple-600 text-white font-medium mb-3">
+                    {cameraActive ? '⏹️ Стоп' : '📷 Сканировать'}
                   </button>
-
-                  {qrDataUrl && (
-                    <div className="w-full bg-white/5 rounded-xl p-4">
-                      <p className="text-xs text-zinc-500 mb-2 text-center">Или введите ключ вручную:</p>
-                      <code className="block w-full bg-black/30 rounded-lg px-3 py-2 text-sm font-mono text-nexo-400 break-all text-center mb-3">
-                        {authKey}
-                      </code>
-                      <button
-                        onClick={copyKey}
-                        className="w-full py-2 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white text-sm transition-colors flex items-center justify-center gap-2"
-                      >
-                        {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                        {copied ? 'Скопировано!' : 'Копировать ключ'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </>

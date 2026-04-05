@@ -190,9 +190,12 @@ router.get('/status/postgres', authenticateAdmin, async (req, res) => {
     const dbUrl = process.env.DATABASE_URL || '';
     const result = await prisma.$queryRaw`SELECT version(), current_database(), pg_database_size(current_database()) as size`;
     const data = (result as any[])[0];
-    // Convert BigInt to number if needed
-    const sizeValue = typeof data?.size === 'bigint' ? Number(data.size) : (data?.size || 0);
-    res.json({ connected: true, url: dbUrl.replace(/:\/\/[^@]+@/, '://***@'), version: data?.version?.split(' ')[0] || 'Unknown', database: data?.current_database || 'Unknown', size: formatBytes(sizeValue) });
+    // Convert BigInt to number safely
+    let sizeNum = 0;
+    if (data?.size !== null && data?.size !== undefined) {
+      sizeNum = typeof data.size === 'bigint' ? Number(data.size) : Number(data.size || 0);
+    }
+    res.json({ connected: true, url: dbUrl.replace(/:\/\/[^@]+@/, '://***@'), version: data?.version?.split(' ')[0] || 'Unknown', database: data?.current_database || 'Unknown', size: formatBytes(sizeNum) });
   } catch (error: any) {
     res.json({ connected: false, url: (process.env.DATABASE_URL || '').replace(/:\/\/[^@]+@/, '://***@') || 'Не настроено', error: error?.message || 'Не удалось подключиться' });
   }
@@ -235,26 +238,26 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
     
     // Delete all related data first to avoid foreign key constraints
     await prisma.$transaction([
-      // Delete messages
-      prisma.message.deleteMany({ where: { senderId: userId } }),
-      // Delete chat memberships
-      prisma.chatMember.deleteMany({ where: { userId } }),
-      // Delete reactions
-      prisma.reaction.deleteMany({ where: { userId } }),
-      // Delete read receipts
-      prisma.readReceipt.deleteMany({ where: { userId } }),
-      // Delete stories
-      prisma.story.deleteMany({ where: { userId } }),
-      // Delete story views
-      prisma.storyView.deleteMany({ where: { userId } }),
-      // Delete friendships
-      prisma.friendship.deleteMany({ where: { OR: [{ userId }, { friendId: userId }] } }),
-      // Delete call logs
-      prisma.callLog.deleteMany({ where: { OR: [{ callerId: userId }, { calleeId: userId }] } }),
-      // Delete uploaded files
-      prisma.telegramFile.deleteMany({ where: { userId } }),
       // Delete auth sessions
       prisma.authSession.deleteMany({ where: { userId } }),
+      // Delete uploaded files
+      prisma.telegramFile.deleteMany({ where: { userId } }),
+      // Delete story views
+      prisma.storyView.deleteMany({ where: { userId } }),
+      // Delete stories
+      prisma.story.deleteMany({ where: { userId } }),
+      // Delete call logs
+      prisma.callLog.deleteMany({ where: { OR: [{ callerId: userId }, { calleeId: userId }] } }),
+      // Delete friendships
+      prisma.friendship.deleteMany({ where: { OR: [{ userId }, { friendId: userId }] } }),
+      // Delete read receipts
+      prisma.readReceipt.deleteMany({ where: { userId } }),
+      // Delete reactions
+      prisma.reaction.deleteMany({ where: { userId } }),
+      // Delete pinned messages
+      prisma.pinnedMessage.deleteMany({ where: { chat: { members: { some: { userId } } } } }),
+      // Delete chat memberships (cascade will delete messages)
+      prisma.chatMember.deleteMany({ where: { userId } }),
       // Finally delete user
       prisma.user.delete({ where: { id: userId } }),
     ]);

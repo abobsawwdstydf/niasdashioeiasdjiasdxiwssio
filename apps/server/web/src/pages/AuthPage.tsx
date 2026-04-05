@@ -328,8 +328,8 @@ export default function AuthPage() {
         </div>
       </motion.div>
 
-      {/* QR Auth Modal */}
-      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} isLoggedIn={false} />
+      {/* QR Auth Modal - mode='login' for non-logged-in users */}
+      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} mode="login" />
     </motion.div>
   );
 }

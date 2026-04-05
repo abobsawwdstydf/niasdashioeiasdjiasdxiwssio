@@ -286,7 +286,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     { icon: User, label: t('myProfile'), onClick: () => changeView('profile') },
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
     { divider: true },
-    { icon: QrCode, label: 'Подтвердить QR вход', onClick: () => setShowQRAuth(true) },
+    { icon: QrCode, label: 'Подтвердить вход QR', onClick: () => setShowQRAuth(true) },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
     { divider: true },
     { icon: Info, label: t('aboutApp'), subtitle: 'Nexo Messenger v1.3', onClick: () => changeView('about') },
@@ -979,8 +979,8 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
         </>
       )}
 
-      {/* QR Auth Modal */}
-      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} isLoggedIn={true} />
+      {/* QR Auth Modal - mode='confirm' for logged-in users */}
+      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} mode="confirm" />
 
       {/* Devices Tab */}
       <AnimatePresence>
