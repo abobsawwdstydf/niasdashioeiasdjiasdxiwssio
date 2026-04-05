@@ -38,10 +38,14 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 RUN npm install --legacy-peer-deps
 
-# Copy server source (including generated prisma client)
+# Copy server source
 COPY --from=builder /app/apps/server/src ./src
 COPY --from=builder /app/apps/server/prisma ./prisma
-COPY --from=builder /app/apps/server/node_modules/.prisma ./node_modules/.prisma
+
+# Copy generated Prisma client from workspace root node_modules
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Copy built web files (../web/dist relative to src/)
 COPY --from=builder /app/apps/server/web/dist ./web/dist
