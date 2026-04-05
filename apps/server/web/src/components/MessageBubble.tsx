@@ -354,50 +354,128 @@ function MessageBubble({
   // Simple Markdown formatter
   const renderFormattedText = (text: string) => {
     if (!text) return text;
-    // Split by *, _, ~, ` blocks and @mentions while keeping the delimiters
-    const parts = text.split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
 
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
-      if (part.startsWith('_') && part.endsWith('_')) return <em key={i} className="italic">{part.slice(1, -1)}</em>;
-      if (part.startsWith('*') && part.endsWith('*')) return <em key={i} className="italic">{part.slice(1, -1)}</em>;
-      if (part.startsWith('~') && part.endsWith('~')) return <del key={i} className="line-through opacity-80">{part.slice(1, -1)}</del>;
-      if (part.startsWith('`') && part.endsWith('`')) {
-        return <code key={i} className="font-mono text-[13px] bg-black/20 px-1 py-0.5 rounded-[0.35rem]">{part.slice(1, -1)}</code>;
+    // First, extract and render URLs
+    const urlRegex = /(https?:\/\/[^\s<]+)/gi;
+    const parts: (string | { type: 'url'; url: string } | { type: 'format'; content: string; format: string })[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRegex.exec(text)) !== null) {
+      // Add text before URL
+      if (match.index > lastIndex) {
+        const textBefore = text.slice(lastIndex, match.index);
+        parts.push(textBefore);
       }
-      if (part.startsWith('@') && part.length > 1) {
-        const mentionUsername = part.slice(1);
+      // Add URL as clickable
+      parts.push({ type: 'url', url: match[0] });
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+
+    // If no URLs found, fall back to markdown formatting
+    if (parts.length === 1 && typeof parts[0] === 'string') {
+      const markdownParts = (text as string).split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
+      return markdownParts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+        if (part.startsWith('_') && part.endsWith('_')) return <em key={i} className="italic">{part.slice(1, -1)}</em>;
+        if (part.startsWith('*') && part.endsWith('*')) return <em key={i} className="italic">{part.slice(1, -1)}</em>;
+        if (part.startsWith('~') && part.endsWith('~')) return <del key={i} className="line-through opacity-80">{part.slice(1, -1)}</del>;
+        if (part.startsWith('`') && part.endsWith('`')) {
+          return <code key={i} className="font-mono text-[13px] bg-black/20 px-1 py-0.5 rounded-[0.35rem]">{part.slice(1, -1)}</code>;
+        }
+        if (part.startsWith('@') && part.length > 1) {
+          const mentionUsername = part.slice(1);
+          return (
+            <span
+              key={i}
+              className="font-semibold text-sky-300 cursor-pointer hover:underline"
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  const channels = await api.searchChannels(mentionUsername);
+                  const channel = channels.find(c => c.username === mentionUsername);
+                  if (channel) {
+                    const event = new CustomEvent('open-channel-by-username', { detail: { channel } });
+                    window.dispatchEvent(event);
+                    return;
+                  }
+                  const users = await api.searchUsers(mentionUsername);
+                  const user = users.find(u => u.username === mentionUsername);
+                  if (user) {
+                    const event = new CustomEvent('open-chat-by-username', { detail: { user } });
+                    window.dispatchEvent(event);
+                  }
+                } catch (err) {
+                  console.error('Failed to open mention:', err);
+                }
+              }}
+            >{part}</span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      });
+    }
+
+    // Render parts with URLs
+    return parts.map((part, i) => {
+      if (typeof part === 'string') {
+        // Process markdown in non-URL text
+        const markdownParts = part.split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
+        return markdownParts.map((mp, j) => {
+          if (mp.startsWith('**') && mp.endsWith('**')) return <strong key={`${i}-${j}`} className="font-bold">{mp.slice(2, -2)}</strong>;
+          if (mp.startsWith('_') && mp.endsWith('_')) return <em key={`${i}-${j}`} className="italic">{mp.slice(1, -1)}</em>;
+          if (mp.startsWith('*') && mp.endsWith('*')) return <em key={`${i}-${j}`} className="italic">{mp.slice(1, -1)}</em>;
+          if (mp.startsWith('~') && mp.endsWith('~')) return <del key={`${i}-${j}`} className="line-through opacity-80">{mp.slice(1, -1)}</del>;
+          if (mp.startsWith('`') && mp.endsWith('`')) return <code key={`${i}-${j}`} className="font-mono text-[13px] bg-black/20 px-1 py-0.5 rounded-[0.35rem]">{mp.slice(1, -1)}</code>;
+          if (mp.startsWith('@') && mp.length > 1) {
+            const mentionUsername = mp.slice(1);
+            return (
+              <span
+                key={`${i}-${j}`}
+                className="font-semibold text-sky-300 cursor-pointer hover:underline"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const channels = await api.searchChannels(mentionUsername);
+                    const channel = channels.find(c => c.username === mentionUsername);
+                    if (channel) {
+                      const event = new CustomEvent('open-channel-by-username', { detail: { channel } });
+                      window.dispatchEvent(event);
+                      return;
+                    }
+                    const users = await api.searchUsers(mentionUsername);
+                    const user = users.find(u => u.username === mentionUsername);
+                    if (user) {
+                      const event = new CustomEvent('open-chat-by-username', { detail: { user } });
+                      window.dispatchEvent(event);
+                    }
+                  } catch (err) {
+                    console.error('Failed to open mention:', err);
+                  }
+                }}
+              >{mp}</span>
+            );
+          }
+          return <span key={`${i}-${j}`}>{mp}</span>;
+        });
+      }
+      if (typeof part === 'object' && part.type === 'url') {
         return (
-          <span
+          <a
             key={i}
-            className="font-semibold text-sky-300 cursor-pointer hover:underline"
-            onClick={async (e) => {
-              e.stopPropagation();
-              // Try to find and open chat/channel by username without page reload
-              try {
-                // First try to find channel
-                const channels = await api.searchChannels(mentionUsername);
-                const channel = channels.find(c => c.username === mentionUsername);
-                if (channel) {
-                  // Open channel by dispatching custom event
-                  const event = new CustomEvent('open-channel-by-username', { detail: { channel } });
-                  window.dispatchEvent(event);
-                  return;
-                }
-                
-                // Then try to find user
-                const users = await api.searchUsers(mentionUsername);
-                const user = users.find(u => u.username === mentionUsername);
-                if (user) {
-                  // Open chat with user by dispatching custom event
-                  const event = new CustomEvent('open-chat-by-username', { detail: { user } });
-                  window.dispatchEvent(event);
-                }
-              } catch (err) {
-                console.error('Failed to open mention:', err);
-              }
-            }}
-          >{part}</span>
+            href={part.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-400 hover:text-sky-300 hover:underline cursor-pointer break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part.url}
+          </a>
         );
       }
       return <span key={i}>{part}</span>;

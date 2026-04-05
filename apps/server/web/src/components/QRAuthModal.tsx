@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, QrCode, Key, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';

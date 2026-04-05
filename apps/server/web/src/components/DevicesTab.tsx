@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Smartphone, Monitor, Tablet, X, LogOut, 
@@ -36,33 +36,9 @@ export default function DevicesTab({ onClose }: DevicesTabProps) {
   const loadDevices = async () => {
     try {
       const data = await api.getDevices();
-      setDevices(data);
+      setDevices(data || []);
     } catch {
-      // Mock data for demo
-      setDevices([
-        {
-          id: '1',
-          deviceName: 'Chrome on Windows',
-          browser: 'Chrome 120',
-          os: 'Windows 11',
-          ip: '192.168.1.100',
-          location: 'Москва, Россия',
-          lastActive: new Date().toISOString(),
-          isCurrent: true,
-          addedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: '2',
-          deviceName: 'Safari on iPhone',
-          browser: 'Safari 17',
-          os: 'iOS 17',
-          ip: '192.168.1.105',
-          location: 'Москва, Россия',
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          isCurrent: false,
-          addedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ]);
+      setDevices([]);
     } finally {
       setIsLoading(false);
     }

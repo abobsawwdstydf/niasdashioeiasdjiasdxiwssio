@@ -283,7 +283,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const menuItems = [
     { icon: User, label: t('myProfile'), onClick: () => changeView('profile') },
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
-    { icon: Monitor, label: 'Устройства', onClick: () => setShowDevices(true) },
     { divider: true },
     { icon: QrCode, label: 'Вход по QR', onClick: () => setShowQRAuth(true) },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
@@ -719,13 +718,31 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             💡 Уведомления приходят даже когда браузер закрыт
           </p>
         </div>
+        {/* Devices */}
+        <div className="px-5 py-3">
+          <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Monitor size={14} />
+            Устройства
+          </h4>
+          <button
+            onClick={() => setShowDevices(true)}
+            className="w-full flex items-center gap-4 px-3 py-3 rounded-xl bg-surface-tertiary/50 hover:bg-surface-hover transition-colors"
+          >
+            <Monitor size={18} className="text-nexo-400" />
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm text-zinc-200">Активные сессии</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Управление устройствами и сессиями</p>
+            </div>
+            <ChevronRight size={16} className="text-zinc-500" />
+          </button>
+        </div>
         <div className="px-5 py-3">
           <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3">{t('about')}</h4>
           <div className="flex items-center gap-4 px-3 py-3 rounded-xl bg-surface-tertiary/50">
             <Info size={18} className="text-zinc-400" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-zinc-200">Nexo Messenger</p>
-              <p className="text-xs text-zinc-500">{t('version')} 1.0.0</p>
+              <p className="text-xs text-zinc-500">{t('version')} 1.3.0</p>
             </div>
           </div>
         </div>
