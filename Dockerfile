@@ -26,7 +26,7 @@ RUN npm run build
 
 # Build server TypeScript to JavaScript
 WORKDIR /app/apps/server
-RUN npx tsc
+RUN ./node_modules/.bin/tsc
 
 # Generate Prisma client in builder (where prisma is installed)
 RUN npx prisma generate
