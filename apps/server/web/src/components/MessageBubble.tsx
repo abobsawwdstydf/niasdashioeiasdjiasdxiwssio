@@ -352,12 +352,12 @@ function MessageBubble({
   });
 
   // Simple Markdown formatter
-  const renderFormattedText = (text: string) => {
+  const renderFormattedText = (text: string): React.ReactNode => {
     if (!text) return text;
 
     // First, extract and render URLs
     const urlRegex = /(https?:\/\/[^\s<]+)/gi;
-    const parts: (string | { type: 'url'; url: string })[] = [];
+    const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
 
@@ -368,7 +368,18 @@ function MessageBubble({
         parts.push(textBefore);
       }
       // Add URL as clickable
-      parts.push({ type: 'url', url: match[0] });
+      parts.push(
+        <a
+          key={`url-${match.index}`}
+          href={match[0]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sky-400 hover:text-sky-300 hover:underline cursor-pointer break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {match[0]}
+        </a>
+      );
       lastIndex = match.index + match[0].length;
     }
 
@@ -421,10 +432,9 @@ function MessageBubble({
       });
     }
 
-    // Render parts with URLs
+    // Render parts - process markdown in string parts
     return parts.map((part, i) => {
       if (typeof part === 'string') {
-        // Process markdown in non-URL text
         const markdownParts = part.split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
         return markdownParts.map((mp, j) => {
           if (mp.startsWith('**') && mp.endsWith('**')) return <strong key={`${i}-${j}`} className="font-bold">{mp.slice(2, -2)}</strong>;
@@ -464,21 +474,7 @@ function MessageBubble({
           return <span key={`${i}-${j}`}>{mp}</span>;
         });
       }
-      if (typeof part === 'object' && part.type === 'url') {
-        return (
-          <a
-            key={i}
-            href={part.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sky-400 hover:text-sky-300 hover:underline cursor-pointer break-all"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part.url}
-          </a>
-        );
-      }
-      return <span key={i}>{part}</span>;
+      return part;
     });
   };
 
