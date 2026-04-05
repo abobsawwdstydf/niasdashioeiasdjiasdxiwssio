@@ -449,4 +449,56 @@ router.get('/:id/channels', async (req: AuthRequest, res) => {
   }
 });
 
+// Получить устройства пользователя
+router.get('/devices', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    
+    // Получаем информацию о текущей сессии из заголовков
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    
+    // Для демо возвращаем mock данные
+    // В продакшене здесь будет запрос к таблице сессий
+    res.json([
+      {
+        id: 'current',
+        deviceName: userAgent.includes('Chrome') ? 'Chrome' : userAgent.includes('Firefox') ? 'Firefox' : 'Browser',
+        browser: userAgent.split(' ').slice(-1)[0]?.split('/')[0] || 'Unknown',
+        os: userAgent.includes('Windows') ? 'Windows 11' : userAgent.includes('Mac') ? 'macOS' : userAgent.includes('Linux') ? 'Linux' : 'Unknown',
+        ip: ip,
+        location: 'Москва, Россия',
+        lastActive: new Date().toISOString(),
+        isCurrent: true,
+        addedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      }
+    ]);
+  } catch (error) {
+    console.error('Get devices error:', error);
+    res.status(500).json({ error: 'Ошибка получения устройств' });
+  }
+});
+
+// Завершить сессию устройства
+router.delete('/devices/:deviceId', async (req: AuthRequest, res) => {
+  try {
+    // В продакшене здесь будет удаление сессии из БД/Redis
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Terminate device error:', error);
+    res.status(500).json({ error: 'Ошибка завершения сессии' });
+  }
+});
+
+// Завершить все сессии кроме текущей
+router.post('/devices/terminate-all', async (req: AuthRequest, res) => {
+  try {
+    // В продакшене здесь будет удаление всех сессий кроме текущей
+    res.json({ success: true, count: 0 });
+  } catch (error) {
+    console.error('Terminate all devices error:', error);
+    res.status(500).json({ error: 'Ошибка завершения сессий' });
+  }
+});
+
 export default router;

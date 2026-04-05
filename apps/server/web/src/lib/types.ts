@@ -105,6 +105,10 @@ export interface Message {
   reactions: Reaction[];
   readBy: Array<{ userId: string }>;
   viewCount?: number;
+  // Call fields
+  callType?: 'voice' | 'video';
+  callStatus?: 'completed' | 'missed' | 'declined' | 'failed';
+  callDuration?: number;
 }
 
 export interface Chat {

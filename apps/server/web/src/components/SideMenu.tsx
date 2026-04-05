@@ -33,6 +33,8 @@ import {
   Volume2,
   Minimize2,
   Maximize2,
+  Monitor,
+  QrCode,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -44,6 +46,8 @@ import { useCallSettingsStore } from '../stores/callSettingsStore';
 import { useUIThemeStore } from '../stores/uiThemeStore';
 import { setServerUrl, getServerUrl } from '../config';
 import DatePicker from './DatePicker';
+import QRAuthModal from './QRAuthModal';
+import DevicesTab from './DevicesTab';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
 
 type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends';
@@ -115,6 +119,8 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [friendSearch, setFriendSearch] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<UserPresence[]>([]);
   const [friendSearchLoading, setFriendSearchLoading] = useState(false);
+  const [showQRAuth, setShowQRAuth] = useState(false);
+  const [showDevices, setShowDevices] = useState(false);
 
   const themeCards: { id: ChatTheme; color: string; accent: string; name: string; nameEn: string; desc: string; descEn: string; animated?: boolean; gradient?: string }[] = [
     { id: 'midnight', color: '#0f0f13', accent: '#6366f1', name: 'Полночь', nameEn: 'Midnight', desc: 'Тёмная тема с мягкими акцентами', descEn: 'Dark theme with soft accents' },
@@ -277,9 +283,12 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const menuItems = [
     { icon: User, label: t('myProfile'), onClick: () => changeView('profile') },
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
+    { icon: Monitor, label: 'Устройства', onClick: () => setShowDevices(true) },
+    { divider: true },
+    { icon: QrCode, label: 'Вход по QR', onClick: () => setShowQRAuth(true) },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
     { divider: true },
-    { icon: Info, label: t('aboutApp'), subtitle: 'Nexo Messenger v1.0', onClick: () => changeView('about') },
+    { icon: Info, label: t('aboutApp'), subtitle: 'Nexo Messenger v1.3', onClick: () => changeView('about') },
   ];
 
   // Slide direction for animations
@@ -935,6 +944,18 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
           </motion.div>
         </>
       )}
+
+      {/* QR Auth Modal */}
+      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} />
+
+      {/* Devices Tab */}
+      <AnimatePresence>
+        {showDevices && (
+          <div className="fixed inset-0 z-[60]">
+            <DevicesTab onClose={() => setShowDevices(false)} />
+          </div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }

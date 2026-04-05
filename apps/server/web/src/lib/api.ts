@@ -439,6 +439,51 @@ class ApiClient {
       body: JSON.stringify(settings),
     });
   }
+
+  // QR Auth
+  async generateQRSession() {
+    return this.request<{ authKey: string; expiresIn: number; serverUrl: string }>('/auth/qr-session', {
+      method: 'POST',
+    });
+  }
+
+  async checkQRSession(key: string) {
+    return this.request<{ status: string; token?: string; user?: any }>(`/auth/qr-session/${key}`);
+  }
+
+  async loginWithKey(key: string) {
+    return this.request<{ success: boolean; token: string; user: any }>('/auth/key-login', {
+      method: 'POST',
+      body: JSON.stringify({ key }),
+    });
+  }
+
+  // Devices
+  async getDevices() {
+    return this.request<Array<{
+      id: string;
+      deviceName: string;
+      browser: string;
+      os: string;
+      ip: string;
+      location: string;
+      lastActive: string;
+      isCurrent: boolean;
+      addedAt: string;
+    }>>('/users/devices');
+  }
+
+  async terminateDevice(deviceId: string) {
+    return this.request<{ success: boolean }>(`/users/devices/${deviceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async terminateAllDevices() {
+    return this.request<{ success: boolean; count: number }>('/users/devices/terminate-all', {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient();
