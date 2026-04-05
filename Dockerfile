@@ -65,5 +65,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start server (apply DB schema first, then run with tsx from root node_modules)
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && /app/node_modules/.bin/tsx /app/apps/server/src/index.ts"]
+# Start server (apply DB schema first, then run with tsx)
+CMD ["sh", "-c", "npx prisma@6.3.0 db push --accept-data-loss && npx tsx@4.19.2 /app/apps/server/src/index.ts"]
