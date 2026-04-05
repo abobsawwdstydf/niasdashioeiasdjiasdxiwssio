@@ -47,6 +47,9 @@ export const SENDER_SELECT = {
   username: true,
   displayName: true,
   avatar: true,
+  isVerified: true,
+  verifiedBadgeUrl: true,
+  verifiedBadgeType: true,
 } as const;
 
 /** Full message include for API responses */

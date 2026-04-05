@@ -33,6 +33,11 @@ export interface User extends UserPresence {
   notifyCalls?: boolean;
   notifyFriends?: boolean;
   pinnedChannel?: Channel | null;
+  // Verification
+  isVerified?: boolean;
+  verifiedBadgeUrl?: string | null;
+  verifiedBadgeType?: string | null;
+  verifiedAt?: string | null;
 }
 
 // ─── Chat types ────────────────────────────────────────────────────────
@@ -117,6 +122,11 @@ export interface Chat {
     id: string;
     message: Message;
   }>;
+  // Verification for channels/groups
+  isVerified?: boolean;
+  verifiedBadgeUrl?: string | null;
+  verifiedBadgeType?: string | null;
+  verifiedAt?: string | null;
 }
 
 // ─── Socket event types ────────────────────────────────────────────────

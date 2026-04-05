@@ -71,13 +71,24 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
       console.log(`   Размер: ${(file.size / 1024).toFixed(2)} KB`);
       console.log(`   MIME: ${file.mimetype}`);
 
-      // Отправляем файл в Telegram каналы
-      const storedFile = await telegramStorage.uploadFile(
-        file.buffer,
-        originalName,
-        file.mimetype,
-        req.userId!
-      );
+      let storedFile;
+      try {
+        // Отправляем файл в Telegram каналы
+        storedFile = await telegramStorage.uploadFile(
+          file.buffer,
+          originalName,
+          file.mimetype,
+          req.userId!
+        );
+      } catch (telegramError: any) {
+        console.error(`❌ Ошибка Telegram: ${telegramError.message}`);
+        console.error('⚠️ Файл не может быть загружен в Telegram');
+        res.status(500).json({ 
+          error: 'Ошибка загрузки в Telegram: ' + telegramError.message,
+          details: 'Проверьте что боты добавлены в каналы хранения'
+        });
+        return;
+      }
 
       // Сохраняем метаданные в БД
       const telegramFile = await prisma.telegramFile.create({

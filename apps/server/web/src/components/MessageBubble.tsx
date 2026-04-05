@@ -19,6 +19,9 @@ import {
   Pin,
   Clock,
   Eye,
+  Phone,
+  PhoneMissed,
+  Video,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -29,6 +32,7 @@ import { extractWaveform } from '../lib/utils';
 import type { Message, MediaItem, Reaction, ChatMember } from '../lib/types';
 import ImageLightbox from './ImageLightbox';
 import VideoPlayer from './VideoPlayer';
+import Avatar from './Avatar';
 
 interface MessageBubbleProps {
   message: Message;
@@ -76,6 +80,13 @@ function MessageBubble({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showCollapse, setShowCollapse] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Format call duration
+  const formatCallDuration = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Check if content is too long and needs collapsing
   useEffect(() => {
@@ -425,14 +436,15 @@ function MessageBubble({
                 } else {
                   onViewProfile?.(message.senderId);
                 }
-              }}>
-                {senderAvatar ? (
-                  <img src={senderAvatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                    {senderName[0]?.toUpperCase() || '?'}
-                  </div>
-                )}
+              }} className="relative inline-block">
+                <Avatar 
+                  src={senderAvatar} 
+                  name={senderName} 
+                  size="sm"
+                  isVerified={message.sender?.isVerified}
+                  verifiedBadgeUrl={message.sender?.verifiedBadgeUrl}
+                  verifiedBadgeType={message.sender?.verifiedBadgeType}
+                />
               </button>
             ) : null}
           </div>
@@ -499,6 +511,43 @@ function MessageBubble({
               <div className="mb-2 text-xs opacity-90 border-l-[3px] border-white/30 pl-2">
                 <span className="font-medium">{t('forwardedFrom')}: </span>
                 {message.forwardedFrom.displayName || message.forwardedFrom.username}
+              </div>
+            )}
+
+            {/* Call Message */}
+            {message.type === 'call' && (
+              <div className="flex items-center gap-3 py-2">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  message.callStatus === 'missed' || message.callStatus === 'declined' 
+                    ? 'bg-red-500/20' 
+                    : 'bg-emerald-500/20'
+                }`}>
+                  {message.callStatus === 'missed' ? (
+                    <PhoneMissed size={18} className="text-red-400" />
+                  ) : message.callStatus === 'declined' ? (
+                    <PhoneMissed size={18} className="text-red-400" />
+                  ) : message.callType === 'video' ? (
+                    <Video size={18} className="text-emerald-400" />
+                  ) : (
+                    <Phone size={18} className="text-emerald-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${
+                    message.callStatus === 'missed' || message.callStatus === 'declined'
+                      ? 'text-red-400'
+                      : 'text-zinc-200'
+                  }`}>
+                    {message.callStatus === 'missed' 
+                      ? 'Пропущенный вызов'
+                      : message.callStatus === 'declined'
+                      ? 'Отменённый вызов'
+                      : message.callStatus === 'completed'
+                      ? `${message.callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок'} (${formatCallDuration(message.callDuration || 0)})`
+                      : message.callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок'
+                    }
+                  </p>
+                </div>
               </div>
             )}
 

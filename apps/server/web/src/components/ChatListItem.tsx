@@ -139,7 +139,15 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
               <Bookmark size={22} className="text-white" />
             </div>
           ) : (
-            <Avatar src={chatAvatar} name={chatName} size="lg" online={isOnline ? true : undefined} />
+            <Avatar 
+              src={chatAvatar} 
+              name={chatName} 
+              size="lg" 
+              online={isOnline ? true : undefined}
+              isVerified={chat.isVerified}
+              verifiedBadgeUrl={chat.verifiedBadgeUrl}
+              verifiedBadgeType={chat.verifiedBadgeType}
+            />
           )}
         </div>
 
