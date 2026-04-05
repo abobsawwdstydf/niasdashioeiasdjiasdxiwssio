@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 
 export default function QRConfirmPage() {
-  const { key } = useParams<{ key: string }>();
-  const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [status, setStatus] = useState<'loading' | 'logged-out' | 'confirming' | 'confirmed' | 'error'>('loading');
   const [error, setError] = useState('');
 
+  // Get key from URL path: /auth/verify/:key
+  const pathKey = window.location.pathname.split('/').pop() || '';
+
   useEffect(() => {
-    if (!key) {
+    if (!pathKey || pathKey.length < 37) {
       setStatus('error');
       setError('Неверный ключ');
       return;
@@ -24,22 +24,19 @@ export default function QRConfirmPage() {
       return;
     }
 
-    // Auto-confirm after 2 seconds
-    const timer = setTimeout(async () => {
-      await handleConfirm();
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [key, user]);
+    setStatus('confirming');
+  }, [pathKey, user]);
 
   const handleConfirm = async () => {
-    if (!key || !user) return;
+    if (!pathKey || !user) return;
     
     setStatus('confirming');
     try {
-      await api.confirmQRLogin(key);
+      await api.confirmQRLogin(pathKey);
       setStatus('confirmed');
-      setTimeout(() => navigate('/'), 2000);
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
     } catch (e: any) {
       setStatus('error');
       setError(e.message || 'Ошибка подтверждения');
@@ -47,9 +44,8 @@ export default function QRConfirmPage() {
   };
 
   const handleLoginFirst = () => {
-    // Store the QR key to return after login
-    localStorage.setItem('nexo_qr_key', key || '');
-    navigate('/');
+    localStorage.setItem('nexo_qr_key', pathKey);
+    window.location.href = '/';
   };
 
   return (
@@ -97,6 +93,12 @@ export default function QRConfirmPage() {
             <p className="text-sm text-zinc-400">
               Подтверждаю вход для <span className="text-nexo-400">{user?.displayName || user?.username}</span>
             </p>
+            <button
+              onClick={handleConfirm}
+              className="mt-6 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-nexo-500 to-purple-600 text-white font-medium"
+            >
+              Подтвердить сейчас
+            </button>
           </div>
         )}
 
@@ -120,9 +122,10 @@ export default function QRConfirmPage() {
               <p className="text-sm text-zinc-400 mb-6">{error}</p>
             </div>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => { window.location.href = '/'; }}
               className="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
             >
+              <ArrowLeft size={16} className="inline mr-2" />
               Вернуться на главную
             </button>
           </>
