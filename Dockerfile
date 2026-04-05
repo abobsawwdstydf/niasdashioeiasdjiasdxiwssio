@@ -42,8 +42,11 @@ RUN npm install tsx@4.19.2 --save-dev
 RUN npm install prisma@6.3.0 --save-dev
 
 # Copy server source (TypeScript)
-COPY --from=builder /app/apps/server/src ./src
+COPY --from=builder /app/apps/server/src ./apps/server/src
 COPY --from=builder /app/apps/server/prisma ./prisma
+
+# Copy server node_modules from builder
+COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 
 # Copy built web files (../web/dist relative to src/)
 COPY --from=builder /app/apps/server/web/dist ./web/dist
@@ -62,5 +65,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start server (apply DB schema first, then run with tsx)
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node_modules/.bin/tsx src/index.ts"]
+# Start server (apply DB schema first, then run with tsx from apps/server)
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && cd apps/server && node_modules/.bin/tsx src/index.ts"]
