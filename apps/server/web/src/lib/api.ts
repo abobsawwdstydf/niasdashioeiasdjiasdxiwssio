@@ -458,6 +458,12 @@ class ApiClient {
     });
   }
 
+  async confirmQRLogin(key: string) {
+    return this.request<{ success: boolean }>(`/auth/qr-session/${key}/confirm`, {
+      method: 'POST',
+    });
+  }
+
   // Devices
   async getDevices() {
     return this.request<Array<{

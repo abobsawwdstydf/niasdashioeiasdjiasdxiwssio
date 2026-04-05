@@ -300,4 +300,46 @@ router.post('/key-login', async (req, res) => {
   }
 });
 
+// Confirm QR login (for logged-in user to confirm login on another device)
+router.post('/qr-session/:key/confirm', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { key } = req.params;
+    const confirmUserId = req.userId!;
+    
+    const session = await prisma.authSession.findUnique({
+      where: { key },
+      include: { user: { select: USER_SELECT } }
+    });
+    
+    if (!session) {
+      res.status(404).json({ error: 'Сессия не найдена' });
+      return;
+    }
+    
+    if (session.expiresAt < new Date()) {
+      res.status(401).json({ error: 'Сессия истекла' });
+      return;
+    }
+    
+    if (session.used) {
+      res.status(401).json({ error: 'Сессия уже использована' });
+      return;
+    }
+    
+    // Update session: mark as used, set the user who is confirming
+    await prisma.authSession.update({
+      where: { id: session.id },
+      data: { 
+        used: true, 
+        usedAt: new Date(),
+        userId: confirmUserId // Set to the user who confirmed
+      }
+    });
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка сервера' });
+  }
+});
+
 export default router;
