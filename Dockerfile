@@ -43,10 +43,6 @@ RUN npm install prisma@6.3.0 --save-dev
 COPY --from=builder /app/apps/server/src ./src
 COPY --from=builder /app/apps/server/prisma ./prisma
 
-# Copy generated Prisma client from workspace root node_modules
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
 # Copy built web files (../web/dist relative to src/)
 COPY --from=builder /app/apps/server/web/dist ./web/dist
 
