@@ -37,6 +37,7 @@ WORKDIR /app
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
 RUN npm install --legacy-peer-deps
+RUN cd apps/server && npm install --production --legacy-peer-deps
 RUN npm install prisma@6.3.0 --save-dev
 
 # Copy server source
