@@ -125,13 +125,13 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
 
       console.log(`💾 Метаданные сохранены в БД`);
 
-      // Сохраняем информацию о файле для клиента
+      // Сохраняем информацию о файле для клиента - возвращаем API URL для скачивания
       uploadedFiles.push({
         fileId: telegramFile.fileId,
         filename: telegramFile.originalName,
         size: telegramFile.totalSize,
         mimetype: telegramFile.mimeType,
-        url: `tg://${telegramFile.fileId}`,
+        url: `/api/files/${telegramFile.fileId}/download`,
       });
     }
 

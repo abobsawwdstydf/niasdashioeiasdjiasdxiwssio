@@ -464,6 +464,10 @@ class ApiClient {
     });
   }
 
+  async checkQRStatus(key: string) {
+    return this.request<{ status: string; token?: string; user?: any }>(`/auth/qr-session/${key}/status`);
+  }
+
   // Devices
   async getDevices() {
     return this.request<Array<{

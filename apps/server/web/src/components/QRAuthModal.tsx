@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Check, QrCode, Camera, CameraOff, Smartphone, LogIn } from 'lucide-react';
+import { X, Copy, Check, QrCode, Camera, CameraOff, Smartphone } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import QrScanner from 'qr-scanner';
@@ -9,7 +9,7 @@ import QrCodeSvg from 'qrcode';
 interface QRAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'login' | 'confirm'; // 'login' = незалогинен, 'confirm' = залогинен
+  mode: 'login' | 'confirm';
 }
 
 export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps) {
@@ -43,15 +43,17 @@ export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps)
       });
       setQrDataUrl(dataUrl);
 
-      if (mode === 'confirm') {
+      if (mode === 'login') {
+        // Poll for confirmation from logged-in user
         if (pollingRef.current) clearInterval(pollingRef.current);
         pollingRef.current = setInterval(async () => {
           try {
-            const status = await api.checkQRSession(response.authKey);
-            if (status.status === 'used') {
+            const status = await api.checkQRStatus(response.authKey);
+            if (status.status === 'confirmed' && status.token) {
+              loginWithToken(status.token, status.user);
               setConfirmed(true);
               clearInterval(pollingRef.current!);
-              setTimeout(onClose, 2000);
+              setTimeout(onClose, 1500);
             } else if (status.status === 'expired') {
               setError('QR код истёк. Создайте новый.');
               clearInterval(pollingRef.current!);
@@ -64,7 +66,7 @@ export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps)
     } finally {
       setIsLoading(false);
     }
-  }, [mode, onClose]);
+  }, [mode, onClose, loginWithToken]);
 
   useEffect(() => {
     if (isOpen && !authKey) generateSession();
@@ -94,7 +96,7 @@ export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps)
         scannerRef.current = new QrScanner(videoRef.current, async (result) => {
           const url = result.data;
           const keyMatch = url.match(/\/auth\/verify\/([a-zA-Z0-9-]+)/);
-          if (keyMatch) {
+          if (keyMatch && mode === 'confirm') {
             stopCamera();
             await confirmLogin(keyMatch[1]);
           }
@@ -170,7 +172,6 @@ export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps)
           ) : (
             <>
               {mode === 'login' ? (
-                /* НЕЗАЛОГИНЕН: показывает QR код для сканирования */
                 <div className="flex flex-col items-center">
                   {qrDataUrl && (
                     <div className="w-48 h-48 bg-white rounded-xl p-4 flex items-center justify-center mb-4">
@@ -197,7 +198,6 @@ export default function QRAuthModal({ isOpen, onClose, mode }: QRAuthModalProps)
                   </div>
                 </div>
               ) : (
-                /* ЗАЛОГИНЕН: сканирует QR для подтверждения */
                 <div className="flex flex-col items-center">
                   {cameraActive ? (
                     <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden mb-4">
