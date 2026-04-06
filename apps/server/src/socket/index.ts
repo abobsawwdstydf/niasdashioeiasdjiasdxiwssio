@@ -173,7 +173,7 @@ export function setupSocket(io: Server) {
           return;
         }
 
-        // Validate mediaUrl — only tg:// (Telegram), https URLs, or /uploads/ (legacy) allowed
+        // Validate mediaUrl — allow tg://, https://, /uploads/, and /api/files/ URLs
         if (data.mediaUrl) {
           if (typeof data.mediaUrl !== 'string') {
             socket.emit('error', { message: 'Некорректный mediaUrl' });
@@ -182,8 +182,9 @@ export function setupSocket(io: Server) {
           const isTelegramFile = data.mediaUrl.startsWith('tg://');
           const isExternalUrl = data.mediaUrl.startsWith('https://');
           const isLocalUpload = data.mediaUrl.startsWith('/uploads/');
-          
-          if (!isTelegramFile && !isExternalUrl && !isLocalUpload) {
+          const isApiFile = data.mediaUrl.startsWith('/api/files/');
+
+          if (!isTelegramFile && !isExternalUrl && !isLocalUpload && !isApiFile) {
             socket.emit('error', { message: 'Недопустимый mediaUrl' });
             return;
           }
