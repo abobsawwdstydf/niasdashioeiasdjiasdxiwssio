@@ -349,35 +349,37 @@ router.post('/qr-session/:key/confirm', authenticateToken, async (req: AuthReque
 router.get('/qr-session/:key/status', async (req, res) => {
   try {
     const { key } = req.params;
-    
+
     const session = await prisma.authSession.findUnique({
       where: { key },
       include: { user: { select: USER_SELECT } }
     });
-    
+
     if (!session) {
       res.status(404).json({ error: 'Сессия не найдена' });
       return;
     }
-    
+
     if (session.expiresAt < new Date()) {
       res.json({ status: 'expired' });
       return;
     }
-    
+
     if (session.used && session.userId !== 'pending') {
       // Session was confirmed by a logged-in user
       const token = jwt.sign({ userId: session.userId }, config.jwtSecret, { expiresIn: '30d' });
-      res.json({ 
+      res.json({
         status: 'confirmed',
         token,
         user: session.user
       });
       return;
     }
-    
+
     res.json({ status: 'pending' });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Ошибка сервера' });
   }
 });
+
+export default router;
