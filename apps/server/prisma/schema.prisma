@@ -338,14 +338,16 @@ model FileChunk {
 model AuthSession {
   id          String   @id @default(uuid())
   key         String   @unique // 37-char auth key
-  userId      String
+  userId      String?  // Nullable: null for pending sessions (no FK constraint)
+  confirmedBy String?  // User ID who confirmed the login
   used        Boolean  @default(false)
   usedAt      DateTime?
   expiresAt   DateTime
   createdAt   DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  confirmer   User?    @relation("AuthSessionConfirmers", fields: [confirmedBy], references: [id], onDelete: Cascade)
 
   @@index([key])
   @@index([userId])
+  @@index([confirmedBy])
 }

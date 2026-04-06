@@ -191,27 +191,27 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
 router.post('/qr-session', async (req, res) => {
   try {
     // For logged-in users, use the existing userId from token
-    // For non-logged-in users, generate anonymous session
-    const userId = (req as any).userId || 'anonymous';
-    
+    // For non-logged-in users, leave userId null
+    const userId = (req as any).userId || null;
+
     // Generate 37-char auth key
     const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(18)))
       .map(b => b.toString(36).padStart(2, '0'))
       .join('')
       .slice(0, 32);
     const authKey = `nexo-${randomPart}`; // 5 + 32 = 37 chars
-    
-    // Store session in DB (userId will be set when confirmed)
+
+    // Store session in DB (userId will be set when confirmed by a logged-in user)
     const session = await prisma.authSession.create({
       data: {
         key: authKey,
-        userId: userId === 'anonymous' ? 'pending' : userId,
+        userId: userId, // null for pending sessions
         expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
         used: false
       }
     });
-    
-    res.json({ 
+
+    res.json({
       authKey,
       expiresIn: 300, // seconds
       serverUrl: req.protocol + '://' + req.get('host')
@@ -335,7 +335,7 @@ router.post('/qr-session/:key/confirm', authenticateToken, async (req: AuthReque
       data: { 
         used: true, 
         usedAt: new Date(),
-        userId: confirmUserId // Set to the user who confirmed
+        confirmedBy: confirmUserId // Store who confirmed
       }
     });
     
@@ -349,33 +349,33 @@ router.post('/qr-session/:key/confirm', authenticateToken, async (req: AuthReque
 router.get('/qr-session/:key/status', async (req, res) => {
   try {
     const { key } = req.params;
-
+    
     const session = await prisma.authSession.findUnique({
       where: { key },
-      include: { user: { select: USER_SELECT } }
+      include: { confirmer: { select: USER_SELECT } }
     });
-
+    
     if (!session) {
       res.status(404).json({ error: 'Сессия не найдена' });
       return;
     }
-
+    
     if (session.expiresAt < new Date()) {
       res.json({ status: 'expired' });
       return;
     }
-
-    if (session.used && session.userId !== 'pending') {
-      // Session was confirmed by a logged-in user
-      const token = jwt.sign({ userId: session.userId }, config.jwtSecret, { expiresIn: '30d' });
-      res.json({
+    
+    if (session.used && session.confirmedBy) {
+      // Session was confirmed by a logged-in user - login as the confirmer
+      const token = jwt.sign({ userId: session.confirmedBy }, config.jwtSecret, { expiresIn: '30d' });
+      res.json({ 
         status: 'confirmed',
         token,
-        user: session.user
+        user: session.confirmer
       });
       return;
     }
-
+    
     res.json({ status: 'pending' });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Ошибка сервера' });
