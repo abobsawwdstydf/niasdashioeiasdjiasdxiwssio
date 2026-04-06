@@ -5,7 +5,6 @@ import { useChatStore } from './stores/chatStore';
 import { api } from './lib/api';
 import AuthPage from './pages/AuthPage';
 import ChatPage from './pages/ChatPage';
-import QRConfirmPage from './pages/QRConfirmPage';
 
 export default function App() {
   const { token, user, checkAuth, isLoading } = useAuthStore();
@@ -29,12 +28,6 @@ export default function App() {
     window.addEventListener('hashchange', handleHashRoute);
     return () => window.removeEventListener('hashchange', handleHashRoute);
   }, [checkAuth]);
-
-  // Check if we're on QR confirm page
-  const isQRConfirm = window.location.pathname.startsWith('/auth/verify/');
-  if (isQRConfirm) {
-    return <QRConfirmPage />;
-  }
 
   if (isLoading) {
     return (

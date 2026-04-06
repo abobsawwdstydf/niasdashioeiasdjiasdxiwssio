@@ -440,34 +440,6 @@ class ApiClient {
     });
   }
 
-  // QR Auth
-  async generateQRSession() {
-    return this.request<{ authKey: string; expiresIn: number; serverUrl: string }>('/auth/qr-session', {
-      method: 'POST',
-    });
-  }
-
-  async checkQRSession(key: string) {
-    return this.request<{ status: string; token?: string; user?: any }>(`/auth/qr-session/${key}`);
-  }
-
-  async loginWithKey(key: string) {
-    return this.request<{ success: boolean; token: string; user: any }>('/auth/key-login', {
-      method: 'POST',
-      body: JSON.stringify({ key }),
-    });
-  }
-
-  async confirmQRLogin(key: string) {
-    return this.request<{ success: boolean }>(`/auth/qr-session/${key}/confirm`, {
-      method: 'POST',
-    });
-  }
-
-  async checkQRStatus(key: string) {
-    return this.request<{ status: string; token?: string; user?: any }>(`/auth/qr-session/${key}/status`);
-  }
-
   // Devices
   async getDevices() {
     return this.request<Array<{

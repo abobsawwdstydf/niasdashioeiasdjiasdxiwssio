@@ -34,7 +34,6 @@ import {
   Minimize2,
   Maximize2,
   Monitor,
-  QrCode,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -45,7 +44,6 @@ import { useThemeStore, ChatTheme } from '../stores/themeStore';
 import { useCallSettingsStore } from '../stores/callSettingsStore';
 import { useUIThemeStore } from '../stores/uiThemeStore';
 import DatePicker from './DatePicker';
-import QRAuthModal from './QRAuthModal';
 import DevicesTab from './DevicesTab';
 import LegalPage from './LegalPage';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
@@ -118,7 +116,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [friendSearch, setFriendSearch] = useState('');
   const [friendSearchResults, setFriendSearchResults] = useState<UserPresence[]>([]);
   const [friendSearchLoading, setFriendSearchLoading] = useState(false);
-  const [showQRAuth, setShowQRAuth] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
   const [legalPage, setLegalPage] = useState<'terms' | 'privacy' | null>(null);
 
@@ -284,7 +281,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     { icon: User, label: t('myProfile'), onClick: () => changeView('profile') },
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
     { divider: true },
-    { icon: QrCode, label: 'Подтвердить вход QR', onClick: () => setShowQRAuth(true) },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
     { divider: true },
     { icon: Info, label: t('aboutApp'), subtitle: 'Nexo Messenger v1.3', onClick: () => changeView('about') },
@@ -945,9 +941,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
           </motion.div>
         </>
       )}
-
-      {/* QR Auth Modal - mode='confirm' for logged-in users */}
-      <QRAuthModal isOpen={showQRAuth} onClose={() => setShowQRAuth(false)} mode="confirm" />
 
       {/* Devices Tab */}
       <AnimatePresence>
