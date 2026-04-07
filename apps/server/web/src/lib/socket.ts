@@ -30,7 +30,6 @@ export function connectSocket(token: string): Socket {
   }
 
   const socketUrl = getSocketUrl();
-  console.log('🔌 Connecting to socket:', socketUrl);
 
   socket = io(socketUrl, {
     auth: { token },
@@ -44,7 +43,6 @@ export function connectSocket(token: string): Socket {
   });
 
   socket.on('connect', () => {
-    console.log('✅ Socket подключён');
     connectAttempts = 0;
   });
 

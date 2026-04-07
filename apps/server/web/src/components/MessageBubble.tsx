@@ -22,6 +22,8 @@ import {
   Phone,
   PhoneMissed,
   Video,
+  MapPin,
+  BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -70,6 +72,7 @@ function MessageBubble({
   const [deleteMenuMode, setDeleteMenuMode] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showVideoPlayer, setShowVideoPlayer] = useState<string | null>(null);
+  const [showVideoCircle, setShowVideoCircle] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -684,6 +687,119 @@ function MessageBubble({
                 src={showVideoPlayer}
                 onClose={() => setShowVideoPlayer(null)}
               />
+            )}
+
+            {/* Видео-кружок */}
+            {message.type === 'video_circle' && media[0]?.url && (
+              <button
+                onClick={() => setShowVideoCircle(media[0].url)}
+                className="w-48 h-48 rounded-full overflow-hidden border-2 border-white/20 hover:border-white/40 transition-all hover:scale-105 active:scale-95"
+              >
+                <video
+                  src={media[0].url}
+                  className="w-full h-full object-cover"
+                  muted
+                  playsInline
+                />
+              </button>
+            )}
+
+            {/* Опрос */}
+            {message.type === 'poll' && message.content && (() => {
+              try {
+                const poll = JSON.parse(message.content);
+                if (poll.question && poll.options) {
+                  return (
+                    <div className="min-w-[260px]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <BarChart3 size={16} className={isMine ? 'text-white/60' : 'text-nexo-400'} />
+                        <span className="text-xs font-medium opacity-60">Опрос</span>
+                      </div>
+                      <p className="text-sm font-semibold mb-3">{poll.question}</p>
+                      <div className="space-y-2">
+                        {poll.options.map((option: string, i: number) => (
+                          <div
+                            key={i}
+                            className={`px-3 py-2 rounded-lg text-sm ${
+                              isMine ? 'bg-white/10 hover:bg-white/15' : 'bg-nexo-500/10 hover:bg-nexo-500/20'
+                            } transition-colors`}
+                          >
+                            {option}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 text-xs opacity-60">
+                        {poll.multiple ? 'Несколько вариантов' : poll.quiz ? 'Викторина' : 'Один вариант'}
+                      </div>
+                    </div>
+                  );
+                }
+              } catch (e) {
+                // ignore
+              }
+              return null;
+            })()}
+
+            {/* Геолокация */}
+            {message.type === 'location' && message.content && (() => {
+              try {
+                const loc = JSON.parse(message.content);
+                if (loc.lat && loc.lng) {
+                  return (
+                    <div className="min-w-[260px]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin size={16} className={isMine ? 'text-white/60' : 'text-nexo-400'} />
+                        <span className="text-xs font-medium opacity-60">Геолокация</span>
+                      </div>
+                      {loc.name && (
+                        <p className="text-xs mb-2 opacity-80">{loc.name}</p>
+                      )}
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${loc.lat}&mlon=${loc.lng}#map=16/${loc.lat}/${loc.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`block p-3 rounded-lg ${
+                          isMine ? 'bg-white/10 hover:bg-white/15' : 'bg-nexo-500/10 hover:bg-nexo-500/20'
+                        } transition-colors`}
+                      >
+                        <p className="text-xs font-mono">
+                          {loc.lat.toFixed(6)}, {loc.lng.toFixed(6)}
+                        </p>
+                        {loc.accuracy && (
+                          <p className="text-xs opacity-60 mt-1">
+                            Точность: ±{loc.accuracy < 1000 ? `${Math.round(loc.accuracy)} м` : `${(loc.accuracy / 1000).toFixed(1)} км`}
+                          </p>
+                        )}
+                      </a>
+                    </div>
+                  );
+                }
+              } catch (e) {
+                // ignore
+              }
+              return null;
+            })()}
+
+            {/* Video Circle Modal */}
+            {showVideoCircle && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+                onClick={() => setShowVideoCircle(null)}
+              >
+                <div className="relative w-80 h-80 rounded-full overflow-hidden">
+                  <video
+                    src={showVideoCircle}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </motion.div>
             )}
 
             {/* Голосовое */}

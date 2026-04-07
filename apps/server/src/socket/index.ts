@@ -166,7 +166,7 @@ export function setupSocket(io: Server) {
         }
 
         // Validate message type
-        const VALID_TYPES = ['text', 'image', 'video', 'voice', 'file', 'gif', 'album'];
+        const VALID_TYPES = ['text', 'image', 'video', 'voice', 'file', 'gif', 'album', 'video_circle', 'poll', 'location'];
         const msgType = data.type || 'text';
         if (!VALID_TYPES.includes(msgType)) {
           socket.emit('error', { message: 'Недопустимый тип сообщения' });

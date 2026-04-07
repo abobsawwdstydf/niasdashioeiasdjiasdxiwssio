@@ -191,10 +191,42 @@ app.get('/api/files/:fileId/download', async (req, res) => {
     });
 
     // Отправляем файл клиенту
-    res.setHeader('Content-Type', telegramFile.mimeType);
-    res.setHeader('Content-Length', fileBuffer.length);
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(telegramFile.originalName)}"`);
-    res.end(fileBuffer);
+    // Для изображений, видео и аудио используем inline (браузер показывает/воспроизводит)
+    // Для остальных файлов - attachment (скачивание)
+    const isInline = telegramFile.mimeType.startsWith('image/') ||
+                     telegramFile.mimeType.startsWith('video/') ||
+                     telegramFile.mimeType.startsWith('audio/');
+
+    if (isInline) {
+      res.setHeader('Content-Type', telegramFile.mimeType);
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.setHeader('Accept-Ranges', 'bytes');
+      // Support range requests for audio/video seeking
+      const range = req.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileBuffer.length - 1;
+        const chunk = fileBuffer.slice(start, end + 1);
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileBuffer.length}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunk.length,
+          'Content-Type': telegramFile.mimeType,
+          'Cache-Control': 'public, max-age=86400',
+        });
+        res.end(chunk);
+      } else {
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(telegramFile.originalName)}"`);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.end(fileBuffer);
+      }
+    } else {
+      res.setHeader('Content-Type', telegramFile.mimeType);
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(telegramFile.originalName)}"`);
+      res.end(fileBuffer);
+    }
 
   } catch (error: any) {
     console.error('❌ ОШИБКА СКАЧИВАНИЯ:', error.message);

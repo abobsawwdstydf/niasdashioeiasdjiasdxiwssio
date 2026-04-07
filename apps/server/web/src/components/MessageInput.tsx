@@ -14,7 +14,6 @@ import {
   Calendar,
   Check,
   Music,
-  Camera,
 } from 'lucide-react';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
@@ -24,6 +23,10 @@ import { useLang } from '../lib/i18n';
 import { AUDIO_EXTENSIONS, MAX_FILE_SIZE } from '../lib/types';
 import EmojiPicker from './EmojiPicker';
 import CameraModal from './CameraModal';
+import VideoCircleModal from './VideoCircleModal';
+import AttachMenu from './AttachMenu';
+import PollModal from './PollModal';
+import LocationModal from './LocationModal';
 
 interface Attachment {
   file: File;
@@ -47,7 +50,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [showEmoji, setShowEmoji] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -65,6 +67,10 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showAttachMenu, setShowAttachMenuState] = useState(false);
+  const [showVideoCircle, setShowVideoCircle] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
+  const [showLocation, setShowLocation] = useState(false);
   const attachmentsScrollRef = useRef<HTMLDivElement>(null);
 
   const filteredMembers = mentionQuery !== null && isGroup
@@ -187,13 +193,8 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     if (hasAttachments) {
       setIsSending(true);
       try {
-        console.log('📤 Загрузка файлов...', attachments.length, 'штук');
-        const uploadPromises = attachments.map(att => {
-          console.log('  ⬆️ Загружаю:', att.file.name, att.file.size, 'bytes');
-          return api.uploadFile(att.file);
-        });
+        const uploadPromises = attachments.map(att => api.uploadFile(att.file));
         const results = await Promise.all(uploadPromises);
-        console.log('✅ Все файлы загружены:', results);
 
         // Проверяем что все файлы загрузились
         for (let i = 0; i < results.length; i++) {
@@ -221,8 +222,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           duration: result.duration,
         }));
 
-        console.log('📤 Отправка сообщения через socket...', { mediaType, albumCount: attachments.length, media });
-
         // Отправляем одно сообщение со всеми файлами
         socket.emit('send_message', {
           chatId,
@@ -239,11 +238,10 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           ...(scheduledAt ? { scheduledAt } : {}),
         });
 
-        console.log('✅ Сообщение отправлено');
         setReplyTo(null);
         clearAttachments();
       } catch (e) {
-        console.error('❌ Ошибка загрузки файлов:', e);
+        console.error('Ошибка загрузки файлов:', e);
         alert('Ошибка загрузки файлов: ' + (e instanceof Error ? e.message : 'Неизвестная ошибка'));
       } finally {
         setIsSending(false);
@@ -330,6 +328,56 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     setShowCamera(false);
   };
 
+  const handleVideoCircle = async (file: File) => {
+    try {
+      const result = await api.uploadFile(file);
+      if (!result || !result.url) throw new Error('Не получен URL');
+      
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('send_message', {
+          chatId,
+          content: null,
+          type: 'video_circle',
+          mediaUrl: result.url,
+          mediaType: 'video_circle',
+          fileName: result.filename || file.name,
+          fileSize: result.size || file.size,
+          replyToId: replyTo?.id || null,
+        });
+        setReplyTo(null);
+      }
+    } catch (e) {
+      console.error('Ошибка отправки видео-кружка:', e);
+    }
+  };
+
+  const handlePollSend = (poll: { question: string; options: string[]; multiple: boolean; quiz: boolean }) => {
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('send_message', {
+        chatId,
+        content: JSON.stringify(poll),
+        type: 'poll',
+        replyToId: replyTo?.id || null,
+      });
+      setReplyTo(null);
+    }
+  };
+
+  const handleLocationSend = (location: { lat: number; lng: number; accuracy: number; name?: string }) => {
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('send_message', {
+        chatId,
+        content: JSON.stringify(location),
+        type: 'location',
+        replyToId: replyTo?.id || null,
+      });
+      setReplyTo(null);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     files.forEach(file => {
@@ -341,7 +389,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       addAttachment(file, isAudio ? 'audio' : 'file');
     });
     e.target.value = '';
-    setShowAttachMenu(false);
+    setShowAttachMenuState(false);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -352,7 +400,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       addAttachment(file, isVideo ? 'video' : 'image', preview);
     });
     e.target.value = '';
-    setShowAttachMenu(false);
+    setShowAttachMenuState(false);
   };
 
   const startRecording = async () => {
@@ -412,9 +460,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
         const file = new File([blob], `voice.${ext}`, { type: mimeType });
 
         try {
-          console.log('🎤 Загрузка голосового сообщения...', { fileName: file.name, size: file.size, type: file.type });
           const result = await api.uploadFile(file);
-          console.log('✅ Голосовое загружено:', result);
           
           if (!result || !result.url) {
             throw new Error('Не получен URL файла от сервера');
@@ -433,14 +479,11 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               duration: recordingTimeRef.current,
               replyToId: replyTo?.id || null,
             });
-            console.log('📤 Голосовое отправлено через socket');
             setReplyTo(null);
-          } else {
-            console.error('❌ Socket не подключён');
           }
         } catch (e) {
-          console.error('❌ Ошибка отправки голосового:', e);
-          alert('Не удалось отправить голосовое сообщение. Проверьте подключение к интернету.');
+          console.error('Ошибка отправки голосового:', e);
+          alert('Не удалось отправить голосовое сообщение.');
         }
       };
 
@@ -765,19 +808,11 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               />
               
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowAttachMenuState(true)}
                 className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
-                title="Прикрепить файл"
+                title="Прикрепить"
               >
                 <Paperclip size={18} />
-              </button>
-
-              <button
-                onClick={() => setShowCamera(true)}
-                className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
-                title="Камера"
-              >
-                <Camera size={18} />
               </button>
 
               <button
@@ -819,18 +854,11 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                 className="flex-1 bg-transparent text-white placeholder-zinc-500 resize-none outline-none max-h-[150px] overflow-y-auto scrollbar-hide px-2 py-2.5"
               />
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowAttachMenuState(true)}
                 className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
-                title="Прикрепить файл"
+                title="Прикрепить"
               >
                 <Paperclip size={18} />
-              </button>
-              <button
-                onClick={() => setShowCamera(true)}
-                className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
-                title="Камера"
-              >
-                <Camera size={18} />
               </button>
               <button
                 onClick={() => hasContent ? handleSend() : startRecording()}
@@ -933,6 +961,51 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           <CameraModal
             onClose={() => setShowCamera(false)}
             onCapture={handleCameraCapture}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Attach Menu */}
+      <AnimatePresence>
+        {showAttachMenu && (
+          <AttachMenu
+            onClose={() => setShowAttachMenuState(false)}
+            onSelectFile={() => fileInputRef.current?.click()}
+            onSelectImage={() => imageInputRef.current?.click()}
+            onSelectCamera={() => setShowCamera(true)}
+            onSelectVideoCircle={() => setShowVideoCircle(true)}
+            onSelectPoll={() => setShowPoll(true)}
+            onSelectLocation={() => setShowLocation(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Video Circle Modal */}
+      <AnimatePresence>
+        {showVideoCircle && (
+          <VideoCircleModal
+            onClose={() => setShowVideoCircle(false)}
+            onSend={handleVideoCircle}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Poll Modal */}
+      <AnimatePresence>
+        {showPoll && (
+          <PollModal
+            onClose={() => setShowPoll(false)}
+            onSend={handlePollSend}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Location Modal */}
+      <AnimatePresence>
+        {showLocation && (
+          <LocationModal
+            onClose={() => setShowLocation(false)}
+            onSend={handleLocationSend}
           />
         )}
       </AnimatePresence>

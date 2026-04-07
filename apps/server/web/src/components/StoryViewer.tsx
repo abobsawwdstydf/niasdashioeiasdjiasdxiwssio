@@ -389,18 +389,13 @@ export function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) 
     try {
       let mediaUrl: string | undefined;
       if (imageFile) {
-        console.log('📤 Загрузка изображения для истории...', imageFile.name, imageFile.size);
         const result = await api.uploadFile(imageFile);
-        console.log('✅ Изображение загружено:', result);
-        
         if (!result || !result.url) {
           throw new Error('Не получен URL файла');
         }
-        
         mediaUrl = result.url;
       }
 
-      console.log('📝 Создание истории...', { type: mode, mediaUrl, content: text });
       await api.createStory({
         type: mode,
         content: mode === 'text' ? text.trim() : undefined,
@@ -408,11 +403,10 @@ export function CreateStoryModal({ onClose, onCreated }: CreateStoryModalProps) 
         mediaUrl,
       });
 
-      console.log('✅ История создана');
       onCreated();
       onClose();
     } catch (e) {
-      console.error('❌ Create story error:', e);
+      console.error('Ошибка создания истории:', e);
       alert('Ошибка создания истории: ' + (e instanceof Error ? e.message : 'Неизвестная ошибка'));
     } finally {
       setIsUploading(false);
