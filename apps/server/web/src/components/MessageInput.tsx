@@ -14,6 +14,7 @@ import {
   Calendar,
   Check,
   Music,
+  Camera,
 } from 'lucide-react';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
@@ -22,6 +23,7 @@ import { getSocket } from '../lib/socket';
 import { useLang } from '../lib/i18n';
 import { AUDIO_EXTENSIONS, MAX_FILE_SIZE } from '../lib/types';
 import EmojiPicker from './EmojiPicker';
+import CameraModal from './CameraModal';
 
 interface Attachment {
   file: File;
@@ -62,6 +64,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [scheduleToast, setScheduleToast] = useState<string | null>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const attachmentsScrollRef = useRef<HTMLDivElement>(null);
 
   const filteredMembers = mentionQuery !== null && isGroup
@@ -184,8 +187,20 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     if (hasAttachments) {
       setIsSending(true);
       try {
-        const uploadPromises = attachments.map(att => api.uploadFile(att.file));
+        console.log('📤 Загрузка файлов...', attachments.length, 'штук');
+        const uploadPromises = attachments.map(att => {
+          console.log('  ⬆️ Загружаю:', att.file.name, att.file.size, 'bytes');
+          return api.uploadFile(att.file);
+        });
         const results = await Promise.all(uploadPromises);
+        console.log('✅ Все файлы загружены:', results);
+
+        // Проверяем что все файлы загрузились
+        for (let i = 0; i < results.length; i++) {
+          if (!results[i] || !results[i].url) {
+            throw new Error(`Файл ${attachments[i].file.name} не загрузился`);
+          }
+        }
 
         // Определяем тип первого файла для основного типа сообщения
         const firstResult = results[0];
@@ -201,10 +216,12 @@ export default function MessageInput({ chatId }: MessageInputProps) {
             : result.mimetype.startsWith('audio/') ? 'audio'
             : 'file',
           url: result.url,
-          filename: result.filename,
-          size: result.size,
+          filename: result.filename || attachments[index].file.name,
+          size: result.size || attachments[index].file.size,
           duration: result.duration,
         }));
+
+        console.log('📤 Отправка сообщения через socket...', { mediaType, albumCount: attachments.length, media });
 
         // Отправляем одно сообщение со всеми файлами
         socket.emit('send_message', {
@@ -213,8 +230,8 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           type: attachments.length > 1 ? 'album' : mediaType,
           mediaUrl: firstResult.url,
           mediaType: mediaType,
-          fileName: firstResult.filename,
-          fileSize: firstResult.size,
+          fileName: firstResult.filename || attachments[0].file.name,
+          fileSize: firstResult.size || attachments[0].file.size,
           replyToId: replyTo?.id || null,
           quote: replyTo?.quote || null,
           albumCount: attachments.length,
@@ -222,10 +239,12 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           ...(scheduledAt ? { scheduledAt } : {}),
         });
 
+        console.log('✅ Сообщение отправлено');
         setReplyTo(null);
         clearAttachments();
       } catch (e) {
-        console.error('Ошибка загрузки файлов:', e);
+        console.error('❌ Ошибка загрузки файлов:', e);
+        alert('Ошибка загрузки файлов: ' + (e instanceof Error ? e.message : 'Неизвестная ошибка'));
       } finally {
         setIsSending(false);
       }
@@ -303,6 +322,12 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       setTimeout(checkScrollArrows, 50);
       return updated;
     });
+  };
+
+  const handleCameraCapture = (file: File, type: 'image' | 'video') => {
+    const preview = type === 'image' ? URL.createObjectURL(file) : undefined;
+    addAttachment(file, type, preview);
+    setShowCamera(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,7 +412,14 @@ export default function MessageInput({ chatId }: MessageInputProps) {
         const file = new File([blob], `voice.${ext}`, { type: mimeType });
 
         try {
+          console.log('🎤 Загрузка голосового сообщения...', { fileName: file.name, size: file.size, type: file.type });
           const result = await api.uploadFile(file);
+          console.log('✅ Голосовое загружено:', result);
+          
+          if (!result || !result.url) {
+            throw new Error('Не получен URL файла от сервера');
+          }
+
           const socket = getSocket();
           if (socket) {
             socket.emit('send_message', {
@@ -396,15 +428,19 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               type: 'voice',
               mediaUrl: result.url,
               mediaType: 'voice',
-              fileName: result.filename,
-              fileSize: result.size,
+              fileName: result.filename || file.name,
+              fileSize: result.size || file.size,
               duration: recordingTimeRef.current,
               replyToId: replyTo?.id || null,
             });
+            console.log('📤 Голосовое отправлено через socket');
             setReplyTo(null);
+          } else {
+            console.error('❌ Socket не подключён');
           }
         } catch (e) {
-          console.error('Ошибка отправки голосового:', e);
+          console.error('❌ Ошибка отправки голосового:', e);
+          alert('Не удалось отправить голосовое сообщение. Проверьте подключение к интернету.');
         }
       };
 
@@ -735,7 +771,15 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               >
                 <Paperclip size={18} />
               </button>
-              
+
+              <button
+                onClick={() => setShowCamera(true)}
+                className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
+                title="Камера"
+              >
+                <Camera size={18} />
+              </button>
+
               <button
                 onClick={() => hasContent ? handleSend() : startRecording()}
                 disabled={isSending || (!hasContent && isRecording)}
@@ -780,6 +824,13 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                 title="Прикрепить файл"
               >
                 <Paperclip size={18} />
+              </button>
+              <button
+                onClick={() => setShowCamera(true)}
+                className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
+                title="Камера"
+              >
+                <Camera size={18} />
               </button>
               <button
                 onClick={() => hasContent ? handleSend() : startRecording()}
@@ -873,6 +924,16 @@ export default function MessageInput({ chatId }: MessageInputProps) {
             <Check size={16} />
             {scheduleToast}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Camera Modal */}
+      <AnimatePresence>
+        {showCamera && (
+          <CameraModal
+            onClose={() => setShowCamera(false)}
+            onCapture={handleCameraCapture}
+          />
         )}
       </AnimatePresence>
     </div>

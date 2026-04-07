@@ -40,8 +40,10 @@ export const TELEGRAM_CHANNELS = [
 
 // Redis instances
 export const REDIS_INSTANCES = [
-  { id: 'redis1', url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
-  { id: 'redis2', url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
+  { id: 'redis1', url: 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339' },
+  { id: 'redis2', url: 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550' },
+  { id: 'redis3', url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
+  { id: 'redis4', url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
 ];
 
 // Chunk size for Telegram uploads (19MB)
@@ -65,7 +67,7 @@ export const config = {
   // Database URL - Neon PostgreSQL by default
   databaseUrl: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_mHu8QNo4czxK@ep-divine-smoke-aintwcj6-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
   // Redis - primary instance
-  redisUrl: process.env.REDIS_URL || 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158',
+  redisUrl: process.env.REDIS_URL || 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339',
   // Redis - secondary instance (for sessions/cache)
-  redisSessionUrl: process.env.REDIS_SESSION_URL || 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102',
+  redisSessionUrl: process.env.REDIS_SESSION_URL || 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550',
 };

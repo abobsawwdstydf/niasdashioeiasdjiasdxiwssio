@@ -26,10 +26,10 @@ export const TELEGRAM_CHANNELS = [
 
 // Redis instances for caching
 export const REDIS_INSTANCES = [
-  { id: 1, url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
-  { id: 2, url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
-  { id: 3, url: 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339' },
-  { id: 4, url: 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550' },
+  { id: 1, url: 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339' },
+  { id: 2, url: 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550' },
+  { id: 3, url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
+  { id: 4, url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
 ];
 
 // File chunking configuration

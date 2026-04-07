@@ -464,6 +464,42 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                 </p>
               </div>
 
+              {/* Верификация */}
+              {profile.isVerified && (
+                <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-xl border border-blue-500/20 rounded-2xl p-4 transition-all hover:from-blue-500/20 hover:to-purple-500/20 hover:border-blue-500/30 group">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      {profile.verifiedBadgeUrl && profile.verifiedBadgeType !== 'default' ? (
+                        <img
+                          src={profile.verifiedBadgeUrl}
+                          alt="verified"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/30"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/20">
+                          <Check size={20} className="text-white" strokeWidth={3} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-blue-300 flex items-center gap-2">
+                        Верифицированный аккаунт
+                        {profile.verifiedBadgeUrl && profile.verifiedBadgeType !== 'default' && (
+                          <img
+                            src={profile.verifiedBadgeUrl}
+                            alt="verified"
+                            className="w-4 h-4 rounded-full object-cover"
+                          />
+                        )}
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {profile.verifiedAt ? `Верифицирован ${new Date(profile.verifiedAt).toLocaleDateString('ru-RU')}` : 'Аккаунт верифицирован'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Дата рождения */}
               {profile.birthday && (
                 <div className="bg-black/20 backdrop-blur-xl border border-white/5 rounded-2xl p-4 transition-all hover:bg-black/30 hover:border-white/10 group">
