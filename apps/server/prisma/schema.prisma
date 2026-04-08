@@ -78,6 +78,7 @@ model Chat {
   messages       Message[]
   pinnedMessages PinnedMessage[]
   pinnedByUsers  User[] @relation("PinnedChannels")
+  threads        Thread[]
 }
 
 model ChatMember {
