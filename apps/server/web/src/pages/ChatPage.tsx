@@ -12,6 +12,7 @@ import Sidebar from '../components/Sidebar';
 import ChatView from '../components/ChatView';
 import CallModal from '../components/CallModal';
 import GroupCallModal from '../components/GroupCallModal';
+import NexoAIPage from '../pages/NexoAIPage';
 
 export default function ChatPage() {
   const {
@@ -53,6 +54,18 @@ export default function ChatPage() {
   const [groupCallSessionId, setGroupCallSessionId] = useState(0);
 
   const { t } = useLang();
+
+  // Nexo AI state
+  const [showAI, setShowAI] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Определяем мобильное устройство
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // State for call restore confirmation
   const [showCallRestoreConfirm, setShowCallRestoreConfirm] = useState(false);
@@ -493,7 +506,7 @@ export default function ChatPage() {
     >
       {/* Sidebar - hidden on mobile when chat is active */}
       <div className={`${showMobileSidebar ? 'flex' : 'hidden'} sm:flex w-full sm:w-[340px] flex-shrink-0 min-w-0`}>
-        <Sidebar />
+        <Sidebar onOpenAI={() => isMobile ? setShowAI(true) : setShowAI(true)} />
       </div>
 
       {/* ChatView - hidden on mobile when sidebar is shown */}
@@ -509,6 +522,27 @@ export default function ChatPage() {
           <ChatView onStartCall={handleStartCall} onStartGroupCall={handleStartGroupCall} />
         </div>
       </div>
+
+      {/* ====== NEXO AI PANEL ====== */}
+      <AnimatePresence>
+        {showAI && (
+          <motion.div
+            initial={{ opacity: 0, x: isMobile ? 0 : 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: isMobile ? 0 : 40 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className={`fixed inset-0 z-[150] sm:z-[140] ${
+              isMobile
+                ? '' // На мобилках - полный экран
+                : 'right-0 top-0 bottom-0 w-[480px]' // На ПК - боковая панель
+            }`}
+          >
+            <div className={`h-full bg-[#0a0a0f] ${isMobile ? '' : 'border-l border-white/10 shadow-2xl'}`}>
+              <NexoAIPage onClose={() => setShowAI(false)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <CallModal
         key={callSessionId}

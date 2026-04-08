@@ -84,6 +84,7 @@ app.use('/api/call-logs', apiLimiter, authenticateToken, callLogRoutes);
 app.use('/api/messages', apiLimiter, authenticateToken, messageViewRoutes);
 app.use('/api/messages', apiLimiter, authenticateToken, messageRoutes);
 app.use('/api/threads', apiLimiter, authenticateToken, require('./routes/threads').default);
+app.use('/api/ai', apiLimiter, authenticateToken, require('./routes/ai').default);
 app.use('/api/admin', adminRoutes);
 
 // Проверка здоровья

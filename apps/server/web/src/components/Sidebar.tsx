@@ -6,6 +6,8 @@ import {
   Menu,
   X,
   MessageSquare,
+  Users,
+  Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -22,7 +24,7 @@ import StoryViewer, { CreateStoryModal } from './StoryViewer';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenAI }: { onOpenAI: () => void }) {
   const { user } = useAuthStore();
   const { chats, activeChat, searchQuery, setSearchQuery, addChat, setActiveChat } = useChatStore();
   const { t } = useLang();
@@ -38,22 +40,26 @@ export default function Sidebar() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [channelResults, setChannelResults] = useState<Chat[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  /**
-   * Загружаем сторисы с кэшированием в localStorage
-   * Обновляем каждые 30 секунд
-   */
+  /** Определяем мобильное устройство */
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  /** Загрузка сторисов с кэшированием */
   const loadStories = () => {
     const now = Date.now();
     const cachedStories = loadDecrypted('nexo_stories');
     const cachedTimestamp = loadTimestamp('nexo_stories_timestamp');
 
-    // Показываем кэш если он свежий (< 2 мин)
     if (cachedStories && cachedTimestamp && (now - cachedTimestamp) < 2 * 60 * 1000) {
       setStoryGroups(cachedStories);
     }
 
-    // Загружаем свежие данные с сервера
     api.getStories()
       .then((stories) => {
         setStoryGroups(stories);
@@ -63,10 +69,7 @@ export default function Sidebar() {
       .catch(console.error);
   };
 
-  /**
-   * Единый поиск - пользователи и каналы
-   * Срабатывает через 300мс после ввода
-   */
+  /** Поиск пользователей и каналов */
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -93,7 +96,6 @@ export default function Sidebar() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  /** Открыть канал */
   const handleJoinChannel = async (channel: Chat) => {
     try {
       const joined = await api.joinChannel(channel.username!);
@@ -105,10 +107,6 @@ export default function Sidebar() {
     }
   };
 
-  /**
-   * Открыть личный чат с пользователем
-   * Если чата нет - создаём
-   */
   const handleOpenChatWithUser = async (userId: string) => {
     if (openingChatRef.current) return;
     openingChatRef.current = true;
@@ -123,9 +121,7 @@ export default function Sidebar() {
         store.setActiveChat(existingChat.id);
         setSearchQuery('');
       } else {
-        // Маленькая задержка для синхронизации стора
         await new Promise(resolve => setTimeout(resolve, 100));
-
         const refreshedChats = store.chats;
         const stillExisting = refreshedChats.find(c =>
           c.type === 'personal' && c.members.some(m => m.user.id === userId)
@@ -157,10 +153,7 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  /**
-   * Фильтруем чаты по поисковому запросу
-   * Избранные всегда на первом месте
-   */
+  /** Фильтрация чатов, избранные всегда наверху */
   const filteredChats = chats.filter((chat) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -205,13 +198,22 @@ export default function Sidebar() {
             </h1>
           </div>
 
-          {/* Новый чат */}
+          {/* Новый чат (быстрая кнопка) */}
           <button
             onClick={() => setShowNewChat(true)}
-            className="glass-btn w-10 h-10 rounded-xl text-nexo-400 hover:text-nexo-300"
+            className="glass-btn w-10 h-10 rounded-xl text-nexo-400 hover:text-nexo-300 hidden sm:flex"
             title={t('newChat')}
           >
             <Plus size={18} />
+          </button>
+
+          {/* Nexo AI (только ПК) */}
+          <button
+            onClick={onOpenAI}
+            className="glass-btn w-10 h-10 rounded-xl text-nexo-400 hover:text-nexo-300 hidden sm:flex"
+            title="Nexo AI"
+          >
+            <Sparkles size={18} />
           </button>
         </div>
 
@@ -281,13 +283,12 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* ====== РДЕЛИТЕЛЬ ====== */}
+        {/* Разделитель */}
         <div className="mx-4 h-px bg-white/5 flex-shrink-0" />
 
         {/* ====== СПИСОК ЧАТОВ / РЕЗУЛЬТАТЫ ПОИСКА ====== */}
-        <div className="flex-1 overflow-y-auto relative">
+        <div className="flex-1 overflow-y-auto relative pb-2">
           <AnimatePresence mode="wait">
-            {/* Показываем результаты поиска */}
             {searchQuery.trim() ? (
               <motion.div
                 key="search-results"
@@ -386,7 +387,6 @@ export default function Sidebar() {
                 )}
               </motion.div>
             ) : filteredChats.length === 0 ? (
-              /* Пустой список чатов */
               <motion.div
                 key="empty-chats"
                 initial={{ opacity: 0, y: 8 }}
@@ -399,7 +399,6 @@ export default function Sidebar() {
                 <p className="text-sm text-center">{t('noChats')}</p>
               </motion.div>
             ) : (
-              /* Список чатов */
               <motion.div
                 key="chat-list"
                 initial={{ opacity: 0 }}
@@ -415,6 +414,49 @@ export default function Sidebar() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ====== НИЖНЯЯ НАВИГАЦИЯ (МОБИЛКИ) ====== */}
+        {isMobile && (
+          <div className="glass-strong flex items-center justify-around px-2 py-2 flex-shrink-0">
+            {/* Чаты */}
+            <button className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white transition-colors">
+              <MessageSquare size={20} />
+              <span className="text-[10px]">Чаты</span>
+            </button>
+
+            {/* Друзья */}
+            <button className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white transition-colors">
+              <Users size={20} />
+              <span className="text-[10px]">Друзья</span>
+            </button>
+
+            {/* Новый чат - центральная кнопка */}
+            <button
+              onClick={() => setShowNewChat(true)}
+              className="relative -mt-5 w-14 h-14 rounded-2xl bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-nexo-500/40 hover:shadow-nexo-500/60 hover:scale-105 active:scale-95 transition-all duration-200"
+            >
+              <Plus size={24} />
+            </button>
+
+            {/* Nexo AI */}
+            <button
+              onClick={onOpenAI}
+              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-nexo-400 transition-colors"
+            >
+              <Sparkles size={20} />
+              <span className="text-[10px]">Nexo AI</span>
+            </button>
+
+            {/* Меню */}
+            <button
+              onClick={() => setShowSideMenu(true)}
+              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white transition-colors"
+            >
+              <Menu size={20} />
+              <span className="text-[10px]">Меню</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ====== МОДАЛКИ ====== */}
