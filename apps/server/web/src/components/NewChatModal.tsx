@@ -120,27 +120,27 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 40 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 40 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="w-full max-w-xl bg-surface-secondary rounded-3xl border border-white/10 shadow-2xl overflow-hidden relative"
+        transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+        className="w-full max-w-xl liquid-glass-modal rounded-3xl overflow-hidden relative"
       >
         {/* Background decoration */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full bg-gradient-to-br ${modes.find(m => m.key === mode)?.color} opacity-10 blur-3xl`} />
-          <div className={`absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-gradient-to-br ${modes.find(m => m.key === mode)?.color} opacity-10 blur-3xl`} />
+          <div className={`absolute -top-32 -right-32 w-64 h-64 rounded-full bg-gradient-to-br ${modes.find(m => m.key === mode)?.color} opacity-15 blur-3xl`} />
+          <div className={`absolute -bottom-32 -left-32 w-64 h-64 rounded-full bg-gradient-to-br ${modes.find(m => m.key === mode)?.color} opacity-15 blur-3xl`} />
         </div>
 
         {/* Header */}
-        <div className="relative p-5 border-b border-white/5">
+        <div className="relative p-5 liquid-glass-header">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${modes.find(m => m.key === mode)?.color} flex items-center justify-center shadow-lg`}>
+              <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${modes.find(m => m.key === mode)?.color} flex items-center justify-center shadow-lg liquid-glass`}>
                 {(() => {
                   const ModeIcon = modes.find(m => m.key === mode)!.icon;
                   return <ModeIcon size={20} className="text-white" />;
@@ -153,7 +153,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all hover:rotate-90"
+              className="w-9 h-9 rounded-xl liquid-glass-button flex items-center justify-center text-zinc-400 hover:text-white"
             >
               <X size={16} />
             </button>
@@ -161,15 +161,15 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
         </div>
 
         {/* Mode tabs */}
-        <div className="relative p-3">
-          <div className="flex gap-2 bg-white/5 rounded-2xl p-1">
+        <div className="relative p-4">
+          <div className="flex gap-2 p-1 rounded-2xl liquid-glass-subtle">
             {modes.map(m => (
               <button
                 key={m.key}
                 onClick={() => { setMode(m.key); setQuery(''); setUsers([]); setSelectedUsers(new Set()); setIsAnimating(true); setTimeout(() => setIsAnimating(false), 300); }}
-                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-medium transition-all duration-200 flex flex-col items-center gap-1 ${
+                className={`flex-1 py-3 px-3 rounded-xl text-xs font-medium transition-all duration-300 flex flex-col items-center gap-1.5 ${
                   mode === m.key
-                    ? `bg-gradient-to-br ${m.color} text-white shadow-lg scale-105`
+                    ? `liquid-glass-tab-active bg-gradient-to-br ${m.color} text-white shadow-lg`
                     : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -185,7 +185,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
           key={mode}
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="px-5 pb-3"
+          className="px-5 pb-4"
         >
           <p className="text-sm text-zinc-400 text-center">{modes.find(m => m.key === mode)?.desc}</p>
         </motion.div>
@@ -202,19 +202,19 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
             >
               {/* Search */}
               <div className="relative group">
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-nexo-400 transition-colors" />
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-nexo-400 transition-colors z-10" />
                 <input
                   ref={inputRef}
                   type="text"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder="Поиск по имени или username..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 focus:bg-white/10 transition-all"
+                  className="w-full pl-12 pr-12 py-3.5 text-sm text-white placeholder-zinc-500 liquid-glass-input rounded-2xl"
                 />
                 {query && (
                   <button 
                     onClick={() => { setQuery(''); setUsers([]); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-xl liquid-glass-button flex items-center justify-center text-zinc-400 hover:text-white"
                   >
                     <X size={12} />
                   </button>
@@ -236,7 +236,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                       onClick={() => handleSelectUser(user)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all text-left group border border-transparent hover:border-white/5"
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl liquid-glass-subtle hover:liquid-glass transition-all text-left group"
                     >
                       <div className="relative">
                         <Avatar src={user.avatar} name={user.displayName || user.username} size="md" />
@@ -254,8 +254,8 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                 </div>
               ) : query.length >= 2 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                    <Search size={28} className="text-zinc-600" />
+                  <div className="w-16 h-16 rounded-full liquid-glass-subtle flex items-center justify-center">
+                    <Search size={28} className="text-zinc-400" />
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-zinc-400">Никого не найдено</p>
@@ -264,7 +264,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-500/10 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full liquid-glass-glow flex items-center justify-center">
                     <Sparkles size={28} className="text-nexo-400" />
                   </div>
                   <div className="text-center">
@@ -296,7 +296,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                   onChange={e => setGroupName(e.target.value)}
                   placeholder="Моя супер группа"
                   maxLength={50}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 focus:bg-white/10 transition-all"
+                  className="w-full px-4 py-3.5 text-sm text-white placeholder-zinc-500 liquid-glass-input rounded-2xl"
                 />
                 {groupName && (
                   <p className="text-xs text-zinc-600 mt-1 text-right">{groupName.length}/50</p>
@@ -314,13 +314,13 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                   )}
                 </label>
                 <div className="relative group">
-                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-nexo-400 transition-colors" />
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-nexo-400 transition-colors z-10" />
                   <input
                     type="text"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Поиск участников..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 focus:bg-white/10 transition-all"
+                    className="w-full pl-12 pr-4 py-3.5 text-sm text-white placeholder-zinc-500 liquid-glass-input rounded-2xl"
                   />
                 </div>
 
@@ -391,7 +391,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                 disabled={!groupName.trim() || isCreating}
                 whileHover={{ scale: !(!groupName.trim() || isCreating) ? 1.02 : 1 }}
                 whileTap={{ scale: !(!groupName.trim() || isCreating) ? 0.98 : 1 }}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-nexo-500 to-purple-600 text-white font-medium hover:from-nexo-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-nexo-500/25 flex items-center justify-center gap-2 group"
+                className="w-full py-4 rounded-2xl text-white font-medium liquid-glass-button bg-gradient-to-r from-nexo-500 to-purple-600 border-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-nexo-500/30 flex items-center justify-center gap-2 group"
               >
                 {isCreating ? (
                   <Loader2 size={18} className="animate-spin" />
@@ -425,7 +425,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                   onChange={e => setGroupName(e.target.value)}
                   placeholder="Мой крутой канал"
                   maxLength={50}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 focus:bg-white/10 transition-all"
+                  className="w-full px-4 py-3.5 text-sm text-white placeholder-zinc-500 liquid-glass-input rounded-2xl"
                 />
                 {groupName && (
                   <p className="text-xs text-zinc-600 mt-1 text-right">{groupName.length}/50</p>
@@ -439,13 +439,13 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                   Username канала
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">@</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">@</span>
                   <input
                     type="text"
                     value={channelUsername}
                     onChange={e => setChannelUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                     placeholder="my_channel"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 focus:bg-white/10 transition-all lowercase"
+                    className="w-full pl-8 pr-4 py-3.5 text-sm text-white placeholder-zinc-500 liquid-glass-input rounded-2xl lowercase"
                   />
                 </div>
                 <p className="text-xs text-zinc-500 mt-1.5 flex items-center gap-1">
@@ -465,7 +465,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                   onChange={e => setChannelDescription(e.target.value)}
                   placeholder="О чём ваш канал..."
                   maxLength={255}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 focus:bg-white/10 transition-all resize-none h-24"
+                  className="w-full px-4 py-3.5 text-sm text-white placeholder-zinc-500 liquid-glass-input rounded-2xl resize-none h-24"
                 />
                 <p className="text-xs text-zinc-600 mt-1 text-right">{channelDescription.length}/255</p>
               </div>
@@ -475,9 +475,9 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/10"
+                  className="p-4 rounded-2xl liquid-glass-card"
                 >
-                  <p className="text-xs text-zinc-500 mb-2">Предпросмотр:</p>
+                  <p className="text-xs text-zinc-500 mb-3">Предпросмотр:</p>
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
                       {groupName.charAt(0).toUpperCase()}
@@ -497,7 +497,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                 disabled={!groupName.trim() || !channelUsername.trim() || isCreating}
                 whileHover={{ scale: !(!groupName.trim() || !channelUsername.trim() || isCreating) ? 1.02 : 1 }}
                 whileTap={{ scale: !(!groupName.trim() || !channelUsername.trim() || isCreating) ? 0.98 : 1 }}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 group"
+                className="w-full py-4 rounded-2xl text-white font-medium liquid-glass-button bg-gradient-to-r from-amber-500 to-orange-500 border-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 group"
               >
                 {isCreating ? (
                   <Loader2 size={18} className="animate-spin" />
