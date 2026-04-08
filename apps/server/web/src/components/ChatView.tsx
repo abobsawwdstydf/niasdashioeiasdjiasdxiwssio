@@ -38,6 +38,7 @@ import ConfirmModal from './ConfirmModal';
 import Avatar from './Avatar';
 import ChannelProfile from './ChannelProfile';
 import ChannelStudio from './ChannelStudio';
+import ThreadView from './ThreadView';
 import { useThemeStore } from '../stores/themeStore';
 
 export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCall?: (targetUser: UserBasic, type: 'voice' | 'video') => void; onStartGroupCall?: (chatId: string, chatName: string, type: 'voice' | 'video') => void }) {
@@ -73,6 +74,7 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
   const [showCallTypeMenu, setShowCallTypeMenu] = useState(false);
   const [showChannelStudio, setShowChannelStudio] = useState(false);
   const [showChannelProfile, setShowChannelProfile] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -96,9 +98,29 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
     
     window.addEventListener('open-channel-profile', handleOpenChannelProfile);
     window.addEventListener('open-channel-studio', handleOpenChannelStudio);
+
+    // Listen for thread creation
+    const handleCreateThread = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { messageId, chatId } = customEvent.detail || {};
+      if (!messageId || !chatId) return;
+
+      try {
+        const thread = await api.createThread(chatId, messageId);
+        if (thread?.id) {
+          setActiveThreadId(thread.id);
+        }
+      } catch (err) {
+        console.error('Failed to create thread:', err);
+      }
+    };
+
+    window.addEventListener('create-thread', handleCreateThread);
+
     return () => {
       window.removeEventListener('open-channel-profile', handleOpenChannelProfile);
       window.removeEventListener('open-channel-studio', handleOpenChannelStudio);
+      window.removeEventListener('create-thread', handleCreateThread);
     };
   }, []);
 
@@ -1159,6 +1181,17 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
           <ChannelStudio
             channelId={activeChat!}
             onClose={() => setShowChannelStudio(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Thread View */}
+      <AnimatePresence>
+        {activeThreadId && (
+          <ThreadView
+            threadId={activeThreadId}
+            chatId={activeChat!}
+            onClose={() => setActiveThreadId(null)}
           />
         )}
       </AnimatePresence>

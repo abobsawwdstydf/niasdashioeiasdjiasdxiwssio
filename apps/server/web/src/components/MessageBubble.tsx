@@ -24,6 +24,7 @@ import {
   Video,
   MapPin,
   BarChart3,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -206,6 +207,13 @@ function MessageBubble({
       }
     }
     setShowContext(false);
+  };
+
+  const handleCreateThread = () => {
+    setShowContext(false);
+    // Dispatch event to open thread
+    const event = new CustomEvent('create-thread', { detail: { messageId: message.id, chatId: message.chatId } });
+    window.dispatchEvent(event);
   };
 
   const handleReaction = (emoji: string) => {
@@ -1238,6 +1246,17 @@ function MessageBubble({
                 <Pin size={16} />
                 {isPinned ? t('unpinMessage') : t('pinMessage')}
               </button>
+
+              {/* Thread button - only for non-channel chats */}
+              {!isChannel && (
+                <button
+                  onClick={handleCreateThread}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+                >
+                  <MessageSquare size={16} />
+                  Создать тред
+                </button>
+              )}
 
               {message.content && (
                 <button

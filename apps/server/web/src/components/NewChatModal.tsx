@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageSquare, Users, Megaphone, Camera } from 'lucide-react';
+import { X, MessageSquare, Users, Megaphone, Search, Check, UserPlus, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useChatStore } from '../stores/chatStore';
 import { useLang } from '../lib/i18n';
 import type { UserPresence } from '../lib/types';
+import Avatar from './Avatar';
 
 interface NewChatModalProps {
   onClose: () => void;
@@ -22,13 +23,12 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
   const [groupName, setGroupName] = useState('');
   const [channelUsername, setChannelUsername] = useState('');
   const [channelDescription, setChannelDescription] = useState('');
-  const [channelAvatar, setChannelAvatar] = useState<File | null>(null);
-  const [channelAvatarPreview, setChannelAvatarPreview] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!query.trim() || query.trim().length < 3) {
+    if (!query.trim() || query.trim().length < 2) {
       setUsers([]);
       return;
     }
@@ -36,7 +36,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
       try {
         setIsLoading(true);
         const results = await api.searchUsers(query);
-        setUsers(results);
+        setUsers(results.filter(u => !selectedUsers.has(u.id)));
       } catch (e) {
         console.error(e);
       } finally {
@@ -44,7 +44,16 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, selectedUsers]);
+
+  const toggleUser = (userId: string) => {
+    setSelectedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
 
   const handleSelectUser = async (selectedUser: UserPresence) => {
     try {
@@ -53,7 +62,7 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
       setActiveChat(chat.id);
       loadMessages(chat.id);
       onClose();
-    } catch (e: unknown) {
+    } catch (e) {
       console.error(e);
     }
   };
@@ -62,7 +71,8 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
     if (!groupName.trim()) return;
     setIsCreating(true);
     try {
-      const chat = await api.createGroupChat(groupName.trim(), []);
+      const memberIds = Array.from(selectedUsers);
+      const chat = await api.createGroupChat(groupName.trim(), memberIds);
       addChat(chat);
       setActiveChat(chat.id);
       loadMessages(chat.id);
@@ -78,297 +88,271 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
     if (!groupName.trim() || !channelUsername.trim()) return;
     setIsCreating(true);
     try {
-      let avatarUrl: string | undefined;
-      
-      // Сначала загружаем аватарку если есть
-      if (channelAvatar) {
-        const uploadResult = await api.uploadFile(channelAvatar);
-        avatarUrl = uploadResult.url;
-      }
-      
-      // Создаем канал
       const chat = await api.createChannel(
         groupName.trim(),
         channelUsername.trim(),
-        channelDescription.trim() || undefined,
-        avatarUrl
+        channelDescription.trim() || undefined
       );
-
       addChat(chat);
       setActiveChat(chat.id);
       loadMessages(chat.id);
       onClose();
     } catch (e) {
-      console.error('Create channel error:', e);
-      if (e instanceof Error && e.message.includes('юзернейм')) {
-        alert('Этот юзернейм уже занят. Пожалуйста, выберите другой.');
-      } else if (e instanceof Error) {
-        alert('Ошибка при создании канала: ' + e.message);
-      }
+      console.error(e);
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Проверка размера (макс 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Максимальный размер аватарки 5MB');
-      return;
-    }
-    
-    setChannelAvatar(file);
-    
-    // Создаем превью
-    const reader = new FileReader();
-    reader.onload = () => {
-      setChannelAvatarPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
+  const modes: { key: Mode; icon: typeof MessageSquare; label: string; desc: string }[] = [
+    { key: 'personal', icon: MessageSquare, label: 'Личный чат', desc: 'Написать сообщение' },
+    { key: 'group', icon: Users, label: 'Группа', desc: 'Создать группу' },
+    { key: 'channel', icon: Megaphone, label: 'Канал', desc: 'Создать канал' },
+  ];
 
   return (
-    <AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        className="w-full max-w-lg bg-surface-secondary rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="w-full max-w-md rounded-2xl glass-strong shadow-2xl overflow-hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Новый чат"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="flex items-center gap-2">
-              {mode !== 'personal' && (
-                <button
-                  onClick={() => setMode('personal')}
-                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-hover transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              )}
-              <h2 className="text-lg font-semibold text-white">
-                {mode === 'personal' ? 'Новый чат' : mode === 'group' ? 'Новая группа' : 'Новый канал'}
-              </h2>
-            </div>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/5">
+          <h2 className="text-lg font-semibold text-white">Новый чат</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Mode tabs */}
+        <div className="flex border-b border-white/5">
+          {modes.map(m => (
             <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-surface-hover transition-colors"
+              key={m.key}
+              onClick={() => { setMode(m.key); setQuery(''); setUsers([]); setSelectedUsers(new Set()); }}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                mode === m.key
+                  ? 'text-nexo-400 border-b-2 border-nexo-400 bg-nexo-500/5'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
+              }`}
             >
-              <X size={18} />
+              <m.icon size={16} />
+              {m.label}
             </button>
-          </div>
+          ))}
+        </div>
 
-          {/* Mode Selection */}
-          {mode === 'personal' ? (
-            <div className="p-4 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => setMode('personal')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-nexo-500/20 border border-nexo-500/30 text-nexo-400"
-                >
-                  <MessageSquare size={24} />
-                  <span className="text-xs font-medium">Личный</span>
-                </button>
-                <button
-                  onClick={() => setMode('group')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-tertiary/50 border border-border text-zinc-400 hover:bg-surface-hover transition-colors"
-                >
-                  <Users size={24} />
-                  <span className="text-xs font-medium">Группа</span>
-                </button>
-                <button
-                  onClick={() => setMode('channel')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-tertiary/50 border border-border text-zinc-400 hover:bg-surface-hover transition-colors"
-                >
-                  <Megaphone size={24} />
-                  <span className="text-xs font-medium">Канал</span>
-                </button>
-              </div>
-
-              {/* Search for personal chat */}
-              <div>
+        <div className="p-4 max-h-[60vh] overflow-y-auto">
+          {mode === 'personal' && (
+            <div className="space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                 <input
+                  ref={inputRef}
                   type="text"
-                  placeholder="Поиск пользователей..."
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-tertiary text-sm text-white placeholder-zinc-500 border border-border focus:border-accent transition-colors"
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Поиск по имени или username..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50"
                   autoFocus
                 />
               </div>
 
-              {/* Search Results */}
+              {/* Users list */}
               {isLoading ? (
                 <div className="flex justify-center py-8">
-                  <div className="w-5 h-5 border-2 border-nexo-500 border-t-transparent rounded-full animate-spin" />
+                  <Loader2 size={20} className="text-nexo-400 animate-spin" />
                 </div>
               ) : users.length > 0 ? (
-                <div className="max-h-80 overflow-y-auto space-y-1">
-                  {users.map((u) => (
+                <div className="space-y-1">
+                  {users.map(user => (
                     <button
-                      key={u.id}
-                      onClick={() => handleSelectUser(u)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-hover transition-colors"
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors text-left"
                     >
-                      {u.avatar ? (
-                        <img src={u.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-                          {(u.displayName || u.username)?.[0]?.toUpperCase() || '?'}
-                        </div>
-                      )}
-                      <div className="min-w-0 text-left flex-1">
-                        <p className="text-sm font-medium text-white truncate">
-                          {u.displayName || u.username}
-                        </p>
-                        <p className="text-xs text-zinc-500 truncate">@{u.username}</p>
+                      <Avatar src={user.avatar} name={user.displayName || user.username} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{user.displayName || user.username}</p>
+                        <p className="text-xs text-zinc-500">@{user.username}</p>
                       </div>
                     </button>
                   ))}
                 </div>
-              ) : query.trim().length > 0 && query.trim().length < 3 ? (
-                <div className="text-center py-6 text-zinc-500">
-                  <p className="text-sm">Введите минимум 3 символа</p>
-                </div>
-              ) : null}
+              ) : query.length >= 2 ? (
+                <p className="text-center text-zinc-500 text-sm py-8">Никого не найдено</p>
+              ) : (
+                <p className="text-center text-zinc-500 text-sm py-8">Начните вводить имя или username</p>
+              )}
             </div>
-          ) : mode === 'group' ? (
-            /* Create Group */
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-center py-8">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white font-bold text-3xl">
-                  {groupName.trim().charAt(0).toUpperCase() || 'G'}
-                </div>
+          )}
+
+          {mode === 'group' && (
+            <div className="space-y-4">
+              {/* Group name */}
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                  Название группы
+                </label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={e => setGroupName(e.target.value)}
+                  placeholder="Введите название..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50"
+                  autoFocus
+                />
               </div>
-              <input
-                type="text"
-                placeholder="Название группы"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-tertiary text-sm text-white placeholder-zinc-500 border border-border focus:border-accent transition-colors"
-                autoFocus
-                maxLength={50}
-              />
-              <p className="text-xs text-zinc-500 text-center">
-                Участники могут быть добавлены позже через настройки группы
-              </p>
+
+              {/* Members selection */}
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                  Участники ({selectedUsers.size})
+                </label>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Поиск участников..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50"
+                  />
+                </div>
+
+                {/* Selected users */}
+                {selectedUsers.size > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {Array.from(selectedUsers).map(id => {
+                      const user = users.find(u => u.id === id);
+                      if (!user) return null;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => toggleUser(id)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-nexo-500/20 border border-nexo-500/30 text-nexo-300 text-sm hover:bg-nexo-500/30 transition-colors"
+                        >
+                          <Check size={12} />
+                          {user.displayName || user.username}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Users list */}
+                {users.length > 0 && (
+                  <div className="space-y-1 mt-3 max-h-40 overflow-y-auto">
+                    {users.map(user => (
+                      <button
+                        key={user.id}
+                        onClick={() => toggleUser(user.id)}
+                        className={`w-full flex items-center gap-3 p-2 rounded-xl transition-colors text-left ${
+                          selectedUsers.has(user.id) ? 'bg-nexo-500/10 border border-nexo-500/20' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <Avatar src={user.avatar} name={user.displayName || user.username} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{user.displayName || user.username}</p>
+                          <p className="text-xs text-zinc-500">@{user.username}</p>
+                        </div>
+                        {selectedUsers.has(user.id) && (
+                          <div className="w-5 h-5 rounded-full bg-nexo-500 flex items-center justify-center">
+                            <Check size={12} className="text-white" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Create button */}
               <button
                 onClick={handleCreateGroup}
                 disabled={!groupName.trim() || isCreating}
-                className="w-full py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-nexo-500 to-purple-600 text-white font-medium hover:from-nexo-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-nexo-500/25 flex items-center justify-center gap-2"
               >
-                {isCreating ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Users size={16} />
-                    Создать группу
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            /* Create Channel */
-            <div className="p-4 space-y-4">
-              {/* Avatar upload */}
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="relative w-24 h-24 rounded-full bg-surface-tertiary border-2 border-dashed border-border hover:border-accent transition-colors flex items-center justify-center overflow-hidden group"
-                >
-                  {channelAvatarPreview ? (
-                    <>
-                      <img src={channelAvatarPreview} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Camera size={24} className="text-white" />
-                      </div>
-                    </>
-                  ) : (
-                    <Camera size={32} className="text-zinc-500" />
-                  )}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarSelect}
-                />
-              </div>
-              {channelAvatar && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChannelAvatar(null);
-                    setChannelAvatarPreview(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  className="w-full text-xs text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Удалить аватарку
-                </button>
-              )}
-              
-              <input
-                type="text"
-                placeholder="Название канала"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-tertiary text-sm text-white placeholder-zinc-500 border border-border focus:border-accent transition-colors"
-                autoFocus
-                maxLength={50}
-              />
-              <input
-                type="text"
-                placeholder="Юзернейм @"
-                value={channelUsername}
-                onChange={(e) => setChannelUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-tertiary text-sm text-white placeholder-zinc-500 border border-border focus:border-accent transition-colors"
-                required
-                maxLength={32}
-              />
-              <textarea
-                placeholder="Описание канала (необязательно)"
-                value={channelDescription}
-                onChange={(e) => setChannelDescription(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-tertiary text-sm text-white placeholder-zinc-500 border border-border focus:border-accent transition-colors resize-none h-20"
-                maxLength={200}
-              />
-              <p className="text-xs text-zinc-500 text-center">
-                Подписчики могут быть добавлены позже через настройки канала
-              </p>
-              <button
-                onClick={handleCreateChannel}
-                disabled={!groupName.trim() || !channelUsername.trim() || isCreating}
-                className="w-full py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isCreating ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Megaphone size={16} />
-                    Создать канал
-                  </>
-                )}
+                {isCreating ? <Loader2 size={18} className="animate-spin" /> : <Users size={18} />}
+                Создать группу
               </button>
             </div>
           )}
-        </motion.div>
+
+          {mode === 'channel' && (
+            <div className="space-y-4">
+              {/* Channel name */}
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                  Название канала
+                </label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={e => setGroupName(e.target.value)}
+                  placeholder="Введите название..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50"
+                  autoFocus
+                />
+              </div>
+
+              {/* Username */}
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                  Username
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">@</span>
+                  <input
+                    type="text"
+                    value={channelUsername}
+                    onChange={e => setChannelUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                    placeholder="username"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50"
+                  />
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">Только латинские буквы, цифры и _</p>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                  Описание (необязательно)
+                </label>
+                <textarea
+                  value={channelDescription}
+                  onChange={e => setChannelDescription(e.target.value)}
+                  placeholder="О чём ваш канал..."
+                  maxLength={255}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-nexo-500/50 resize-none h-20"
+                />
+              </div>
+
+              {/* Create button */}
+              <button
+                onClick={handleCreateChannel}
+                disabled={!groupName.trim() || !channelUsername.trim() || isCreating}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-nexo-500 to-purple-600 text-white font-medium hover:from-nexo-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-nexo-500/25 flex items-center justify-center gap-2"
+              >
+                {isCreating ? <Loader2 size={18} className="animate-spin" /> : <Megaphone size={18} />}
+                Создать канал
+              </button>
+            </div>
+          )}
+        </div>
       </motion.div>
-    </AnimatePresence>
+    </motion.div>
   );
 }

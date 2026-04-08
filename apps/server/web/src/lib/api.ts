@@ -468,6 +468,28 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // Threads
+  async createThread(chatId: string, messageId: string, title?: string) {
+    return this.request<{ id: string; messageId: string; chatId: string; title: string | null }>(`/threads/chat/${chatId}/thread`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId, title }),
+    });
+  }
+
+  async getThreads(chatId: string) {
+    return this.request<Array<{ id: string; messageId: string; chatId: string; title: string | null; replyCount: number; message: Message }>>(`/threads/chat/${chatId}`);
+  }
+
+  async getThreadMessages(threadId: string) {
+    return this.request<Message[]>(`/threads/thread/${threadId}/messages`);
+  }
+
+  async deleteThread(threadId: string) {
+    return this.request<{ success: boolean }>(`/threads/thread/${threadId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const api = new ApiClient();
