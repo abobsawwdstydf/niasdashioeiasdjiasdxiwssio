@@ -14,6 +14,7 @@ import {
   Calendar,
   Check,
   Music,
+  Video,
 } from 'lucide-react';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
@@ -815,6 +816,16 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                 <Paperclip size={18} />
               </button>
 
+              {/* Video Circle button - next to mic/send */}
+              <button
+                onClick={() => setShowVideoCircle(true)}
+                disabled={isSending || isRecording}
+                className="w-11 h-11 rounded-full bg-nexo-500/20 hover:bg-nexo-500/30 flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50"
+                title="Видео-кружок"
+              >
+                <Video size={18} className="text-nexo-400" />
+              </button>
+
               <button
                 onClick={() => hasContent ? handleSend() : startRecording()}
                 disabled={isSending || (!hasContent && isRecording)}
@@ -860,6 +871,17 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               >
                 <Paperclip size={18} />
               </button>
+
+              {/* Video Circle - desktop */}
+              <button
+                onClick={() => setShowVideoCircle(true)}
+                disabled={isSending || isRecording}
+                className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0 disabled:opacity-50"
+                title="Видео-кружок"
+              >
+                <Video size={18} />
+              </button>
+
               <button
                 onClick={() => hasContent ? handleSend() : startRecording()}
                 disabled={isSending || (!hasContent && isRecording)}

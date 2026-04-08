@@ -109,7 +109,16 @@ router.post('/', async (req: AuthRequest, res) => {
 
     // Validate mediaUrl to prevent path traversal
     if (mediaUrl) {
-      if (typeof mediaUrl !== 'string' || !mediaUrl.startsWith('/uploads/') || mediaUrl.includes('..')) {
+      if (typeof mediaUrl !== 'string' || mediaUrl.includes('..')) {
+        res.status(400).json({ error: 'Недопустимый URL медиафайла' });
+        return;
+      }
+      // Allow /uploads/, /api/files/, and external URLs
+      const isValidUrl = mediaUrl.startsWith('/uploads/') || 
+                         mediaUrl.startsWith('/api/files/') ||
+                         mediaUrl.startsWith('http://') ||
+                         mediaUrl.startsWith('https://');
+      if (!isValidUrl) {
         res.status(400).json({ error: 'Недопустимый URL медиафайла' });
         return;
       }

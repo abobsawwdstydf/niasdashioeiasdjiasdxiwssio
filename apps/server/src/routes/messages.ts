@@ -77,9 +77,25 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
 
     for (const file of files) {
       const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      console.log(`\n📄 Файл: ${originalName}`);
-      console.log(`   Размер: ${(file.size / 1024).toFixed(2)} KB`);
-      console.log(`   MIME: ${file.mimetype}`);
+      
+      // Fix empty/wrong MIME type based on file extension
+      let mimeType = file.mimetype;
+      if (!mimeType || mimeType === 'application/octet-stream') {
+        const ext = originalName.split('.').pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = {
+          'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+          'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+          'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+          'mp3': 'audio/mpeg', 'ogg': 'audio/ogg', 'opus': 'audio/opus',
+          'wav': 'audio/wav', 'm4a': 'audio/mp4', 'aac': 'audio/aac',
+          'pdf': 'application/pdf', 'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'zip': 'application/zip', 'rar': 'application/x-rar-compressed',
+        };
+        if (ext && mimeMap[ext]) {
+          mimeType = mimeMap[ext];
+        }
+      }
 
       let storedFile;
       try {
@@ -87,7 +103,7 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
         storedFile = await telegramStorage.uploadFile(
           file.buffer,
           originalName,
-          file.mimetype,
+          mimeType,
           req.userId!
         );
       } catch (telegramError: any) {

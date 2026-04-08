@@ -72,7 +72,7 @@ function MessageBubble({
   const [deleteMenuMode, setDeleteMenuMode] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showVideoPlayer, setShowVideoPlayer] = useState<string | null>(null);
-  const [showVideoCircle, setShowVideoCircle] = useState<string | null>(null);
+  const [videoCirclePlaying, setVideoCirclePlaying] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -692,15 +692,36 @@ function MessageBubble({
             {/* Видео-кружок */}
             {message.type === 'video_circle' && media[0]?.url && (
               <button
-                onClick={() => setShowVideoCircle(media[0].url)}
-                className="w-48 h-48 rounded-full overflow-hidden border-2 border-white/20 hover:border-white/40 transition-all hover:scale-105 active:scale-95"
+                onClick={() => {
+                  const videoEl = document.getElementById(`vc-${message.id}`) as HTMLVideoElement;
+                  if (!videoEl) return;
+                  if (videoCirclePlaying === message.id) {
+                    setVideoCirclePlaying(null);
+                    videoEl.pause();
+                    videoEl.currentTime = 0;
+                  } else {
+                    setVideoCirclePlaying(message.id);
+                    videoEl.play().catch(() => {});
+                  }
+                }}
+                className="w-40 h-40 rounded-full overflow-hidden border-2 border-white/10 hover:border-white/30 transition-all active:scale-95 relative"
               >
                 <video
+                  id={`vc-${message.id}`}
                   src={media[0].url}
                   className="w-full h-full object-cover"
                   muted
                   playsInline
+                  loop
+                  onEnded={() => setVideoCirclePlaying(null)}
                 />
+                {videoCirclePlaying !== message.id && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center">
+                      <Play size={18} className="text-black ml-0.5" />
+                    </div>
+                  </div>
+                )}
               </button>
             )}
 
@@ -779,28 +800,6 @@ function MessageBubble({
               }
               return null;
             })()}
-
-            {/* Video Circle Modal */}
-            {showVideoCircle && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
-                onClick={() => setShowVideoCircle(null)}
-              >
-                <div className="relative w-80 h-80 rounded-full overflow-hidden">
-                  <video
-                    src={showVideoCircle}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </motion.div>
-            )}
 
             {/* Голосовое */}
             {hasVoice && (
