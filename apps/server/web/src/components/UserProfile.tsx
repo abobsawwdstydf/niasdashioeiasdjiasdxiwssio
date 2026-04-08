@@ -271,9 +271,9 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
         onClick={onClose}
       />
       <motion.div
-        initial={{ opacity: 0, x: 50, filter: 'blur(20px)' }}
-        animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-        exit={{ opacity: 0, x: 50, filter: 'blur(20px)' }}
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 50 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300, mass: 0.8 }}
         className="fixed right-3 top-3 bottom-3 w-[360px] max-w-[calc(100%-24px)] bg-surface-secondary/80 backdrop-blur-2xl shadow-[0_0_120px_rgba(0,0,0,0.6)] border border-white/5 rounded-[2rem] z-50 flex flex-col overflow-hidden"
       >

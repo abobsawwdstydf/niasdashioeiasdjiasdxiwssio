@@ -3,8 +3,8 @@ import { API_URL } from '../config';
 
 let socket: Socket | null = null;
 let connectAttempts = 0;
-const MAX_CONNECT_ATTEMPS = 5;
-const CONNECT_TIMEOUT = 10000; // 10 seconds
+const MAX_CONNECT_ATTEMPTS = 10;
+const CONNECT_TIMEOUT = 30000; // 30 seconds for Render.com cold starts
 
 // Get socket URL - use API_URL for mobile/desktop, relative for web
 const getSocketUrl = () => {
@@ -33,13 +33,14 @@ export function connectSocket(token: string): Socket {
 
   socket = io(socketUrl, {
     auth: { token },
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
     reconnection: true,
-    reconnectionAttempts: MAX_CONNECT_ATTEMPS,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnectionAttempts: MAX_CONNECT_ATTEMPTS,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 10000,
     timeout: CONNECT_TIMEOUT,
-    forceNew: false,
+    forceNew: true,
+    upgrade: true,
   });
 
   socket.on('connect', () => {
@@ -47,25 +48,25 @@ export function connectSocket(token: string): Socket {
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('❌ Socket отключён:', reason);
+    if (reason === 'io server disconnect') {
+      // Server initiated disconnect, try to reconnect
+      socket?.connect();
+    }
   });
 
   socket.on('connect_error', (err) => {
     connectAttempts++;
-    console.error(`❌ Ошибка подключения Socket (${connectAttempts}/${MAX_CONNECT_ATTEMPS}):`, err.message);
-    if (connectAttempts >= MAX_CONNECT_ATTEMPS) {
-      console.error('Превышено количество попыток подключения, повтор через 30 сек...');
+    if (connectAttempts <= 3) {
+      // Only log first few attempts to avoid console spam
+    }
+    if (connectAttempts >= MAX_CONNECT_ATTEMPTS) {
       setTimeout(() => {
         connectAttempts = 0;
         if (socket?.disconnected) {
           socket.connect();
         }
-      }, 30000);
+      }, 60000); // Wait 1 minute before retrying
     }
-  });
-
-  socket.on('connect_timeout', () => {
-    console.warn('⏱️ Превышено время подключения, повторная попытка...');
   });
 
   return socket;

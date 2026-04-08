@@ -3,8 +3,8 @@ import { API_URL } from '../config';
 
 // Use API_URL from config for mobile/desktop apps
 // Use relative path for web (proxied through Vite)
-const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
-  ? API_URL + '/api' 
+const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+  ? (API_URL ? API_URL + '/api' : '/api')
   : '/api';
 
 class ApiClient {
