@@ -109,6 +109,7 @@ const translations = {
     weekDays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
     clear: 'Очистить',
     today: 'Сегодня',
+    yesterday: 'Вчера',
     // New chat
     newChatTitle: 'Новый чат',
     selectMembers: 'Выберите участников',
@@ -366,6 +367,7 @@ const translations = {
     weekDays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
     clear: 'Clear',
     today: 'Today',
+    yesterday: 'Yesterday',
     newChatTitle: 'New Chat',
     selectMembers: 'Select members',
     newGroup: 'New Group',
