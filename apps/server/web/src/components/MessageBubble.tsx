@@ -37,6 +37,7 @@ import ImageLightbox from './ImageLightbox';
 import VideoPlayer from './VideoPlayer';
 import Avatar from './Avatar';
 import YouTubePreview from './YouTubePreview';
+import LinkEmbedPreview from './LinkEmbedPreview';
 
 interface MessageBubbleProps {
   message: Message;
@@ -1079,24 +1080,25 @@ function MessageBubble({
                   {message.isEdited && <span>{t('edited')}</span>}
                   {message.scheduledAt && <Clock size={11} className="text-amber-400 mr-0.5" />}
                   {timeStr}
-                  {isMine && !message.scheduledAt && (
+                  {!message.scheduledAt && (
                     isChannel ? (
+                      /* В каналах просмотры показываются для всех сообщений */
                       <span className="flex items-center gap-1 ml-0.5 text-xs">
                         <Eye size={11} className="text-zinc-400" />
                         {message.viewCount || 0}
                       </span>
-                    ) : isRead ? (
+                    ) : isMine && isRead ? (
                       <CheckCheck size={13} className="text-sky-300 ml-0.5" />
-                    ) : (
+                    ) : isMine ? (
                       <Check size={13} className="ml-0.5" />
-                    )
+                    ) : null
                   )}
                 </span>
               </div>
             )}
 
             {/* YouTube Preview - detect URLs in content */}
-            {message.content && (() => {
+            {message.content && isChannel && (() => {
               const ytPattern = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}/g;
               const ytUrls = message.content.match(ytPattern);
               if (ytUrls && ytUrls.length > 0) {
@@ -1111,25 +1113,25 @@ function MessageBubble({
               return null;
             })()}
 
+            {/* Link Embed Preview для каналов */}
+            {message.content && isChannel && (
+              <LinkEmbedPreview content={message.content} />
+            )}
+
             {/* Время для медиа без текста */}
             {!message.content && (hasImage || hasVideo) && (
               <div className={`flex justify-end px-3 py-1 ${hasImage ? '-mt-8 relative z-10' : ''}`}>
                 <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-sm select-none">
                   {timeStr}
-                  {isMine && (
-                    isChannel ? (
-                      <span className="flex items-center gap-1">
-                        <Eye size={11} className="text-zinc-400" />
-                        {message.viewCount || 0}
-                      </span>
-                    ) : (
-                      isRead ? (
-                        <CheckCheck size={13} className="text-sky-300" />
-                      ) : (
-                        <Check size={13} />
-                      )
-                    )
-                  )}
+                  {isChannel ? (
+                    /* В каналах просмотры для всех сообщений */
+                    <span className="flex items-center gap-1">
+                      <Eye size={11} className="text-zinc-400" />
+                      {message.viewCount || 0}
+                    </span>
+                  ) : isMine ? (
+                    isRead ? <CheckCheck size={13} className="text-sky-300" /> : <Check size={13} />
+                  ) : null}
                 </span>
               </div>
             )}
