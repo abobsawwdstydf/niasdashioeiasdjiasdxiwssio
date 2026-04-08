@@ -872,12 +872,14 @@ function MessageBubble({
 
               return (
                 <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
-                  {/* Hidden audio element */}
-                  <audio
-                    ref={audioRef}
-                    src={isPlaying || audioDuration > 0 ? voiceMedia.url : undefined}
-                    preload="none"
-                  />
+                  {/* Audio element - loaded only when played to avoid errors */}
+                  {isPlaying && (
+                    <audio
+                      ref={audioRef}
+                      src={voiceMedia.url}
+                      preload="auto"
+                    />
+                  )}
                   {/* Play button - Telegram style circle */}
                   <button
                     onClick={toggleAudio}
