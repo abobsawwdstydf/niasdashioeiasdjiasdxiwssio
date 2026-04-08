@@ -885,7 +885,8 @@ function MessageBubble({
                   </span>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Аудио (mp3 файлы) */}
             {hasAudio && (() => {
