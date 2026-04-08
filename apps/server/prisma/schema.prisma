@@ -112,6 +112,10 @@ model Message {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Thread support
+  threadId  String?
+  thread    Thread? @relation("ThreadMessages", fields: [threadId], references: [id], onDelete: SetNull)
+
   chat    Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender  User     @relation(fields: [senderId], references: [id])
   replyTo Message? @relation("Reply", fields: [replyToId], references: [id])
@@ -124,6 +128,7 @@ model Message {
   pinnedIn       PinnedMessage[]
   hiddenBy       HiddenMessage[]
   views          MessageView[]
+  threadOrigins  Thread[] @relation("ThreadOrigin")
 }
 
 model MessageView {
@@ -292,6 +297,23 @@ model UserBan {
   @@index([userId])
   @@index([bannedBy])
   @@index([isActive])
+}
+
+// Threads (replies to messages)
+model Thread {
+  id        String   @id @default(uuid())
+  chatId    String
+  messageId String   @unique // The message this thread is based on
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chat      Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  message   Message   @relation("ThreadOrigin", fields: [messageId], references: [id], onDelete: Cascade)
+  messages  Message[] @relation("ThreadMessages")
+
+  @@index([chatId])
+  @@index([messageId])
 }
 
 // Telegram file storage metadata
