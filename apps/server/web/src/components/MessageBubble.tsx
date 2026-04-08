@@ -35,6 +35,7 @@ import type { Message, MediaItem, Reaction, ChatMember } from '../lib/types';
 import ImageLightbox from './ImageLightbox';
 import VideoPlayer from './VideoPlayer';
 import Avatar from './Avatar';
+import YouTubePreview from './YouTubePreview';
 
 interface MessageBubbleProps {
   message: Message;
@@ -231,18 +232,23 @@ function MessageBubble({
       audio.pause();
       setIsPlaying(false);
     } else {
-      // Ensure audio is loaded before playing
-      if (audio.readyState < 2) {
-        audio.load();
+      try {
+        audio.play().then(() => {
+          setIsPlaying(true);
+        }).catch((err) => {
+          if (err.name === 'AbortError') {
+            // Ignore AbortError - happens when switching between audio
+            setIsPlaying(false);
+          } else if (err.name === 'NotSupportedError') {
+            console.error('Audio format not supported');
+            setIsPlaying(false);
+          } else {
+            setIsPlaying(false);
+          }
+        });
+      } catch (e) {
+        setIsPlaying(false);
       }
-      audio.play().then(() => {
-        setIsPlaying(true);
-      }).catch((err) => {
-        console.error('Audio play error:', err);
-        // Try reloading and playing again
-        audio.load();
-        audio.play().then(() => setIsPlaying(true)).catch(console.error);
-      });
     }
   };
 
@@ -660,46 +666,62 @@ function MessageBubble({
               </div>
             )}
 
-            {/* Видео */}
+            {/* Видео - Telegram style */}
             {hasVideo &&
               media
                 .filter((m) => m.type === 'video')
-                .map((m, idx) => (
-                  <div key={m.id} className={`${message.content ? 'mb-2 -mx-3 -mt-2' : ''}`}>
-                    <div
-                      className="relative rounded-xl overflow-hidden bg-black group cursor-pointer"
-                      onClick={() => setShowVideoPlayer(m.url)}
-                    >
-                      <video
-                        src={m.url}
-                        poster={m.thumbnail || ''}
-                        className="w-full max-h-64 object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLVideoElement).style.display = 'none';
-                          const parent = (e.target as HTMLVideoElement).parentElement;
-                          if (parent && !parent.querySelector('.broken-video')) {
-                            const div = document.createElement('div');
-                            div.className = 'broken-video absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-500';
-                            div.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
-                            parent.appendChild(div);
-                          }
-                        }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/50 transition-all pointer-events-none">
-                        <div className="w-16 h-16 rounded-full bg-nexo-500/80 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
-                          <Play size={32} className="text-white ml-1" />
+                .map((m, idx) => {
+                  const size = m.size || 0;
+                  const sizeStr = size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024).toFixed(0)} KB`;
+                  const dur = m.duration || 0;
+                  const durStr = dur ? `${Math.floor(dur / 60)}:${Math.floor(dur % 60).toString().padStart(2, '0')}` : '';
+                  return (
+                    <div key={m.id} className={`${message.content ? 'mb-2 -mx-3 -mt-2' : ''}`}>
+                      <div
+                        className="relative rounded-2xl overflow-hidden bg-black group cursor-pointer shadow-lg"
+                        onClick={() => setShowVideoPlayer(m.url)}
+                      >
+                        <video
+                          src={m.url}
+                          poster={m.thumbnail || ''}
+                          className="w-full max-w-[320px] max-h-64 object-contain"
+                          preload="metadata"
+                          onError={(e) => {
+                            (e.target as HTMLVideoElement).style.display = 'none';
+                            const parent = (e.target as HTMLVideoElement).parentElement;
+                            if (parent && !parent.querySelector('.broken-video')) {
+                              const div = document.createElement('div');
+                              div.className = 'broken-video absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-500';
+                              div.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
+                              parent.appendChild(div);
+                            }
+                          }}
+                        />
+                        {/* Play overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-all">
+                          <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform border border-white/30">
+                            <Play size={24} className="text-white ml-1" />
+                          </div>
                         </div>
+                        {/* Duration badge - bottom right */}
+                        {(durStr || sizeStr) && (
+                          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+                            {durStr && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-xs text-white font-mono">
+                                {durStr}
+                              </span>
+                            )}
+                            {sizeStr && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/70">
+                                {sizeStr}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {m.duration && (
-                        <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 backdrop-blur-sm">
-                          <span className="text-xs text-white font-mono">
-                            {Math.floor(m.duration / 60)}:{Math.floor(m.duration % 60).toString().padStart(2, '0')}
-                          </span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
             {/* Video Player Modal */}
             {showVideoPlayer && (
@@ -743,6 +765,14 @@ function MessageBubble({
                       </div>
                     </div>
                   )}
+                  {/* Duration badge - bottom right corner */}
+                  <div className="absolute bottom-3 right-3 px-1.5 py-0.5 rounded bg-black/50 backdrop-blur-sm">
+                    <span className="text-[10px] text-white font-mono">
+                      {media[0].duration
+                        ? `${Math.floor(media[0].duration / 60)}:${Math.floor(media[0].duration % 60).toString().padStart(2, '0')}`
+                        : '0:00'}
+                    </span>
+                  </div>
                 </button>
               </div>
             )}
@@ -824,67 +854,84 @@ function MessageBubble({
               return null;
             })()}
 
-            {/* Голосовое */}
+            {/* Голосовое - Telegram style */}
             {hasVoice && (() => {
               const voiceMedia = media.find((m) => m.type === 'voice');
               if (!voiceMedia?.url) return null;
+              const duration = voiceMedia.duration || 0;
+              const size = voiceMedia.size || 0;
+              const sizeStr = size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024).toFixed(0)} KB`;
+
               return (
-                <div className="flex items-center gap-3 min-w-[200px]">
-                  {/* Hidden audio element - loaded only when played */}
+                <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
+                  {/* Hidden audio element */}
                   <audio
                     ref={audioRef}
                     src={isPlaying || audioDuration > 0 ? voiceMedia.url : undefined}
                     preload="none"
                   />
+                  {/* Play button - Telegram style circle */}
                   <button
                     onClick={toggleAudio}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-nexo-500/20 hover:bg-nexo-500/30'
-                      } transition-colors`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                      isMine
+                        ? 'bg-white/25 hover:bg-white/35'
+                        : 'bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/20'
+                    }`}
                   >
                     {isPlaying ? (
-                      <Pause size={16} className={isMine ? 'text-white' : 'text-nexo-400'} />
+                      <Pause size={18} className="text-white" />
                     ) : (
-                      <Play size={16} className={`${isMine ? 'text-white' : 'text-nexo-400'} ml-0.5`} />
+                      <Play size={18} className="text-white ml-0.5" />
                     )}
                   </button>
-                <div className="flex-1 min-w-0">
-                  {/* Waveform visualization */}
-                  <div
-                    className="flex items-end gap-[2px] h-6 cursor-pointer"
-                    onClick={(e) => {
-                      const audio = audioRef.current;
-                      if (!audio || !audio.duration) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const pct = (e.clientX - rect.left) / rect.width;
-                      audio.currentTime = pct * audio.duration;
-                      setAudioProgress(pct * 100);
-                      if (!isPlaying) toggleAudio();
-                    }}
-                  >
-                    {(waveformBars || Array(28).fill(0.5)).map((val, i) => {
-                      const barHeight = Math.max(10, val * 100);
-                      const progress = audioProgress / 100;
-                      const barProgress = i / 28;
-                      const isActive = barProgress < progress;
-                      return (
-                        <div
-                          key={i}
-                          className={`flex-1 rounded-full transition-colors duration-150 ${isActive
-                            ? isMine ? 'bg-white/80' : 'bg-nexo-400'
-                            : isMine ? 'bg-white/20' : 'bg-white/10'
+
+                  {/* Waveform + info */}
+                  <div className="flex-1 min-w-0">
+                    {/* Waveform */}
+                    <div
+                      className="flex items-end gap-[2px] h-7 cursor-pointer mb-1"
+                      onClick={(e) => {
+                        const audio = audioRef.current;
+                        if (!audio || !audio.duration) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pct = (e.clientX - rect.left) / rect.width;
+                        audio.currentTime = pct * audio.duration;
+                        setAudioProgress(pct * 100);
+                        if (!isPlaying) toggleAudio();
+                      }}
+                    >
+                      {(waveformBars || Array(28).fill(0.5)).map((val, i) => {
+                        const barHeight = Math.max(8, val * 100);
+                        const progress = audioProgress / 100;
+                        const barProgress = i / 28;
+                        const isActive = barProgress < progress;
+                        return (
+                          <div
+                            key={i}
+                            className={`flex-1 rounded-full transition-colors duration-100 ${
+                              isActive
+                                ? isMine ? 'bg-white' : 'bg-blue-300'
+                                : isMine ? 'bg-white/30' : 'bg-white/20'
                             }`}
-                          style={{ height: `${barHeight}%` }}
-                        />
-                      );
-                    })}
+                            style={{ height: `${barHeight}%` }}
+                          />
+                        );
+                      })}
+                    </div>
+                    {/* Duration + size row */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs ${isMine ? 'text-white/70' : 'text-blue-200'}`}>
+                        {isPlaying
+                          ? formatDuration(audioRef.current?.currentTime || 0)
+                          : formatDuration(duration || audioDuration || 0)}
+                      </span>
+                      <span className={`text-[10px] ${isMine ? 'text-white/40' : 'text-blue-300/60'}`}>
+                        {sizeStr}
+                      </span>
+                    </div>
                   </div>
-                  <span className={`text-xs mt-0.5 block ${isMine ? 'text-white/60' : 'text-zinc-500'}`}>
-                    {isPlaying
-                      ? formatDuration(audioRef.current?.currentTime || 0)
-                      : formatDuration(audioDuration || message.media?.find((m) => m.type === 'voice')?.duration || 0)}
-                  </span>
                 </div>
-              </div>
               );
             })()}
 
@@ -1033,6 +1080,22 @@ function MessageBubble({
                 </span>
               </div>
             )}
+
+            {/* YouTube Preview - detect URLs in content */}
+            {message.content && (() => {
+              const ytPattern = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}/g;
+              const ytUrls = message.content.match(ytPattern);
+              if (ytUrls && ytUrls.length > 0) {
+                return (
+                  <>
+                    {Array.from(new Set(ytUrls)).map((url, i) => (
+                      <YouTubePreview key={i} url={url} />
+                    ))}
+                  </>
+                );
+              }
+              return null;
+            })()}
 
             {/* Время для медиа без текста */}
             {!message.content && (hasImage || hasVideo) && (
