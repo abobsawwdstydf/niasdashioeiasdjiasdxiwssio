@@ -169,7 +169,7 @@ class ApiClient {
     formData.append('files', file);
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 120_000);
+    const timer = setTimeout(() => controller.abort(), 300_000); // 5 минут для больших файлов
     const response = await fetch(`${API_BASE}/messages/upload`, {
       method: 'POST',
       headers: {
@@ -180,9 +180,11 @@ class ApiClient {
     });
     clearTimeout(timer);
 
-    if (!response.ok) throw new Error('\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0444\u0430\u0439\u043b\u0430');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Ошибка загрузки файла' }));
+      throw new Error(error.error || `Ошибка загрузки: ${response.status}`);
+    }
     const result = await response.json();
-    // Handle both single file and array response
     return Array.isArray(result) ? result[0] : result;
   }
 

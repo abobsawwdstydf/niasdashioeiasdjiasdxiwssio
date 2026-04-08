@@ -150,15 +150,12 @@ import { prisma } from './db';
 app.get('/api/files/:fileId/download', async (req, res) => {
   try {
     const { fileId } = req.params;
-    
+
     if (!fileId || !fileId.startsWith('tg_')) {
       res.status(400).json({ error: 'Неверный ID файла' });
       return;
     }
 
-    console.log(`\n📥 СКАЧИВАНИЕ ФАЙЛА: ${fileId}`);
-
-    // Получаем метаданные из БД
     const telegramFile = await prisma.telegramFile.findUnique({
       where: { fileId },
       include: { chunks: { orderBy: { chunkIndex: 'asc' } } }
@@ -169,17 +166,10 @@ app.get('/api/files/:fileId/download', async (req, res) => {
       return;
     }
 
-    console.log(`📄 Файл: ${telegramFile.originalName}`);
-    console.log(`   Размер: ${(telegramFile.totalSize / 1024).toFixed(2)} KB`);
-    console.log(`   Чанков: ${telegramFile.chunks.length}`);
-
-    // Скачиваем файл из Telegram
     const fileBuffer = await telegramStorage.downloadFile(
       telegramFile.fileId,
       telegramFile.chunks
     );
-
-    console.log(`✅ ФАЙЛ СКАЧАН ИЗ TELEGRAM!`);
 
     // Обновляем статистику
     await prisma.telegramFile.update({

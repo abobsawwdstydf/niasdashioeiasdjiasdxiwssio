@@ -70,9 +70,6 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
       return;
     }
 
-    console.log(`\n📤 ЗАГРУЗКА ФАЙЛОВ: ${files.length} файл(ов)`);
-    console.log(`👤 Пользователь: ${req.userId}`);
-
     const uploadedFiles = [];
 
     for (const file of files) {
@@ -139,9 +136,6 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
         include: { chunks: true }
       });
 
-      console.log(`💾 Метаданные сохранены в БД`);
-
-      // Сохраняем информацию о файле для клиента - возвращаем API URL для скачивания
       uploadedFiles.push({
         fileId: telegramFile.fileId,
         filename: telegramFile.originalName,

@@ -628,10 +628,9 @@ function MessageBubble({
               </div>
             )}
 
-            {/* Изображения (Album support) */}
+            {/* Изображения */}
             {hasImage && (
               <div className={`${message.content ? 'mb-2' : ''}`}>
-                {/* Grid: 2 columns for better mobile view */}
                 <div className="grid grid-cols-2 gap-1">
                   {media
                     .filter((m) => m.type === 'image')
@@ -643,6 +642,17 @@ function MessageBubble({
                           className="w-full h-full object-cover cursor-pointer hover:brightness-90 transition-all select-none"
                           onClick={() => setLightboxUrl(m.url)}
                           draggable={false}
+                          onError={(e) => {
+                            // Show broken image indicator
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const parent = (e.target as HTMLImageElement).parentElement;
+                            if (parent && !parent.querySelector('.broken-img')) {
+                              const div = document.createElement('div');
+                              div.className = 'broken-img absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-500';
+                              div.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+                              parent.appendChild(div);
+                            }
+                          }}
                         />
                       </div>
                     ))}
@@ -664,8 +674,18 @@ function MessageBubble({
                         src={m.url}
                         poster={m.thumbnail || ''}
                         className="w-full max-h-64 object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLVideoElement).style.display = 'none';
+                          const parent = (e.target as HTMLVideoElement).parentElement;
+                          if (parent && !parent.querySelector('.broken-video')) {
+                            const div = document.createElement('div');
+                            div.className = 'broken-video absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-500';
+                            div.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
+                            parent.appendChild(div);
+                          }
+                        }}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/50 transition-all">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/50 transition-all pointer-events-none">
                         <div className="w-16 h-16 rounded-full bg-nexo-500/80 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
                           <Play size={32} className="text-white ml-1" />
                         </div>
@@ -691,38 +711,40 @@ function MessageBubble({
 
             {/* Видео-кружок */}
             {message.type === 'video_circle' && media[0]?.url && (
-              <button
-                onClick={() => {
-                  const videoEl = document.getElementById(`vc-${message.id}`) as HTMLVideoElement;
-                  if (!videoEl) return;
-                  if (videoCirclePlaying === message.id) {
-                    setVideoCirclePlaying(null);
-                    videoEl.pause();
-                    videoEl.currentTime = 0;
-                  } else {
-                    setVideoCirclePlaying(message.id);
-                    videoEl.play().catch(() => {});
-                  }
-                }}
-                className="w-40 h-40 rounded-full overflow-hidden border-2 border-white/10 hover:border-white/30 transition-all active:scale-95 relative"
-              >
-                <video
-                  id={`vc-${message.id}`}
-                  src={media[0].url}
-                  className="w-full h-full object-cover"
-                  muted
-                  playsInline
-                  loop
-                  onEnded={() => setVideoCirclePlaying(null)}
-                />
-                {videoCirclePlaying !== message.id && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center">
-                      <Play size={18} className="text-black ml-0.5" />
+              <div className="flex items-center justify-center py-2">
+                <button
+                  onClick={() => {
+                    const videoEl = document.getElementById(`vc-${message.id}`) as HTMLVideoElement;
+                    if (!videoEl) return;
+                    if (videoCirclePlaying === message.id) {
+                      setVideoCirclePlaying(null);
+                      videoEl.pause();
+                      videoEl.currentTime = 0;
+                    } else {
+                      setVideoCirclePlaying(message.id);
+                      videoEl.play().catch(() => {});
+                    }
+                  }}
+                  className="relative w-56 h-56 rounded-full overflow-hidden border-2 border-white/10 hover:border-white/30 transition-all active:scale-95 bg-black"
+                >
+                  <video
+                    id={`vc-${message.id}`}
+                    src={media[0].url}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                    loop
+                    onEnded={() => setVideoCirclePlaying(null)}
+                  />
+                  {videoCirclePlaying !== message.id && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <div className="w-12 h-12 rounded-full bg-white/80 flex items-center justify-center backdrop-blur-sm">
+                        <Play size={20} className="text-black ml-0.5" />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </button>
+                  )}
+                </button>
+              </div>
             )}
 
             {/* Опрос */}
@@ -749,14 +771,15 @@ function MessageBubble({
                           </div>
                         ))}
                       </div>
-                      <div className="mt-3 text-xs opacity-60">
-                        {poll.multiple ? 'Несколько вариантов' : poll.quiz ? 'Викторина' : 'Один вариант'}
-                      </div>
+                      {poll.quiz && (
+                        <div className="mt-3 text-xs text-emerald-400">Викторина</div>
+                      )}
                     </div>
                   );
                 }
               } catch (e) {
-                // ignore
+                // Если не JSON - показать как текст
+                return <p className="text-sm">{message.content}</p>;
               }
               return null;
             })()}
@@ -802,25 +825,28 @@ function MessageBubble({
             })()}
 
             {/* Голосовое */}
-            {hasVoice && (
-              <div className="flex items-center gap-3 min-w-[200px]">
-                <audio
-                  ref={audioRef}
-                  src={media.find((m) => m.type === 'voice')?.url}
-                  preload="auto"
-                  onError={(e) => console.error('Audio load error:', e)}
-                />
-                <button
-                  onClick={toggleAudio}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-nexo-500/20 hover:bg-nexo-500/30'
-                    } transition-colors`}
-                >
-                  {isPlaying ? (
-                    <Pause size={16} className={isMine ? 'text-white' : 'text-nexo-400'} />
-                  ) : (
-                    <Play size={16} className={`${isMine ? 'text-white' : 'text-nexo-400'} ml-0.5`} />
-                  )}
-                </button>
+            {hasVoice && (() => {
+              const voiceMedia = media.find((m) => m.type === 'voice');
+              if (!voiceMedia?.url) return null;
+              return (
+                <div className="flex items-center gap-3 min-w-[200px]">
+                  {/* Hidden audio element - loaded only when played */}
+                  <audio
+                    ref={audioRef}
+                    src={isPlaying || audioDuration > 0 ? voiceMedia.url : undefined}
+                    preload="none"
+                  />
+                  <button
+                    onClick={toggleAudio}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-nexo-500/20 hover:bg-nexo-500/30'
+                      } transition-colors`}
+                  >
+                    {isPlaying ? (
+                      <Pause size={16} className={isMine ? 'text-white' : 'text-nexo-400'} />
+                    ) : (
+                      <Play size={16} className={`${isMine ? 'text-white' : 'text-nexo-400'} ml-0.5`} />
+                    )}
+                  </button>
                 <div className="flex-1 min-w-0">
                   {/* Waveform visualization */}
                   <div
@@ -875,9 +901,8 @@ function MessageBubble({
                   <div className="flex items-center gap-3">
                     <audio
                       ref={audioRef}
-                      src={audioMedia?.url}
-                      preload="auto"
-                      onError={(e) => console.error('Audio load error:', e)}
+                      src={isPlaying || audioDuration > 0 ? audioMedia?.url : undefined}
+                      preload="none"
                     />
                     <button
                       onClick={toggleAudio}
