@@ -96,6 +96,7 @@ export interface Message {
   scheduledAt?: string | null;
   createdAt: string;
   updatedAt?: string;
+  threadId?: string | null;
   sender: MessageSender;
   replyTo?: {
     id: string;

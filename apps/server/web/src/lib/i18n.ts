@@ -271,6 +271,8 @@ const translations = {
     // Last seen
     lastSeenAt: 'был(а)',
     justNow: 'только что',
+    today: 'Сегодня',
+    yesterday: 'Вчера',
   },
   en: {
     myProfile: 'My Profile',
@@ -512,6 +514,8 @@ const translations = {
     scheduleDate: 'Date',
     lastSeenAt: 'was',
     justNow: 'just now',
+    today: 'Today',
+    yesterday: 'Yesterday',
   },
 } as const;
 
