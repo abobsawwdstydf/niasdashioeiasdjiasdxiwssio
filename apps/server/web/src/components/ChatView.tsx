@@ -1058,15 +1058,31 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
                 !prevMsg ||
                 new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
 
+              // Format date like Telegram: "5 апреля", "8 апреля"
+              const formatDateSeparator = (date: Date) => {
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                if (date.toDateString() === today.toDateString()) {
+                  return t('today');
+                }
+                if (date.toDateString() === yesterday.toDateString()) {
+                  return t('yesterday');
+                }
+
+                return date.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
+                  day: 'numeric',
+                  month: 'long',
+                });
+              };
+
               return (
                 <div key={msg.id} id={`msg-${msg.id}`} className="transition-colors duration-500">
                   {showDate && (
-                    <div className="flex justify-center my-4 select-none">
-                      <span className="px-3 py-1 rounded-full text-xs text-zinc-400 glass select-none">
-                        {new Date(msg.createdAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
-                          day: 'numeric',
-                          month: 'long',
-                        })}
+                    <div className="flex justify-center my-4 select-none sticky top-0 z-10">
+                      <span className="px-3 py-1 rounded-full text-xs text-zinc-400 bg-surface-secondary/80 backdrop-blur-sm shadow-sm select-none">
+                        {formatDateSeparator(new Date(msg.createdAt))}
                       </span>
                     </div>
                   )}
