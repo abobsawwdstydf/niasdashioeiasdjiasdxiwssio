@@ -872,12 +872,16 @@ function MessageBubble({
 
               return (
                 <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
-                  {/* Audio element - loaded only when played to avoid errors */}
+                  {/* Audio element - rendered only when playing to prevent errors */}
                   {isPlaying && (
                     <audio
                       ref={audioRef}
                       src={voiceMedia.url}
                       preload="auto"
+                      onError={() => {
+                        // Silently handle errors - don't spam console
+                        setIsPlaying(false);
+                      }}
                     />
                   )}
                   {/* Play button - Telegram style circle */}
