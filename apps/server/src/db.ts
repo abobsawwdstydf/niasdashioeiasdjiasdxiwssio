@@ -1,15 +1,13 @@
 import { PrismaClient } from '@prisma/client';
-import { config } from './config';
 import { encryptText, decryptText, isEncryptionEnabled } from './encrypt';
 
-// Create Prisma client with encryption extension
+// Prisma берёт DATABASE_URL из env автоматически
+// Fallback обрабатывается на уровне соединения — Prisma reconnect
+const databaseUrl = process.env.DATABASE_URL;
+
 export const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: config.databaseUrl
-    }
-  },
-  log: [], // No logging for performance
+  datasources: databaseUrl ? { db: { url: databaseUrl } } : undefined,
+  log: [],
 }).$extends({
   query: {
     message: {
@@ -93,7 +91,6 @@ export const prisma = new PrismaClient({
   },
 });
 
-/** Decrypt content/quote on a message-shaped object. */
 function decryptMessageFields(obj: any): void {
   if (!obj || typeof obj !== 'object' || !isEncryptionEnabled()) return;
   if (typeof obj.content === 'string') obj.content = decryptText(obj.content);
@@ -103,7 +100,6 @@ function decryptMessageFields(obj: any): void {
   }
 }
 
-/** Decrypt messages nested inside a chat object. */
 function decryptChatMessages(chat: any): void {
   if (!chat || !isEncryptionEnabled()) return;
   if (Array.isArray(chat.messages)) {

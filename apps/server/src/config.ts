@@ -64,8 +64,9 @@ export const config = {
     .split(',').map(s => s.trim()).filter(Boolean),
   // Storage mode: 'local' or 'telegram'
   storageMode: (process.env.STORAGE_MODE || 'telegram') as 'local' | 'telegram',
-  // Database URL - Neon PostgreSQL by default
+  // Database URL - Neon PostgreSQL (с fallback на вторую базу)
   databaseUrl: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_mHu8QNo4czxK@ep-divine-smoke-aintwcj6-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  databaseUrlBackup: process.env.DATABASE_URL_BACKUP || '',
   // Redis - primary instance
   redisUrl: process.env.REDIS_URL || 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339',
   // Redis - secondary instance (for sessions/cache)
