@@ -7,6 +7,10 @@ apps/web/dist/
 
 # Environment files
 .env
+.env.render
+.env.local
+.env.production
+.env.*.local
 apps/server/.env
 
 # Uploads (user data)
