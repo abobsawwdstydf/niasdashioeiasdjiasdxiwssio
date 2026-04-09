@@ -13,6 +13,7 @@ import ChatView from '../components/ChatView';
 import CallModal from '../components/CallModal';
 import GroupCallModal from '../components/GroupCallModal';
 import NexoAIPage from '../pages/NexoAIPage';
+import FriendsPage from '../pages/FriendsPage';
 
 export default function ChatPage() {
   const {
@@ -57,6 +58,7 @@ export default function ChatPage() {
 
   // Nexo AI state
   const [showAI, setShowAI] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Определяем мобильное устройство
@@ -506,7 +508,7 @@ export default function ChatPage() {
     >
       {/* Sidebar - hidden on mobile when chat is active */}
       <div className={`${showMobileSidebar ? 'flex' : 'hidden'} sm:flex w-full sm:w-[340px] flex-shrink-0 min-w-0`}>
-        <Sidebar onOpenAI={() => isMobile ? setShowAI(true) : setShowAI(true)} />
+        <Sidebar onOpenAI={() => setShowAI(true)} onOpenFriends={() => setShowFriends(true)} />
       </div>
 
       {/* ChatView - hidden on mobile when sidebar is shown */}
@@ -539,6 +541,27 @@ export default function ChatPage() {
           >
             <div className={`h-full bg-[#0a0a0f] ${isMobile ? '' : 'border-l border-white/10 shadow-2xl'}`}>
               <NexoAIPage onClose={() => setShowAI(false)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Friends Page */}
+      <AnimatePresence>
+        {showFriends && (
+          <motion.div
+            initial={{ opacity: 0, x: isMobile ? 0 : 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: isMobile ? 0 : 40 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className={`fixed inset-0 z-[150] sm:z-[140] ${
+              isMobile
+                ? ''
+                : 'right-0 top-0 bottom-0 w-[480px]'
+            }`}
+          >
+            <div className={`h-full bg-[#0a0a0f] ${isMobile ? '' : 'border-l border-white/10 shadow-2xl'}`}>
+              <FriendsPage onClose={() => setShowFriends(false)} />
             </div>
           </motion.div>
         )}

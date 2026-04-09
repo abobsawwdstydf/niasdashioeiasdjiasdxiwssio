@@ -29,6 +29,7 @@ type NavTab = 'chats' | 'friends' | 'settings' | 'profile';
 
 interface SidebarProps {
   onOpenAI: () => void;
+  onOpenFriends: () => void;
 }
 
 /**
@@ -82,7 +83,7 @@ function NavButton({
   );
 }
 
-export default function Sidebar({ onOpenAI }: SidebarProps) {
+export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
   const { user } = useAuthStore();
   const { chats, activeChat, searchQuery, setSearchQuery, addChat, setActiveChat } = useChatStore();
   const { t } = useLang();
@@ -230,7 +231,7 @@ export default function Sidebar({ onOpenAI }: SidebarProps) {
     if (tab === 'chats') setSearchQuery('');
     if (tab === 'profile') setShowProfile(true);
     if (tab === 'settings') setShowSideMenu(true);
-    if (tab === 'friends') setShowSideMenu(true);
+    if (tab === 'friends') onOpenFriends();
   };
 
   return (
