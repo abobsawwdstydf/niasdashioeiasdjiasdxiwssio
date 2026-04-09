@@ -69,23 +69,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadChats: async () => {
     try {
       set({ isLoadingChats: true });
-      
-      // Load from encrypted localStorage first (instant display)
-      let cachedChats = null;
-      try {
-        cachedChats = loadDecrypted('nexo_chats');
-      } catch {
-        localStorage.removeItem('nexo_chats');
-      }
-      const cachedTimestamp = loadTimestamp('nexo_chats_timestamp');
-      const now = Date.now();
-      
-      if (cachedChats && cachedTimestamp && (now - cachedTimestamp) < 5 * 60 * 1000) {
-        // Use cached data if less than 5 minutes old
-        set({ chats: cachedChats, isLoadingChats: false });
-      }
-      
-      // Fetch fresh data from server
+
+      // ТОЛЬКО с сервера — никакого localStorage для данных
       const chats = await api.getChats();
       // Auto-create favorites chat if not present
       if (!chats.some((c: any) => c.type === 'favorites')) {
@@ -102,20 +87,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
       set({ chats, pinnedMessages, isLoadingChats: false });
-      
-      // Save to encrypted localStorage
-      saveEncrypted('nexo_chats', chats);
-      saveTimestamp('nexo_chats_timestamp', now);
     } catch (error) {
       console.error('Load chats error:', error);
-      set({ isLoadingChats: false });
-      // Return cached data on error
-      try {
-        const cachedChats = loadDecrypted('nexo_chats');
-        if (cachedChats) {
-          set({ chats: cachedChats });
-        }
-      } catch {}
+      set({ isLoadingChats: false, chats: [] });
     }
   },
 
@@ -149,41 +123,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadMessages: async (chatId) => {
     try {
       set({ isLoadingMessages: true });
-      
-      // Load from encrypted localStorage first (instant display)
-      let cachedMessages = null;
-      try {
-        cachedMessages = loadDecrypted(`nexo_messages_${chatId}`);
-      } catch {
-        localStorage.removeItem(`nexo_messages_${chatId}`);
-      }
-      const cachedTimestamp = loadTimestamp(`nexo_messages_${chatId}_timestamp`);
-      const now = Date.now();
-      
-      if (cachedMessages && cachedTimestamp && (now - cachedTimestamp) < 10 * 60 * 1000) {
-        // Use cached data if less than 10 minutes old
-        set((state) => ({
-          messages: { ...state.messages, [chatId]: cachedMessages },
-          isLoadingMessages: false,
-        }));
-      }
-      
-      // Fetch fresh data from server
+
+      // ТОЛЬКО с сервера — никакого localStorage для данных
       const fetched = await api.getMessages(chatId);
       set((state) => {
-        // Merge fetched messages with any that arrived via socket during the fetch
         const existing = state.messages[chatId] || [];
         const fetchedIds = new Set(fetched.map(m => m.id));
         const socketOnly = existing.filter(m => !fetchedIds.has(m.id));
         const merged = [...fetched, ...socketOnly].sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
-        
-        // Save to encrypted localStorage (keep last 100 messages per chat)
-        const toSave = merged.slice(-100);
-        saveEncrypted(`nexo_messages_${chatId}`, toSave);
-        saveTimestamp(`nexo_messages_${chatId}_timestamp`, now);
-        
+
         return {
           messages: { ...state.messages, [chatId]: merged },
           isLoadingMessages: false,
@@ -191,16 +141,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     } catch (error) {
       console.error('Load messages error:', error);
-      set({ isLoadingMessages: false });
-      // Return cached data on error
-      try {
-        const cachedMessages = loadDecrypted(`nexo_messages_${chatId}`);
-        if (cachedMessages) {
-          set((state) => ({
-            messages: { ...state.messages, [chatId]: cachedMessages },
-          }));
-        }
-      } catch {}
+      set({ isLoadingMessages: false, messages: {} });
     }
   },
 

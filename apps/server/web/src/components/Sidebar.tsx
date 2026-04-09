@@ -15,7 +15,6 @@ import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
 import { useLang } from '../lib/i18n';
 import { api } from '../lib/api';
-import { saveEncrypted, loadDecrypted, saveTimestamp, loadTimestamp } from '../lib/storageEncryption';
 import { normalizeMediaUrl } from '../lib/mediaUrl';
 import Avatar from './Avatar';
 import { StoryGroup, Chat } from '../lib/types';
@@ -112,21 +111,11 @@ export default function Sidebar({ onOpenAI }: SidebarProps) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  /** Загрузка сторисов */
+  /** Загрузка сторисов — ТОЛЬКО с сервера */
   const loadStories = () => {
-    const now = Date.now();
-    const cachedStories = loadDecrypted('nexo_stories');
-    const cachedTimestamp = loadTimestamp('nexo_stories_timestamp');
-
-    if (cachedStories && cachedTimestamp && (now - cachedTimestamp) < 2 * 60 * 1000) {
-      setStoryGroups(cachedStories);
-    }
-
     api.getStories()
       .then((stories) => {
         setStoryGroups(stories);
-        saveEncrypted('nexo_stories', stories);
-        saveTimestamp('nexo_stories_timestamp', now);
       })
       .catch(console.error);
   };
