@@ -4,11 +4,10 @@ import { X, ChevronLeft, ChevronRight, Eye, Trash2, Plus, ChevronUp } from 'luci
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../lib/api';
 import { useLang } from '../lib/i18n';
+import { normalizeMediaUrl } from '../lib/mediaUrl';
 import { getInitials, generateAvatarColor } from '../lib/utils';
 import Avatar from './Avatar';
 import { StoryGroup } from '../lib/types';
-
-const API_URL = import.meta.env.VITE_API_URL || '';
 
 const STORY_BG_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#ef4444',
@@ -157,7 +156,7 @@ export default function StoryViewer({ stories, initialUserIndex, onClose, onRefr
   };
 
   const avatarUrl = currentUser.user.avatar
-    ? `${API_URL}${currentUser.user.avatar}`
+    ? normalizeMediaUrl(currentUser.user.avatar)
     : null;
 
   return (
@@ -183,7 +182,7 @@ export default function StoryViewer({ stories, initialUserIndex, onClose, onRefr
         {currentStory.type === 'image' && currentStory.mediaUrl ? (
           <div className="w-full h-full bg-black flex items-center justify-center">
             <img
-              src={currentStory.mediaUrl.startsWith('http') ? currentStory.mediaUrl : `${API_URL}${currentStory.mediaUrl}`}
+              src={normalizeMediaUrl(currentStory.mediaUrl)}
               alt="story"
               className="w-full h-full object-contain"
               draggable={false}
@@ -332,7 +331,7 @@ export default function StoryViewer({ stories, initialUserIndex, onClose, onRefr
                     {viewers.map((v) => (
                       <div key={v.userId} className="flex items-center gap-3 py-1.5">
                         <Avatar
-                          src={v.avatar ? `${API_URL}${v.avatar}` : null}
+                          src={normalizeMediaUrl(v.avatar)}
                           name={v.displayName || v.username}
                           size="sm"
                           className="rounded-full"

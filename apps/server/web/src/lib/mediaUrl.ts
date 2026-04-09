@@ -1,12 +1,17 @@
+import { API_URL } from '../config';
+
 /**
- * Convert Telegram file URL to downloadable URL
- * tg://fileId -> /api/files/fileId/download
+ * Нормализует медиа URL.
+ * Если URL относительный (начинается с /) — добавляет API_URL.
+ * Если уже полный (http/https) или data URI — возвращает как есть.
  */
-export function getMediaUrl(url: string | undefined | null): string {
+export function normalizeMediaUrl(url: string | null | undefined): string {
   if (!url) return '';
-  if (url.startsWith('tg://')) {
-    const fileId = url.replace('tg://', '');
-    return `/api/files/${fileId}/download`;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
   }
-  return url;
+  // Относительный путь — добавляем API_URL
+  const base = API_URL.replace(/\/$/, ''); // убираем trailing slash
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return `${base}${path}`;
 }

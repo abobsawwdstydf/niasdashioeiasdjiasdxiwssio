@@ -32,6 +32,7 @@ import { getSocket } from '../lib/socket';
 import { api } from '../lib/api';
 import { useLang } from '../lib/i18n';
 import { extractWaveform } from '../lib/utils';
+import { normalizeMediaUrl } from '../lib/mediaUrl';
 import type { Message, MediaItem, Reaction, ChatMember } from '../lib/types';
 import ImageLightbox from './ImageLightbox';
 import VideoPlayer from './VideoPlayer';
@@ -293,7 +294,7 @@ function MessageBubble({
 
   // Extract real waveform from voice audio  
   useEffect(() => {
-    const voiceUrl = message.media?.find((m) => m.type === 'voice')?.url;
+    const voiceUrl = normalizeMediaUrl(message.media?.find((m) => m.type === 'voice')?.url);
     if (!voiceUrl) return;
     extractWaveform(voiceUrl, 28).then(setWaveformBars);
   }, [message.media]);
@@ -652,10 +653,10 @@ function MessageBubble({
                     .map((m) => (
                       <div key={m.id} className="relative aspect-square overflow-hidden rounded-lg bg-black">
                         <img
-                          src={m.url}
+                          src={normalizeMediaUrl(m.url)}
                           alt=""
                           className="w-full h-full object-cover cursor-pointer hover:brightness-90 transition-all select-none"
-                          onClick={() => setLightboxUrl(m.url)}
+                          onClick={() => setLightboxUrl(normalizeMediaUrl(m.url))}
                           draggable={false}
                           onError={(e) => {
                             // Show broken image indicator
@@ -688,11 +689,11 @@ function MessageBubble({
                     <div key={m.id} className={`${message.content ? 'mb-2 -mx-3 -mt-2' : ''}`}>
                       <div
                         className="relative rounded-2xl overflow-hidden bg-black group cursor-pointer shadow-lg"
-                        onClick={() => setShowVideoPlayer(m.url)}
+                        onClick={() => setShowVideoPlayer(normalizeMediaUrl(m.url))}
                       >
                         <video
-                          src={m.url}
-                          poster={m.thumbnail || ''}
+                          src={normalizeMediaUrl(m.url)}
+                          poster={normalizeMediaUrl(m.thumbnail) || ''}
                           className="w-full max-w-[320px] max-h-64 object-contain"
                           preload="metadata"
                           onError={(e) => {
@@ -760,7 +761,7 @@ function MessageBubble({
                 >
                   <video
                     id={`vc-${message.id}`}
-                    src={media[0].url}
+                    src={normalizeMediaUrl(media[0].url)}
                     className="w-full h-full object-cover"
                     muted
                     playsInline
@@ -867,6 +868,7 @@ function MessageBubble({
             {hasVoice && (() => {
               const voiceMedia = media.find((m) => m.type === 'voice');
               if (!voiceMedia?.url) return null;
+              const voiceUrl = normalizeMediaUrl(voiceMedia.url);
               const duration = voiceMedia.duration || 0;
               const size = voiceMedia.size || 0;
               const sizeStr = size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024).toFixed(0)} KB`;
@@ -877,7 +879,7 @@ function MessageBubble({
                   {isPlaying && (
                     <audio
                       ref={audioRef}
-                      src={voiceMedia.url}
+                      src={voiceUrl}
                       preload="auto"
                       onError={() => {
                         // Silently handle errors - don't spam console
@@ -953,6 +955,8 @@ function MessageBubble({
             {/* Аудио (mp3 файлы) */}
             {hasAudio && (() => {
               const audioMedia = media.find((m) => m.type === 'audio');
+              if (!audioMedia) return null;
+              const audioUrl = normalizeMediaUrl(audioMedia.url);
               return (
                 <div className="min-w-[220px]">
                   {audioMedia?.filename && (
@@ -964,7 +968,7 @@ function MessageBubble({
                   <div className="flex items-center gap-3">
                     <audio
                       ref={audioRef}
-                      src={isPlaying || audioDuration > 0 ? audioMedia?.url : undefined}
+                      src={isPlaying || audioDuration > 0 ? audioUrl : undefined}
                       preload="none"
                     />
                     <button
@@ -1032,7 +1036,7 @@ function MessageBubble({
                       return (
                         <a
                           key={m.id}
-                          href={m.url}
+                          href={normalizeMediaUrl(m.url)}
                           download={m.filename || 'file'}
                           target="_blank"
                           rel="noopener noreferrer"

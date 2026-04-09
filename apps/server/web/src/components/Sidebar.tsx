@@ -16,6 +16,7 @@ import { useChatStore } from '../stores/chatStore';
 import { useLang } from '../lib/i18n';
 import { api } from '../lib/api';
 import { saveEncrypted, loadDecrypted, saveTimestamp, loadTimestamp } from '../lib/storageEncryption';
+import { normalizeMediaUrl } from '../lib/mediaUrl';
 import Avatar from './Avatar';
 import { StoryGroup, Chat } from '../lib/types';
 import ChatListItem from './ChatListItem';
@@ -23,8 +24,6 @@ import NewChatModal from './NewChatModal';
 import UserProfile from './UserProfile';
 import SideMenu from './SideMenu';
 import StoryViewer, { CreateStoryModal } from './StoryViewer';
-
-const API_URL = import.meta.env.VITE_API_URL || '';
 
 // Типы навигации
 type NavTab = 'chats' | 'friends' | 'settings' | 'profile';
@@ -300,7 +299,7 @@ export default function Sidebar({ onOpenAI }: SidebarProps) {
               className="w-10 h-10 rounded-xl overflow-hidden hover:ring-2 hover:ring-nexo-500/50 transition-all"
             >
               {user?.avatar ? (
-                <img src={`${API_URL}${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                <img src={normalizeMediaUrl(user.avatar)} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-nexo-500 to-purple-600 text-white text-sm font-bold">
                   {(user?.displayName || user?.username || '?')[0].toUpperCase()}
@@ -396,7 +395,7 @@ export default function Sidebar({ onOpenAI }: SidebarProps) {
                 </button>
 
                 {storyGroups.map((group, idx) => {
-                  const avatarUrl = group.user.avatar ? `${API_URL}${group.user.avatar}` : null;
+                  const avatarUrl = group.user.avatar ? normalizeMediaUrl(group.user.avatar) : null;
                   const isMine = group.user.id === user?.id;
                   return (
                     <button
@@ -571,9 +570,9 @@ export default function Sidebar({ onOpenAI }: SidebarProps) {
             </AnimatePresence>
           </div>
 
-          {/* ====== НИЖНЯЯ НАВИГАЦИЯ (МОБИЛКИ) — овальная плавающая ====== */}
+          {/* ====== НИЖНЯЯ НАВИГАЦИЯ (МОБИЛКИ) — FIXED, всегда внизу ====== */}
           {isMobile && (
-            <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-2 pointer-events-none flex-shrink-0">
+            <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-2 pointer-events-none z-50">
               <div className="pointer-events-auto glass-strong rounded-[2rem] flex items-center justify-around px-3 py-2 max-w-sm mx-auto relative">
                 {/* Чаты */}
                 <button
