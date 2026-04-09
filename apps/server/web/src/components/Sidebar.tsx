@@ -287,7 +287,7 @@ export default function Sidebar({ onOpenAI }: { onOpenAI: () => void }) {
         <div className="mx-4 h-px bg-white/5 flex-shrink-0" />
 
         {/* ====== СПИСОК ЧАТОВ / РЕЗУЛЬТАТЫ ПОИСКА ====== */}
-        <div className="flex-1 overflow-y-auto relative pb-2">
+        <div className={`flex-1 overflow-y-auto relative ${isMobile ? 'pb-28' : 'pb-2'}`}>
           <AnimatePresence mode="wait">
             {searchQuery.trim() ? (
               <motion.div
@@ -415,46 +415,56 @@ export default function Sidebar({ onOpenAI }: { onOpenAI: () => void }) {
           </AnimatePresence>
         </div>
 
-        {/* ====== НИЖНЯЯ НАВИГАЦИЯ (МОБИЛКИ) ====== */}
+        {/* ====== НИЖНЯЯ НАВИГАЦИЯ (МОБИЛКИ) — овальная плавающая ====== */}
         {isMobile && (
-          <div className="glass-strong flex items-center justify-around px-2 py-2 flex-shrink-0">
-            {/* Чаты */}
-            <button className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white transition-colors">
-              <MessageSquare size={20} />
-              <span className="text-[10px]">Чаты</span>
-            </button>
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-2 pointer-events-none flex-shrink-0">
+            <div className="pointer-events-auto glass-strong rounded-[2rem] flex items-center justify-around px-3 py-2 max-w-sm mx-auto relative">
+              {/* Чаты */}
+              <button
+                onClick={() => {/* Уже на чатах */}}
+                className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-nexo-400 transition-colors"
+              >
+                <MessageSquare size={22} />
+                <span className="text-[10px] font-medium">Чаты</span>
+              </button>
 
-            {/* Друзья */}
-            <button className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white transition-colors">
-              <Users size={20} />
-              <span className="text-[10px]">Друзья</span>
-            </button>
+              {/* Друзья */}
+              <button
+                onClick={() => setShowSideMenu(true)}
+                className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              >
+                <Users size={22} />
+                <span className="text-[10px]">Друзья</span>
+              </button>
 
-            {/* Новый чат - центральная кнопка */}
-            <button
-              onClick={() => setShowNewChat(true)}
-              className="relative -mt-5 w-14 h-14 rounded-2xl bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-nexo-500/40 hover:shadow-nexo-500/60 hover:scale-105 active:scale-95 transition-all duration-200"
-            >
-              <Plus size={24} />
-            </button>
+              {/* Новый чат — выступающая центральная кнопка */}
+              <div className="relative -mt-8">
+                <button
+                  onClick={() => setShowNewChat(true)}
+                  className="w-16 h-16 rounded-2xl bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-nexo-500/40 hover:shadow-nexo-500/60 hover:scale-105 active:scale-95 transition-all duration-200"
+                >
+                  <Plus size={28} />
+                </button>
+              </div>
 
-            {/* Nexo AI */}
-            <button
-              onClick={onOpenAI}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-nexo-400 transition-colors"
-            >
-              <Sparkles size={20} />
-              <span className="text-[10px]">Nexo AI</span>
-            </button>
+              {/* Nexo AI */}
+              <button
+                onClick={onOpenAI}
+                className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 hover:text-nexo-400 transition-colors"
+              >
+                <Sparkles size={22} />
+                <span className="text-[10px]">Nexo AI</span>
+              </button>
 
-            {/* Меню */}
-            <button
-              onClick={() => setShowSideMenu(true)}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white transition-colors"
-            >
-              <Menu size={20} />
-              <span className="text-[10px]">Меню</span>
-            </button>
+              {/* Меню */}
+              <button
+                onClick={() => setShowSideMenu(true)}
+                className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              >
+                <Menu size={22} />
+                <span className="text-[10px]">Меню</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
