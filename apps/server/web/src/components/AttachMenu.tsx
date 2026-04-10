@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, FileImage, FileText, BarChart3, MapPin, Video } from 'lucide-react';
+import { X, Camera, FileImage, FileText, BarChart3, MapPin } from 'lucide-react';
 
 interface AttachMenuProps {
   onClose: () => void;
   onSelectFile: () => void;
   onSelectImage: () => void;
   onSelectCamera: () => void;
-  onSelectVideoCircle: () => void;
   onSelectPoll: () => void;
   onSelectLocation: () => void;
 }
@@ -17,7 +16,6 @@ export default function AttachMenu({
   onSelectFile,
   onSelectImage,
   onSelectCamera,
-  onSelectVideoCircle,
   onSelectPoll,
   onSelectLocation
 }: AttachMenuProps) {
@@ -25,7 +23,6 @@ export default function AttachMenu({
     { icon: FileImage, label: 'Фото или видео', onClick: onSelectImage, color: 'from-blue-500 to-sky-500' },
     { icon: FileText, label: 'Файл', onClick: onSelectFile, color: 'from-zinc-500 to-zinc-600' },
     { icon: Camera, label: 'Камера', onClick: onSelectCamera, color: 'from-purple-500 to-pink-500' },
-    { icon: Video, label: 'Видео-кружок', onClick: onSelectVideoCircle, color: 'from-nexo-500 to-purple-600' },
     { icon: BarChart3, label: 'Опрос', onClick: onSelectPoll, color: 'from-orange-500 to-amber-500' },
     { icon: MapPin, label: 'Геолокация', onClick: onSelectLocation, color: 'from-emerald-500 to-teal-500' },
   ];

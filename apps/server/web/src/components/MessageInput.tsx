@@ -24,7 +24,6 @@ import { useLang } from '../lib/i18n';
 import { AUDIO_EXTENSIONS, MAX_FILE_SIZE } from '../lib/types';
 import EmojiPicker from './EmojiPicker';
 import CameraModal from './CameraModal';
-import VideoCircleModal from './VideoCircleModal';
 import AttachMenu from './AttachMenu';
 import PollModal from './PollModal';
 import LocationModal from './LocationModal';
@@ -69,7 +68,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [showRightArrow, setShowRightArrow] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showAttachMenu, setShowAttachMenuState] = useState(false);
-  const [showVideoCircle, setShowVideoCircle] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
   const attachmentsScrollRef = useRef<HTMLDivElement>(null);
@@ -327,30 +325,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     const preview = type === 'image' ? URL.createObjectURL(file) : undefined;
     addAttachment(file, type, preview);
     setShowCamera(false);
-  };
-
-  const handleVideoCircle = async (file: File) => {
-    try {
-      const result = await api.uploadFile(file);
-      if (!result || !result.url) throw new Error('Не получен URL');
-      
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('send_message', {
-          chatId,
-          content: null,
-          type: 'video_circle',
-          mediaUrl: result.url,
-          mediaType: 'video_circle',
-          fileName: result.filename || file.name,
-          fileSize: result.size || file.size,
-          replyToId: replyTo?.id || null,
-        });
-        setReplyTo(null);
-      }
-    } catch (e) {
-      console.error('Ошибка отправки видео-кружка:', e);
-    }
   };
 
   const handlePollSend = (poll: { question: string; options: string[]; multiple: boolean; quiz: boolean }) => {
@@ -816,16 +790,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                 <Paperclip size={18} />
               </button>
 
-              {/* Video Circle button - next to mic/send */}
-              <button
-                onClick={() => setShowVideoCircle(true)}
-                disabled={isSending || isRecording}
-                className="w-11 h-11 rounded-full bg-nexo-500/20 hover:bg-nexo-500/30 flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50"
-                title="Видео-кружок"
-              >
-                <Video size={18} className="text-nexo-400" />
-              </button>
-
               <button
                 onClick={() => hasContent ? handleSend() : startRecording()}
                 disabled={isSending || (!hasContent && isRecording)}
@@ -870,16 +834,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                 title="Прикрепить"
               >
                 <Paperclip size={18} />
-              </button>
-
-              {/* Video Circle - desktop */}
-              <button
-                onClick={() => setShowVideoCircle(true)}
-                disabled={isSending || isRecording}
-                className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0 disabled:opacity-50"
-                title="Видео-кружок"
-              >
-                <Video size={18} />
               </button>
 
               <button
@@ -995,19 +949,8 @@ export default function MessageInput({ chatId }: MessageInputProps) {
             onSelectFile={() => fileInputRef.current?.click()}
             onSelectImage={() => imageInputRef.current?.click()}
             onSelectCamera={() => setShowCamera(true)}
-            onSelectVideoCircle={() => setShowVideoCircle(true)}
             onSelectPoll={() => setShowPoll(true)}
             onSelectLocation={() => setShowLocation(true)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Video Circle Modal */}
-      <AnimatePresence>
-        {showVideoCircle && (
-          <VideoCircleModal
-            onClose={() => setShowVideoCircle(false)}
-            onSend={handleVideoCircle}
           />
         )}
       </AnimatePresence>

@@ -36,7 +36,6 @@ export default function ChatPage() {
   } = useChatStore();
   const { user } = useAuthStore();
   const initialized = useRef(false);
-  const [showMobileSidebar, setShowMobileSidebar] = useState(true);
 
   // Call state
   const [callOpen, setCallOpen] = useState(false);
@@ -247,12 +246,8 @@ export default function ChatPage() {
     }
   };
 
-  // Handle chat selection on mobile
-  useEffect(() => {
-    if (activeChat && window.innerWidth < 640) {
-      setShowMobileSidebar(false);
-    }
-  }, [activeChat]);
+  // Handle chat selection on mobile — sidebar всегда виден на мобилках
+  // ChatView показывается поверх когда activeChat установлен
 
   // Save active chat to localStorage
   useEffect(() => {
@@ -262,10 +257,6 @@ export default function ChatPage() {
       localStorage.removeItem('nexo_active_chat');
     }
   }, [activeChat]);
-
-  const handleBackToChats = () => {
-    setShowMobileSidebar(true);
-  };
 
   // Обработка закрытия вкладки — отправить disconnect
   useEffect(() => {
@@ -506,20 +497,22 @@ export default function ChatPage() {
       exit={{ opacity: 0 }}
       className="h-full w-full flex flex-col sm:flex-row bg-surface gap-0 overflow-hidden"
     >
-      {/* Sidebar - hidden on mobile when chat is active */}
-      <div className={`${showMobileSidebar ? 'flex' : 'hidden'} sm:flex w-full sm:w-[340px] flex-shrink-0 min-w-0`}>
+      {/* Sidebar — всегда виден (и на ПК, и на мобилках), скрыт только когда ИИ открыт на ПК */}
+      <div className={`flex w-full sm:w-[340px] flex-shrink-0 min-w-0 ${showAI && !isMobile ? 'hidden' : ''}`}>
         <Sidebar onOpenAI={() => setShowAI(true)} onOpenFriends={() => setShowFriends(true)} />
       </div>
 
-      {/* ChatView - hidden on mobile when sidebar is shown */}
-      <div className={`${!showMobileSidebar ? 'flex' : 'hidden'} sm:flex flex-1 min-w-0 relative overflow-hidden`}>
-        {/* Back button for mobile */}
-        <button
-          onClick={handleBackToChats}
-          className="sm:hidden absolute left-3 top-3 z-30 p-2 rounded-lg bg-surface-secondary/90 backdrop-blur border border-border text-white hover:bg-surface-hover transition-colors shadow-lg"
-        >
-          <ArrowLeft size={20} />
-        </button>
+      {/* ChatView — поверх sidebar на мобилках когда activeChat, на ПК всегда рядом. Скрыт когда ИИ открыт. */}
+      <div className={`${(isMobile && (!activeChat || showAI)) ? 'hidden' : 'flex'} sm:flex flex-1 min-w-0 relative overflow-hidden`}>
+        {/* Back button for mobile — возвращает к sidebar */}
+        {isMobile && (
+          <button
+            onClick={() => useChatStore.getState().setActiveChat(null)}
+            className="absolute left-3 top-3 z-30 p-2 rounded-lg bg-surface-secondary/90 backdrop-blur border border-border text-white hover:bg-surface-hover transition-colors shadow-lg"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        )}
         <div className="flex-1 w-full h-full min-h-0 overflow-hidden">
           <ChatView onStartCall={handleStartCall} onStartGroupCall={handleStartGroupCall} />
         </div>

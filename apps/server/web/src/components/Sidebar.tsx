@@ -57,24 +57,28 @@ function NavButton({
       className={`relative group flex items-center h-12 rounded-2xl transition-all duration-300 overflow-hidden ${
         active ? 'glass-tab-active' : 'hover:bg-white/5'
       }`}
-      style={{ width: active ? 'auto' : '48px', minWidth: active ? 'auto' : '48px' }}
+      style={{ width: active ? 'auto' : '48px', minWidth: '48px' }}
     >
-      {/* Иконка */}
+      {/* Иконка — всегда видна */}
       <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
-        <Icon size={20} className={active ? 'text-nexo-400' : 'text-zinc-400 group-hover:text-white'} />
+        <Icon size={20} className={active ? 'text-nexo-400' : 'text-zinc-400 group-hover:text-white transition-colors'} />
       </div>
 
-      {/* Текст (раскрывается при активности или hover) */}
-      <span className={`whitespace-nowrap text-sm font-medium transition-all duration-300 ${
-        active ? 'text-white pr-4' : 'text-zinc-400 group-hover:text-white group-hover:pr-4 pr-0 max-w-0 group-hover:max-w-[100px]'
-      }`}>
+      {/* Текст — плавно появляется при hover, всегда виден когда active */}
+      <span
+        className={`whitespace-nowrap text-sm font-medium transition-all duration-300 ease-in-out pr-4 ${
+          active
+            ? 'text-white max-w-[120px] opacity-100'
+            : 'text-zinc-400 group-hover:text-white max-w-0 opacity-0 group-hover:max-w-[120px] group-hover:opacity-100'
+        }`}
+      >
         {label}
       </span>
 
       {/* Бейдж */}
       {badge && badge > 0 && (
-        <div className={`absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-nexo-500 flex items-center justify-center ${
-          active ? '' : 'group-hover:opacity-100 opacity-80'
+        <div className={`absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-nexo-500 flex items-center justify-center transition-opacity ${
+          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}>
           <span className="text-[9px] font-bold text-white">{badge > 99 ? '99+' : badge}</span>
         </div>
@@ -257,6 +261,14 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
               badge={unreadCount}
             />
 
+            {/* Новый чат */}
+            <NavButton
+              icon={Plus}
+              label="Новый чат"
+              active={false}
+              onClick={() => setShowNewChat(true)}
+            />
+
             {/* Друзья */}
             <NavButton
               icon={Users}
@@ -328,46 +340,48 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                 {activeTab === 'settings' && 'Настройки'}
               </h1>
             </div>
-
-            {/* Кнопки (ПК) */}
-            {!isMobile && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowNewChat(true)}
-                  className="glass-btn w-10 h-10 rounded-xl text-nexo-400 hover:text-nexo-300"
-                >
-                  <Plus size={18} />
-                </button>
-                <button
-                  onClick={onOpenAI}
-                  className="glass-btn w-10 h-10 rounded-xl text-nexo-400 hover:text-nexo-300"
-                >
-                  <Sparkles size={18} />
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Поиск */}
-          <div className="relative px-4 py-3 flex-shrink-0">
+          <div className="relative px-3 py-2.5 flex-shrink-0">
             <div className="relative group">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-nexo-400 transition-colors pointer-events-none z-10" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-nexo-400 transition-colors pointer-events-none z-10" />
               <input
                 type="text"
-                placeholder={activeTab === 'friends' ? 'Поиск друзей...' : 'Поиск...'}
+                placeholder={
+                  activeTab === 'friends' ? 'Имя или @username' :
+                  searchResults.length > 0 || channelResults.length > 0 ? 'Уточните запрос...' :
+                  'Имя, @username или название канала'
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-9 py-2.5 rounded-xl text-sm text-white placeholder-zinc-500 glass-input"
+                className="w-full pl-9 pr-8 py-2 rounded-xl text-sm text-white placeholder-zinc-500 glass-input focus:ring-1 focus:ring-nexo-500/30 transition-all"
               />
-              {searchQuery && (
+              {searchQuery ? (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-zinc-500 hover:text-white transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Очистить"
                 >
                   <X size={12} />
                 </button>
-              )}
+              ) : isSearching ? (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="w-3.5 h-3.5 border-2 border-nexo-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : null}
             </div>
+
+            {/* Подсказка при поиске */}
+            {searchQuery.trim() && (
+              <div className="flex items-center justify-between mt-1.5 px-1">
+                <span className="text-[10px] text-zinc-600">
+                  {searchResults.length + channelResults.length > 0
+                    ? `Найдено: ${searchResults.length} польз., ${channelResults.length} кан.`
+                    : isSearching ? 'Ищем...' : 'Ничего не найдено'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Сторисы (только на вкладке чатов) */}

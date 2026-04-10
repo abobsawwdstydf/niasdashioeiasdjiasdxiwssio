@@ -76,7 +76,6 @@ function MessageBubble({
   const [deleteMenuMode, setDeleteMenuMode] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showVideoPlayer, setShowVideoPlayer] = useState<string | null>(null);
-  const [videoCirclePlaying, setVideoCirclePlaying] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -686,50 +685,15 @@ function MessageBubble({
                   const dur = m.duration || 0;
                   const durStr = dur ? `${Math.floor(dur / 60)}:${Math.floor(dur % 60).toString().padStart(2, '0')}` : '';
                   return (
-                    <div key={m.id} className={`${message.content ? 'mb-2 -mx-3 -mt-2' : ''}`}>
-                      <div
-                        className="relative rounded-2xl overflow-hidden bg-black group cursor-pointer shadow-lg"
-                        onClick={() => setShowVideoPlayer(normalizeMediaUrl(m.url))}
-                      >
-                        <video
-                          src={normalizeMediaUrl(m.url)}
-                          poster={normalizeMediaUrl(m.thumbnail) || ''}
-                          className="w-full max-w-[320px] max-h-64 object-contain"
-                          preload="metadata"
-                          onError={(e) => {
-                            (e.target as HTMLVideoElement).style.display = 'none';
-                            const parent = (e.target as HTMLVideoElement).parentElement;
-                            if (parent && !parent.querySelector('.broken-video')) {
-                              const div = document.createElement('div');
-                              div.className = 'broken-video absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-500';
-                              div.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
-                              parent.appendChild(div);
-                            }
-                          }}
-                        />
-                        {/* Play overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-all">
-                          <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform border border-white/30">
-                            <Play size={24} className="text-white ml-1" />
-                          </div>
-                        </div>
-                        {/* Duration badge - bottom right */}
-                        {(durStr || sizeStr) && (
-                          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
-                            {durStr && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-xs text-white font-mono">
-                                {durStr}
-                              </span>
-                            )}
-                            {sizeStr && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/70">
-                                {sizeStr}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <VideoMessage
+                      key={m.id}
+                      media={m}
+                      content={message.content}
+                      isMine={isMine}
+                      sizeStr={sizeStr}
+                      durStr={durStr}
+                      onOpenPlayer={(url) => setShowVideoPlayer(url)}
+                    />
                   );
                 })}
 
@@ -739,52 +703,6 @@ function MessageBubble({
                 src={showVideoPlayer}
                 onClose={() => setShowVideoPlayer(null)}
               />
-            )}
-
-            {/* Видео-кружок */}
-            {message.type === 'video_circle' && media[0]?.url && (
-              <div className="flex items-center justify-center py-2">
-                <button
-                  onClick={() => {
-                    const videoEl = document.getElementById(`vc-${message.id}`) as HTMLVideoElement;
-                    if (!videoEl) return;
-                    if (videoCirclePlaying === message.id) {
-                      setVideoCirclePlaying(null);
-                      videoEl.pause();
-                      videoEl.currentTime = 0;
-                    } else {
-                      setVideoCirclePlaying(message.id);
-                      videoEl.play().catch(() => {});
-                    }
-                  }}
-                  className="relative w-56 h-56 rounded-full overflow-hidden border-2 border-white/10 hover:border-white/30 transition-all active:scale-95 bg-black"
-                >
-                  <video
-                    id={`vc-${message.id}`}
-                    src={normalizeMediaUrl(media[0].url)}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                    loop
-                    onEnded={() => setVideoCirclePlaying(null)}
-                  />
-                  {videoCirclePlaying !== message.id && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="w-12 h-12 rounded-full bg-white/80 flex items-center justify-center backdrop-blur-sm">
-                        <Play size={20} className="text-black ml-0.5" />
-                      </div>
-                    </div>
-                  )}
-                  {/* Duration badge - bottom right corner */}
-                  <div className="absolute bottom-3 right-3 px-1.5 py-0.5 rounded bg-black/50 backdrop-blur-sm">
-                    <span className="text-[10px] text-white font-mono">
-                      {media[0].duration
-                        ? `${Math.floor(media[0].duration / 60)}:${Math.floor(media[0].duration % 60).toString().padStart(2, '0')}`
-                        : '0:00'}
-                    </span>
-                  </div>
-                </button>
-              </div>
             )}
 
             {/* Опрос */}
@@ -875,18 +793,15 @@ function MessageBubble({
 
               return (
                 <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
-                  {/* Audio element - rendered only when playing to prevent errors */}
-                  {isPlaying && (
-                    <audio
-                      ref={audioRef}
-                      src={voiceUrl}
-                      preload="auto"
-                      onError={() => {
-                        // Silently handle errors - don't spam console
-                        setIsPlaying(false);
-                      }}
-                    />
-                  )}
+                  {/* Всегда рендерим аудио тег, чтобы браузер мог загрузить метаданные */}
+                  <audio
+                    ref={audioRef}
+                    src={voiceUrl}
+                    preload="auto"
+                    onError={() => {
+                      setIsPlaying(false);
+                    }}
+                  />
                   {/* Play button - Telegram style circle */}
                   <button
                     onClick={toggleAudio}
@@ -968,8 +883,12 @@ function MessageBubble({
                   <div className="flex items-center gap-3">
                     <audio
                       ref={audioRef}
-                      src={isPlaying || audioDuration > 0 ? audioUrl : undefined}
-                      preload="none"
+                      src={audioUrl}
+                      preload="metadata"
+                      onError={() => {
+                        setIsPlaying(false);
+                        setAudioProgress(0);
+                      }}
                     />
                     <button
                       onClick={toggleAudio}
@@ -1313,6 +1232,84 @@ function MessageBubble({
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/**
+ * Отдельный компонент для видео-сообщений — изолирует state ошибки загрузки
+ */
+function VideoMessage({
+  media,
+  content,
+  isMine,
+  sizeStr,
+  durStr,
+  onOpenPlayer,
+}: {
+  media: MediaItem;
+  content: string | null;
+  isMine: boolean;
+  sizeStr: string;
+  durStr: string;
+  onOpenPlayer: (url: string) => void;
+}) {
+  const [loadError, setLoadError] = useState(false);
+  const videoUrl = normalizeMediaUrl(media.url);
+  const posterUrl = normalizeMediaUrl(media.thumbnail);
+
+  return (
+    <div className={`${content ? 'mb-2 -mx-3 -mt-2' : ''}`}>
+      <div
+        className="relative rounded-2xl overflow-hidden bg-black group cursor-pointer shadow-lg"
+        onClick={() => !loadError && onOpenPlayer(videoUrl)}
+      >
+        {!loadError ? (
+          <video
+            src={videoUrl}
+            poster={posterUrl || ''}
+            className="w-full max-w-[320px] max-h-64 object-contain"
+            preload="metadata"
+            onError={() => setLoadError(true)}
+          />
+        ) : (
+          /* Фоллбэк при ошибке загрузки — пробуем открыть напрямую */
+          <a
+            href={videoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center justify-center w-full max-w-[320px] h-48 bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Video size={32} className="mb-2 opacity-50" />
+            <span className="text-xs">Не удалось загрузить видео</span>
+            <span className="text-[10px] opacity-60 mt-1">Нажмите чтобы открыть в новой вкладке</span>
+          </a>
+        )}
+        {/* Play overlay — только если нет ошибки */}
+        {!loadError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-all">
+            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform border border-white/30">
+              <Play size={24} className="text-white ml-1" />
+            </div>
+          </div>
+        )}
+        {/* Duration/size badge */}
+        {!loadError && (durStr || sizeStr) && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+            {durStr && (
+              <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-xs text-white font-mono">
+                {durStr}
+              </span>
+            )}
+            {sizeStr && (
+              <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/70">
+                {sizeStr}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
