@@ -13,6 +13,8 @@ model User {
   displayName      String   @default("")
   email            String?  @unique
   phone            String?
+  phoneVerified    Boolean  @default(false)
+  emailVerified    Boolean  @default(false)
   password         String
   avatar           String?
   bio              String?
@@ -28,6 +30,11 @@ model User {
   notifyMessages   Boolean  @default(true)
   notifyCalls      Boolean  @default(true)
   notifyFriends    Boolean  @default(true)
+
+  // 2FA login verification
+  twoFASecret      String? // For TOTP-based 2FA (future)
+  twoFAEnabled     Boolean  @default(false)
+  twoFAMethod      String? // 'telegram' | 'email' | 'call'
 
   // Verification & badges
   isVerified        Boolean   @default(false)
@@ -354,4 +361,25 @@ model FileChunk {
   @@unique([telegramFileId, chunkIndex])
   @@index([fileId])
   @@index([telegramFileId])
+}
+
+// Verification codes for phone, email, and 2FA login
+model VerificationCode {
+  id        String   @id @default(uuid())
+  phone     String? // Phone number being verified
+  email     String? // Email being verified
+  userId    String? // For 2FA login — existing user
+  code      String // 6-digit verification code
+  purpose   String // 'phone_register' | 'email_register' | 'login_2fa'
+  method    String // 'telegram' | 'call' | 'email' | 'sms'
+  token     String? // Unique token for Telegram verification link
+  expiresAt DateTime // Code expiration time (5 minutes)
+  createdAt DateTime @default(now())
+  used      Boolean  @default(false)
+
+  @@index([phone])
+  @@index([email])
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }

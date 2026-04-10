@@ -37,4 +37,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
 # Start
-CMD ["sh", "-c", "cd apps/server && npx prisma@6.3.0 db push --accept-data-loss && tsx src/index.ts"]
+CMD ["sh", "-c", "cd apps/server && \
+  for i in $(seq 1 10); do \
+    npx prisma@6.3.0 db push --accept-data-loss && break || \
+    { echo \"DB not ready, retry $i/10...\"; sleep 3; }; \
+  done && \
+  tsx src/index.ts"]

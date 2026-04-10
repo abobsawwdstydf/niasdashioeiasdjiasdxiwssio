@@ -10,6 +10,19 @@ interface AuthState {
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, displayName: string, password: string, bio?: string, birthday?: string) => Promise<void>;
+  // Новые методы для авторизации по телефону
+  loginByPhone: (phone: string, password: string) => Promise<{ require2FA?: boolean; availableMethods?: string[] }>;
+  loginByPhone2FA: (phone: string, code: string) => Promise<void>;
+  registerByPhone: (data: {
+    phone: string;
+    code: string;
+    username: string;
+    displayName: string;
+    password: string;
+    email?: string;
+    bio?: string;
+    birthday?: string;
+  }) => Promise<{ required: boolean; token?: string }>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
@@ -45,6 +58,59 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       api.setToken(token);
       connectSocket(token);
       set({ token, user, isLoading: false });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg, isLoading: false });
+      throw err;
+    }
+  },
+
+  loginByPhone: async (phone, password) => {
+    try {
+      set({ error: null, isLoading: true });
+      const result = await api.loginStart(phone, password);
+      // Если 2FA не требуется — результат уже содержит токен
+      if ('token' in result) {
+        localStorage.setItem('nexo_token', result.token);
+        api.setToken(result.token);
+        connectSocket(result.token);
+        set({ token: result.token, user: result.user, isLoading: false });
+        return {};
+      }
+      // Требуется 2FA
+      set({ isLoading: false });
+      return { require2FA: true as const, availableMethods: (result as { require2FA: true; user: Omit<User, 'password'>; availableMethods: string[] }).availableMethods };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg, isLoading: false });
+      throw err;
+    }
+  },
+
+  loginByPhone2FA: async (phone, code) => {
+    try {
+      set({ error: null, isLoading: true });
+      const { token, user } = await api.loginComplete2FA(phone, code);
+      localStorage.setItem('nexo_token', token);
+      api.setToken(token);
+      connectSocket(token);
+      set({ token, user, isLoading: false });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg, isLoading: false });
+      throw err;
+    }
+  },
+
+  registerByPhone: async (data) => {
+    try {
+      set({ error: null, isLoading: true });
+      const result = await api.registerComplete(data);
+      localStorage.setItem('nexo_token', result.token);
+      api.setToken(result.token);
+      connectSocket(result.token);
+      set({ token: result.token, user: result.user, isLoading: false });
+      return result.emailVerification;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ error: msg, isLoading: false });

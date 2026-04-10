@@ -55,7 +55,102 @@ class ApiClient {
     return response.json();
   }
 
-  // \u0410\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u044f
+  // Авторизация — новые endpoint'ы (телефон)
+  async registerStart(data: {
+    username: string;
+    displayName?: string;
+    phone: string;
+    email?: string;
+    password: string;
+    bio?: string;
+    birthday?: string;
+  }) {
+    return this.request<{
+      ok: boolean;
+      phone: string;
+      email: string | null;
+      username: string;
+      displayName: string;
+      bio: string | null;
+      birthday: string | null;
+    }>('/auth/register/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async registerRequestCode(phone: string, method: 'telegram' | 'call') {
+    return this.request<{
+      ok: boolean;
+      method: string;
+      link?: string;
+      token?: string;
+      devCode?: string;
+    }>('/auth/register/request-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone, method }),
+    });
+  }
+
+  async registerComplete(data: {
+    phone: string;
+    code: string;
+    username: string;
+    displayName: string;
+    password: string;
+    email?: string;
+    bio?: string;
+    birthday?: string;
+  }) {
+    return this.request<{
+      token: string;
+      user: User;
+      emailVerification: { required: boolean; token?: string };
+    }>('/auth/register/complete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async verifyEmail(email: string, code: string) {
+    return this.request<{ ok: boolean; message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  }
+
+  async resendEmailCode(email: string) {
+    return this.request<{ ok: boolean; devCode?: string }>('/auth/verify-email/resend', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async loginStart(phone: string, password: string) {
+    return this.request<
+      | { token: string; user: User }
+      | { require2FA: true; user: Omit<User, 'password'>; availableMethods: string[] }
+    >('/auth/login/start', {
+      method: 'POST',
+      body: JSON.stringify({ phone, password }),
+    });
+  }
+
+  async loginRequest2FA(phone: string, method: 'telegram' | 'call' | 'email') {
+    return this.request<{ ok: boolean; method: string; devCode?: string }>('/auth/login/request-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ phone, method }),
+    });
+  }
+
+  async loginComplete2FA(phone: string, code: string) {
+    return this.request<{ token: string; user: User }>('/auth/login/complete-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    });
+  }
+
+  // Legacy — обратная совместимость (возвращают 410)
   async login(username: string, password: string) {
     return this.request<{ token: string; user: User }>('/auth/login', {
       method: 'POST',
