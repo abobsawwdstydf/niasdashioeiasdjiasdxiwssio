@@ -42,8 +42,14 @@ class ApiClient {
     clearTimeout(timer);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430' }));
-      throw new Error(error.error || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u043f\u0440\u043e\u0441\u0430');
+      // 403 = токен недействителен — автоматически выходим
+      if (response.status === 403) {
+        localStorage.removeItem('nexo_token');
+        this.token = null;
+        window.location.href = '/';
+      }
+      const error = await response.json().catch(() => ({ error: 'Ошибка сервера' }));
+      throw new Error(error.error || 'Ошибка запроса');
     }
 
     return response.json();
