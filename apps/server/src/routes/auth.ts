@@ -1,20 +1,30 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 import { prisma } from '../db';
 import { config } from '../config';
 import { USER_SELECT } from '../shared';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import rateLimit from 'express-rate-limit';
-import { generateCode, createVerification, verifyCode, sendTelegramCode } from '../lib/verification';
 
 const router = Router();
 
+// Multer для аватарки (in-memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Только изображения'));
+  },
+});
+
 // ─── Rate limiters ───
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 10,
-  message: { error: 'Слишком много попыток. Попробуйте через час.' },
+  message: { error: 'Слишком много попыток. Подождите час.' },
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
@@ -22,193 +32,88 @@ const registerLimiter = rateLimit({
 });
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 минут
+  windowMs: 15 * 60 * 1000,
   max: 15,
-  message: { error: 'Слишком много попыток входа. Подождите 15 минут.' },
+  message: { error: 'Слишком много попыток. Подождите 15 минут.' },
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
   keyGenerator: (req) => req.ip || req.socket.remoteAddress || 'unknown',
 });
 
-const verifyLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 минут
-  max: 10,
-  message: { error: 'Слишком много попыток. Подождите 5 минут.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: false,
-  keyGenerator: (req) => req.ip || req.socket.remoteAddress || 'unknown',
-});
-
-// ─── Шаг 1: Начало регистрации (проверка данных) ───
-router.post('/register/start', registerLimiter, async (req, res) => {
+// ─── Регистрация ───
+router.post('/register', registerLimiter, upload.single('avatar'), async (req: Request, res) => {
   try {
-    const { username, displayName, phone, email, password, bio, birthday } = req.body;
+    const { username, displayName, phone, password, bio, birthday } = req.body;
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
-    // Валидация обязательных полей
+    // Валидация
     if (!username || !phone || !password) {
       res.status(400).json({ error: 'Username, телефон и пароль обязательны' });
       return;
     }
 
-    // Валидация username
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-      res.status(400).json({ error: 'Username: 3-20 символов, только латиница, цифры, _' });
+      res.status(400).json({ error: 'Username: 3-20 символов, латиница, цифры, _' });
       return;
     }
 
-    // Валидация телефона (международный формат)
     const phoneRegex = /^\+[1-9]\d{6,14}$/;
     if (!phoneRegex.test(phone)) {
-      res.status(400).json({ error: 'Номер телефона должен быть в международном формате (например, +79991234567)' });
+      res.status(400).json({ error: 'Телефон в международном формате (+79991234567)' });
       return;
     }
 
-    // Валидация пароля
     if (password.length < config.minPasswordLength) {
       res.status(400).json({ error: `Пароль минимум ${config.minPasswordLength} символов` });
       return;
     }
 
-    if (!/[a-zA-Zа-яА-Я]/.test(password) || !/\d/.test(password)) {
-      res.status(400).json({ error: 'Пароль должен содержать буквы и цифры' });
-      return;
-    }
-
-    // Валидация email (если указан)
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(400).json({ error: 'Некорректный email' });
-      return;
-    }
-
-    // Проверка существования username
+    // Проверка существования
     const existingUsername = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (existingUsername) {
       res.status(400).json({ error: 'Username занят' });
       return;
     }
 
-    // Проверка что номер не зарегистрирован
     const existingPhone = await prisma.user.findFirst({ where: { phone } });
     if (existingPhone) {
       res.status(400).json({ error: 'Этот номер уже зарегистрирован' });
       return;
     }
 
-    // Проверка возраста
-    if (birthday) {
-      const birthDate = new Date(birthday);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      const dayDiff = today.getDate() - birthDate.getDate();
-      const actualAge = age - (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? 1 : 0);
-
-      if (actualAge <= 5) {
-        res.status(400).json({ error: 'Вам должно быть больше 5 лет' });
-        return;
-      }
-    }
-
-    // Проверка лимита IP
+    // Лимит IP
     const accountsFromIp = await prisma.user.count({ where: { registrationIp: clientIp } });
     if (accountsFromIp >= config.maxRegistrationsPerIp) {
-      res.status(403).json({ error: `Лимит регистраций с IP исчерпан (макс. ${config.maxRegistrationsPerIp})` });
+      res.status(403).json({ error: `Лимит регистраций с IP (${config.maxRegistrationsPerIp})` });
       return;
     }
 
-    // Всё ок — возвращаем что можно продолжать
-    res.json({
-      ok: true,
-      phone,
-      email: email || null,
-      username: username.toLowerCase(),
-      displayName: displayName || username,
-      bio: bio ? bio.slice(0, 500) : null,
-      birthday: birthday || null,
-    });
-  } catch (error) {
-    console.error('Registration start error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// ─── Шаг 2: Запрос кода верификации номера ───
-router.post('/register/request-code', verifyLimiter, async (req, res) => {
-  try {
-    const { phone, method } = req.body; // method: 'telegram' | 'call'
-
-    if (!phone || !method) {
-      res.status(400).json({ error: 'Телефон и метод обязательны' });
-      return;
+    // Сохранение аватарки
+    let avatarPath: string | null = null;
+    if (req.file) {
+      const fs = await import('fs');
+      const path = await import('path');
+      const { UPLOADS_ROOT } = await import('../shared');
+      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const filename = `avatar_${Date.now()}.${ext}`;
+      avatarPath = `/uploads/avatars/${filename}`;
+      const dir = path.join(UPLOADS_ROOT, 'avatars');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, filename), req.file.buffer);
     }
 
-    if (!['telegram', 'call'].includes(method)) {
-      res.status(400).json({ error: 'Метод должен быть "telegram" или "call"' });
-      return;
-    }
-
-    // Генерируем код и токен
-    const { code, token } = await createVerification({
-      phone,
-      purpose: 'phone_register',
-      method: method as 'telegram' | 'call',
-    });
-
-    if (method === 'telegram') {
-      // Формируем ссылку на бота
-      const botUsername = 'nexomessenger_bot'; // TODO: вынести в config
-      const link = `https://t.me/${botUsername}?start=verify_${token}`;
-      res.json({ ok: true, method: 'telegram', link, token });
-    } else {
-      // TODO: реализовать звонок через DialMyCalls
-      // Пока что просто возвращаем код (для разработки)
-      console.log(`[CALL VERIFY] Code for ${phone}: ${code}`);
-      res.json({ ok: true, method: 'call', devCode: process.env.NODE_ENV === 'development' ? code : undefined });
-    }
-  } catch (error) {
-    console.error('Request code error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// ─── Шаг 3: Завершение регистрации (подтверждение номера + создание аккаунта) ───
-router.post('/register/complete', verifyLimiter, async (req, res) => {
-  try {
-    const { phone, code, email, username, displayName, password, bio, birthday } = req.body;
-
-    if (!phone || !code || !username || !password) {
-      res.status(400).json({ error: 'Телефон, код, username и пароль обязательны' });
-      return;
-    }
-
-    // Проверяем код верификации
-    const verification = await verifyCode({
-      phone,
-      code,
-      purpose: 'phone_register',
-    });
-
-    if (!verification.valid) {
-      res.status(400).json({ error: verification.message });
-      return;
-    }
-
-    // Создаём аккаунт
+    // Создание пользователя
     const hashedPassword = await bcrypt.hash(password, 10);
-    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-
     const user = await prisma.user.create({
       data: {
         username: username.toLowerCase(),
         displayName: displayName || username,
         phone,
-        phoneVerified: true,
-        email: email || null,
+        phoneVerified: true, // Авто-верификация пока
         emailVerified: false,
         password: hashedPassword,
+        avatar: avatarPath,
         bio: bio ? bio.slice(0, 500) : null,
         birthday: birthday || null,
         registrationIp: clientIp,
@@ -216,95 +121,50 @@ router.post('/register/complete', verifyLimiter, async (req, res) => {
       select: USER_SELECT,
     });
 
-    // Если email указан — генерируем код для подтверждения
-    let emailToken: string | null = null;
-    if (email) {
-      const { token } = await createVerification({
-        email,
-        userId: user.id,
-        purpose: 'email_register',
-        method: 'email',
-      });
-      emailToken = token;
-      // TODO: отправить email через балансировщик
-    }
-
     const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
-
-    res.json({
-      token,
-      user: { ...user, isOnline: true },
-      emailVerification: emailToken ? { required: true, token: emailToken } : { required: false },
-    });
+    res.json({ token, user: { ...user, isOnline: true } });
   } catch (error) {
-    console.error('Registration complete error:', error);
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// ─── Подтверждение email ───
-router.post('/verify-email', verifyLimiter, async (req, res) => {
+// ─── Проверка username ───
+router.get('/check-username', async (req, res) => {
   try {
-    const { email, code } = req.body;
-
-    if (!email || !code) {
-      res.status(400).json({ error: 'Email и код обязательны' });
+    const { username } = req.query;
+    if (!username || typeof username !== 'string') {
+      res.status(400).json({ error: 'Username обязателен' });
       return;
     }
-
-    const verification = await verifyCode({
-      email,
-      code,
-      purpose: 'email_register',
-    });
-
-    if (!verification.valid) {
-      res.status(400).json({ error: verification.message });
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+      res.json({ available: false, reason: 'invalid' });
       return;
     }
-
-    res.json({ ok: true, message: 'Email подтверждён' });
-  } catch (error) {
-    console.error('Email verification error:', error);
+    const existing = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
+    res.json({ available: !existing });
+  } catch {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// ─── Повторная отправка кода email ───
-router.post('/verify-email/resend', verifyLimiter, async (req, res) => {
+// ─── Проверка телефона ───
+router.get('/check-phone', async (req, res) => {
   try {
-    const { email } = req.body;
-
-    if (!email) {
-      res.status(400).json({ error: 'Email обязателен' });
+    const { phone } = req.query;
+    if (!phone || typeof phone !== 'string') {
+      res.status(400).json({ error: 'Телефон обязателен' });
       return;
     }
-
-    // Удаляем старые коды и создаём новый
-    await prisma.verificationCode.deleteMany({
-      where: { email, purpose: 'email_register', used: false },
-    });
-
-    const user = await prisma.user.findFirst({ where: { email } });
-    const { code, token } = await createVerification({
-      email,
-      userId: user?.id,
-      purpose: 'email_register',
-      method: 'email',
-    });
-
-    // TODO: отправить email
-    console.log(`[EMAIL RESEND] Code for ${email}: ${code}`);
-
-    res.json({ ok: true, devCode: process.env.NODE_ENV === 'development' ? code : undefined });
-  } catch (error) {
-    console.error('Email resend error:', error);
+    const existing = await prisma.user.findFirst({ where: { phone } });
+    res.json({ available: !existing });
+  } catch {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// ─── Вход: Шаг 1 — проверка телефона и пароля ───
-router.post('/login/start', loginLimiter, async (req, res) => {
+// ─── Вход ───
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body;
 
@@ -313,124 +173,19 @@ router.post('/login/start', loginLimiter, async (req, res) => {
       return;
     }
 
-    // Ищем пользователя по номеру телефона
     const user = await prisma.user.findFirst({
       where: { phone },
       select: { ...USER_SELECT, password: true },
     });
 
     if (!user) {
-      res.status(400).json({ error: 'Неверный номер телефона или пароль' });
+      res.status(400).json({ error: 'Неверный номер или пароль' });
       return;
     }
 
-    // Проверяем пароль
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      res.status(400).json({ error: 'Неверный номер телефона или пароль' });
-      return;
-    }
-
-    // Определяем доступные способы 2FA
-    const twoFAMethods: string[] = [];
-    if (user.phoneVerified) twoFAMethods.push('telegram');
-    if (user.emailVerified) twoFAMethods.push('email');
-    twoFAMethods.push('call'); // звонок всегда доступен
-
-    // Если 2FA не нужен (нет подтверждённых способов) — сразу логиним
-    if (twoFAMethods.length === 0 || (twoFAMethods.length === 1 && twoFAMethods[0] === 'call')) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { isOnline: true, lastSeen: new Date() },
-      });
-
-      const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
-      const { password: _, ...userWithoutPassword } = user;
-
-      res.json({ token, user: { ...userWithoutPassword, isOnline: true } });
-      return;
-    }
-
-    // Иначе требуем 2FA
-    const { password: _, ...userWithoutPassword } = user;
-    res.json({
-      require2FA: true,
-      user: userWithoutPassword,
-      availableMethods: twoFAMethods,
-    });
-  } catch (error) {
-    console.error('Login start error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// ─── Вход: Шаг 2 — запрос 2FA кода ───
-router.post('/login/request-2fa', verifyLimiter, async (req, res) => {
-  try {
-    const { phone, method } = req.body;
-
-    if (!phone || !method) {
-      res.status(400).json({ error: 'Телефон и метод обязательны' });
-      return;
-    }
-
-    const user = await prisma.user.findFirst({ where: { phone } });
-    if (!user) {
-      res.status(400).json({ error: 'Пользователь не найден' });
-      return;
-    }
-
-    const { code, token } = await createVerification({
-      phone,
-      email: user.email || undefined,
-      userId: user.id,
-      purpose: 'login_2fa',
-      method: method as 'telegram' | 'call' | 'email',
-    });
-
-    if (method === 'telegram') {
-      // TODO: отправить через бота (нужен chat_id пользователя)
-      console.log(`[2FA TELEGRAM] Code for ${phone}: ${code}`);
-      res.json({ ok: true, method: 'telegram', devCode: process.env.NODE_ENV === 'development' ? code : undefined });
-    } else if (method === 'email') {
-      // TODO: отправить email
-      console.log(`[2FA EMAIL] Code for ${user.email}: ${code}`);
-      res.json({ ok: true, method: 'email', devCode: process.env.NODE_ENV === 'development' ? code : undefined });
-    } else {
-      // Звонок
-      console.log(`[2FA CALL] Code for ${phone}: ${code}`);
-      res.json({ ok: true, method: 'call', devCode: process.env.NODE_ENV === 'development' ? code : undefined });
-    }
-  } catch (error) {
-    console.error('2FA request error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// ─── Вход: Шаг 3 — подтверждение 2FA кода ───
-router.post('/login/complete-2fa', verifyLimiter, async (req, res) => {
-  try {
-    const { phone, code } = req.body;
-
-    if (!phone || !code) {
-      res.status(400).json({ error: 'Телефон и код обязательны' });
-      return;
-    }
-
-    const user = await prisma.user.findFirst({ where: { phone } });
-    if (!user) {
-      res.status(400).json({ error: 'Пользователь не найден' });
-      return;
-    }
-
-    const verification = await verifyCode({
-      userId: user.id,
-      code,
-      purpose: 'login_2fa',
-    });
-
-    if (!verification.valid) {
-      res.status(400).json({ error: verification.message });
+      res.status(400).json({ error: 'Неверный номер или пароль' });
       return;
     }
 
@@ -444,19 +199,9 @@ router.post('/login/complete-2fa', verifyLimiter, async (req, res) => {
 
     res.json({ token, user: { ...userWithoutPassword, isOnline: true } });
   } catch (error) {
-    console.error('2FA complete error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
-});
-
-// ─── Legacy: регистрация (обратная совместимость) ───
-router.post('/register', async (req, res) => {
-  res.status(410).json({ error: 'Используйте /api/auth/register/start' });
-});
-
-// ─── Legacy: вход (обратная совместимость) ───
-router.post('/login', async (req, res) => {
-  res.status(410).json({ error: 'Используйте /api/auth/login/start' });
 });
 
 // ─── Текущий пользователь ───

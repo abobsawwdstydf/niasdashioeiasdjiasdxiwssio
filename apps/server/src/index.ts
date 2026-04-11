@@ -7,10 +7,9 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import mime from 'mime-types';
-import { config, TELEGRAM_BOTS } from './config';
+import { config, TELEGRAM_BOTS, TELEGRAM_AUTH_BOT } from './config';
 import { prisma } from './db';
 import authRoutes from './routes/auth';
-import { findTelegramToken } from './lib/verification';
 
 // Initialize database connection
 prisma.$connect().then(() => {
@@ -88,76 +87,45 @@ app.use('/api/threads', apiLimiter, authenticateToken, require('./routes/threads
 app.use('/api/ai', apiLimiter, authenticateToken, require('./routes/ai').default);
 app.use('/api/admin', adminRoutes);
 
-// ─── Telegram Webhook — обработка /start verify_TOKEN ───
-app.post('/webhook/telegram/:botToken', async (req, res) => {
+// ─── Telegram Auth Webhook ───
+app.post(`/webhook/telegram/${TELEGRAM_AUTH_BOT.token.split(':')[0]}`, async (req, res) => {
   try {
     const update = req.body;
-    if (!update.message) { res.status(200).json({ ok: true }); return; }
+    if (!update.message?.text) { res.status(200).json({ ok: true }); return; }
 
     const { message } = update;
     const chatId = message.chat.id;
-    const text = message.text || '';
+    const text = message.text;
 
-    // Проверяем /start verify_TOKEN
-    const match = text.match(/^\/start verify_([a-f0-9]+)/i);
-    if (match) {
-      const token = match[1];
-      const record = await findTelegramToken(token);
-
-      if (!record) {
-        await sendTelegramMsg(req.params.botToken, chatId, '⏰ Ссылка устарела или уже использована.\n\nПолучите новую ссылку на сайте.');
-        res.status(200).json({ ok: true });
-        return;
-      }
-
-      // Отправляем код
-      const code = record.code;
-      const minutesLeft = Math.floor((record.expiresAt.getTime() - Date.now()) / 60000);
-
-      const purposeTexts: Record<string, string> = {
-        phone_register: 'номера телефона',
-        email_register: 'email',
-        login_2fa: 'входа в аккаунт',
-      };
-      const purpose = purposeTexts[record.purpose] || 'аккаунта';
-
-      await sendTelegramMsg(req.params.botToken, chatId,
-        `🎉 Добро пожаловать в Nexo!\n\n` +
-        `🔐 Ваш код подтверждения: *${code}*\n\n` +
-        `⏱ Код действует ещё ${minutesLeft} мин.\n\n` +
-        `Введите этот код на сайте для подтверждения ${purpose}.`
-      );
-
-      res.status(200).json({ ok: true });
-      return;
-    }
-
-    // Приветственное сообщение при первом запуске бота
     if (text === '/start') {
-      await sendTelegramMsg(req.params.botToken, chatId,
-        `👋 Привет! Я бот *Nexo Messenger*.\n\n` +
-        `Для подтверждения номера перейдите по ссылке с сайта.\n\n` +
-        `Команды:\n/start — начать`
+      await tgSend(chatId,
+        `👋 Добро пожаловать в *Nexo*!\n\n` +
+        `Для регистрации или входа перейдите на сайт и введите этот код.\n\n` +
+        `Отправьте \`/code 123456\` для подтверждения.`
       );
-      res.status(200).json({ ok: true });
-      return;
+    } else if (text.startsWith('/code ')) {
+      const code = text.slice(6).trim();
+      // Просто подтверждаем — код обрабатывается на сайте через API
+      await tgSend(chatId,
+        `✅ Код принят: \`${code}\`\n\n` +
+        `Вернитесь на сайт для завершения.`
+      );
     }
 
     res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error('Telegram webhook error:', error);
+  } catch (err) {
+    console.error('TG webhook error:', err);
     res.status(200).json({ ok: true });
   }
 });
 
-// Helper: отправка сообщения через Telegram API
-async function sendTelegramMsg(botToken: string, chatId: number | string, text: string) {
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+async function tgSend(chatId: number | string, text: string) {
+  const url = `https://api.telegram.org/bot${TELEGRAM_AUTH_BOT.token}/sendMessage`;
   await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
-  }).catch(err => console.error('Telegram send error:', err));
+  }).catch(err => console.error('TG send error:', err));
 }
 
 // Проверка здоровья

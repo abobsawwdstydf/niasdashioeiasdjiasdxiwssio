@@ -55,114 +55,52 @@ class ApiClient {
     return response.json();
   }
 
-  // Авторизация — новые endpoint'ы (телефон)
-  async registerStart(data: {
-    username: string;
-    displayName?: string;
-    phone: string;
-    email?: string;
-    password: string;
-    bio?: string;
-    birthday?: string;
-  }) {
-    return this.request<{
-      ok: boolean;
-      phone: string;
-      email: string | null;
-      username: string;
-      displayName: string;
-      bio: string | null;
-      birthday: string | null;
-    }>('/auth/register/start', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async registerRequestCode(phone: string, method: 'telegram' | 'call') {
-    return this.request<{
-      ok: boolean;
-      method: string;
-      link?: string;
-      token?: string;
-      devCode?: string;
-    }>('/auth/register/request-code', {
-      method: 'POST',
-      body: JSON.stringify({ phone, method }),
-    });
-  }
-
-  async registerComplete(data: {
-    phone: string;
-    code: string;
-    username: string;
-    displayName: string;
-    password: string;
-    email?: string;
-    bio?: string;
-    birthday?: string;
-  }) {
-    return this.request<{
-      token: string;
-      user: User;
-      emailVerification: { required: boolean; token?: string };
-    }>('/auth/register/complete', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async verifyEmail(email: string, code: string) {
-    return this.request<{ ok: boolean; message: string }>('/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ email, code }),
-    });
-  }
-
-  async resendEmailCode(email: string) {
-    return this.request<{ ok: boolean; devCode?: string }>('/auth/verify-email/resend', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  }
-
-  async loginStart(phone: string, password: string) {
-    return this.request<
-      | { token: string; user: User }
-      | { require2FA: true; user: Omit<User, 'password'>; availableMethods: string[] }
-    >('/auth/login/start', {
+  // Авторизация
+  async login(phone: string, password: string) {
+    return this.request<{ token: string; user: User }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ phone, password }),
     });
   }
 
-  async loginRequest2FA(phone: string, method: 'telegram' | 'call' | 'email') {
-    return this.request<{ ok: boolean; method: string; devCode?: string }>('/auth/login/request-2fa', {
+  async register(data: {
+    username: string;
+    displayName?: string;
+    phone: string;
+    password: string;
+    bio?: string;
+    birthday?: string;
+    avatar?: File;
+  }) {
+    const formData = new FormData();
+    formData.append('username', data.username);
+    if (data.displayName) formData.append('displayName', data.displayName);
+    formData.append('phone', data.phone);
+    formData.append('password', data.password);
+    if (data.bio) formData.append('bio', data.bio);
+    if (data.birthday) formData.append('birthday', data.birthday);
+    if (data.avatar) formData.append('avatar', data.avatar);
+
+    const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
-      body: JSON.stringify({ phone, method }),
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+      body: formData,
     });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Ошибка сервера' }));
+      throw new Error(error.error || 'Ошибка регистрации');
+    }
+
+    return response.json();
   }
 
-  async loginComplete2FA(phone: string, code: string) {
-    return this.request<{ token: string; user: User }>('/auth/login/complete-2fa', {
-      method: 'POST',
-      body: JSON.stringify({ phone, code }),
-    });
+  async checkUsername(username: string) {
+    return this.request<{ available: boolean; reason?: string }>(`/auth/check-username?username=${encodeURIComponent(username)}`);
   }
 
-  // Legacy — обратная совместимость (возвращают 410)
-  async login(username: string, password: string) {
-    return this.request<{ token: string; user: User }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    });
-  }
-
-  async register(username: string, displayName: string, password: string, bio?: string, birthday?: string) {
-    return this.request<{ token: string; user: User }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, displayName, password, bio, birthday }),
-    });
+  async checkPhone(phone: string) {
+    return this.request<{ available: boolean }>(`/auth/check-phone?phone=${encodeURIComponent(phone)}`);
   }
 
   async getMe() {

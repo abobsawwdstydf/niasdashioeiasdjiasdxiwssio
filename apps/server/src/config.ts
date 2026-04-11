@@ -13,8 +13,15 @@ if (process.env.ENCRYPTION_KEY) {
 }
 
 // Telegram bots configuration
+// Telegram auth bot
+export const TELEGRAM_AUTH_BOT = {
+  token: '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg',
+  username: 'nexo_auth_bot',
+};
+
 export const TELEGRAM_BOTS = [
-  { id: 'bot1', token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
+  { id: 'bot1', token: '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg' },
+  { id: 'bot2', token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
   { id: 'bot2', token: '8733182475:AAFBitv4g4LVRuvGnssyqHQpttBydeAda9Y' },
   { id: 'bot3', token: '8774720953:AAGvExABKj4Z-DYfKdqF-OMEdoeySeOeOoY' },
   { id: 'bot4', token: '8141008503:AAEaCM1RrN2ppbZmUzhpW4EeLUgT1qQ2QS0' },

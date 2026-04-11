@@ -8,21 +8,16 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, displayName: string, password: string, bio?: string, birthday?: string) => Promise<void>;
-  // Новые методы для авторизации по телефону
-  loginByPhone: (phone: string, password: string) => Promise<{ require2FA?: boolean; availableMethods?: string[] }>;
-  loginByPhone2FA: (phone: string, code: string) => Promise<void>;
-  registerByPhone: (data: {
-    phone: string;
-    code: string;
+  login: (phone: string, password: string) => Promise<void>;
+  register: (data: {
     username: string;
-    displayName: string;
+    displayName?: string;
+    phone: string;
     password: string;
-    email?: string;
     bio?: string;
     birthday?: string;
-  }) => Promise<{ required: boolean; token?: string }>;
+    avatar?: File;
+  }) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
@@ -35,10 +30,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   error: null,
 
-  login: async (username, password) => {
+  login: async (phone, password) => {
     try {
       set({ error: null, isLoading: true });
-      const { token, user } = await api.login(username, password);
+      const { token, user } = await api.login(phone, password);
       localStorage.setItem('nexo_token', token);
       api.setToken(token);
       connectSocket(token);
@@ -50,67 +45,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (username, displayName, password, bio, birthday) => {
+  register: async (data) => {
     try {
       set({ error: null, isLoading: true });
-      const { token, user } = await api.register(username, displayName, password, bio);
+      const { token, user } = await api.register(data);
       localStorage.setItem('nexo_token', token);
       api.setToken(token);
       connectSocket(token);
       set({ token, user, isLoading: false });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ error: msg, isLoading: false });
-      throw err;
-    }
-  },
-
-  loginByPhone: async (phone, password) => {
-    try {
-      set({ error: null, isLoading: true });
-      const result = await api.loginStart(phone, password);
-      // Если 2FA не требуется — результат уже содержит токен
-      if ('token' in result) {
-        localStorage.setItem('nexo_token', result.token);
-        api.setToken(result.token);
-        connectSocket(result.token);
-        set({ token: result.token, user: result.user, isLoading: false });
-        return {};
-      }
-      // Требуется 2FA
-      set({ isLoading: false });
-      return { require2FA: true as const, availableMethods: (result as { require2FA: true; user: Omit<User, 'password'>; availableMethods: string[] }).availableMethods };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ error: msg, isLoading: false });
-      throw err;
-    }
-  },
-
-  loginByPhone2FA: async (phone, code) => {
-    try {
-      set({ error: null, isLoading: true });
-      const { token, user } = await api.loginComplete2FA(phone, code);
-      localStorage.setItem('nexo_token', token);
-      api.setToken(token);
-      connectSocket(token);
-      set({ token, user, isLoading: false });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ error: msg, isLoading: false });
-      throw err;
-    }
-  },
-
-  registerByPhone: async (data) => {
-    try {
-      set({ error: null, isLoading: true });
-      const result = await api.registerComplete(data);
-      localStorage.setItem('nexo_token', result.token);
-      api.setToken(result.token);
-      connectSocket(result.token);
-      set({ token: result.token, user: result.user, isLoading: false });
-      return result.emailVerification;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ error: msg, isLoading: false });
@@ -132,7 +74,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    // Retry up to 3 times in case server is still starting
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -143,25 +84,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       } catch (err) {
         lastError = err;
-        // Only retry on network/server errors, not on auth errors (401/403)
-        const msg = err instanceof Error ? err.message : '';
-        if (msg.includes('Требуется авторизация') || msg.includes('Недействительный токен')) {
-          break;
+        if (err instanceof Error && (err.message.includes('401') || err.message.includes('403'))) {
+          localStorage.removeItem('nexo_token');
+          api.setToken(null);
+          set({ token: null, user: null, isLoading: false });
+          return;
         }
-        if (attempt < 2) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        }
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
       }
     }
-    console.warn('checkAuth failed:', lastError);
-    localStorage.removeItem('nexo_token');
-    set({ token: null, user: null, isLoading: false });
+    set({ isLoading: false, error: lastError instanceof Error ? lastError.message : 'Ошибка' });
   },
 
   updateUser: (data) => {
-    const { user } = get();
-    if (user) {
-      set({ user: { ...user, ...data } });
+    const currentUser = get().user;
+    if (currentUser) {
+      set({ user: { ...currentUser, ...data } });
     }
   },
 
@@ -169,6 +107,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('nexo_token', token);
     api.setToken(token);
     connectSocket(token);
-    set({ token, user, isLoading: false });
+    set({ token, user });
   },
 }));
