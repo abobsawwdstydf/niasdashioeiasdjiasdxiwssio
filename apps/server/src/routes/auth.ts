@@ -2,18 +2,19 @@ import { Router, Request } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import crypto from 'crypto';
 import { prisma } from '../db';
-import { config } from '../config';
+import { config, TELEGRAM_AUTH_BOT } from '../config';
 import { USER_SELECT } from '../shared';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-// Multer для аватарки (in-memory)
+// Multer для аватарки
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Только изображения'));
@@ -41,13 +42,37 @@ const loginLimiter = rateLimit({
   keyGenerator: (req) => req.ip || req.socket.remoteAddress || 'unknown',
 });
 
-// ─── Регистрация ───
-router.post('/register', registerLimiter, upload.single('avatar'), async (req: Request, res) => {
+// ─── In-memory: временные данные регистрации → по token ───
+interface PendingRegistration {
+  username: string;
+  displayName: string;
+  phone: string;
+  password: string;
+  bio: string | null;
+  birthday: string | null;
+  avatarBuffer?: Buffer;
+  avatarFilename?: string;
+  createdAt: number;
+}
+
+const pendingRegistrations = new Map<string, PendingRegistration>();
+
+// Экспорт для webhook'а
+(global as any).__pendingRegistrations = pendingRegistrations;
+
+// Чистилка старых каждые 5 минут
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of pendingRegistrations) {
+    if (now - v.createdAt > 30 * 60 * 1000) pendingRegistrations.delete(k);
+  }
+}, 5 * 60 * 1000);
+
+// ─── Шаг 1: Начало регистрации (проверка данных, генерация token) ───
+router.post('/register/start', registerLimiter, async (req, res) => {
   try {
     const { username, displayName, phone, password, bio, birthday } = req.body;
-    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
-    // Валидация
     if (!username || !phone || !password) {
       res.status(400).json({ error: 'Username, телефон и пароль обязательны' });
       return;
@@ -58,14 +83,13 @@ router.post('/register', registerLimiter, upload.single('avatar'), async (req: R
       return;
     }
 
-    const phoneRegex = /^\+[1-9]\d{6,14}$/;
-    if (!phoneRegex.test(phone)) {
-      res.status(400).json({ error: 'Телефон в международном формате (+79991234567)' });
+    if (!/^\+[1-9]\d{6,14}$/.test(phone)) {
+      res.status(400).json({ error: 'Телефон в формате +79991234567' });
       return;
     }
 
-    if (password.length < config.minPasswordLength) {
-      res.status(400).json({ error: `Пароль минимум ${config.minPasswordLength} символов` });
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Пароль минимум 6 символов' });
       return;
     }
 
@@ -78,53 +102,155 @@ router.post('/register', registerLimiter, upload.single('avatar'), async (req: R
 
     const existingPhone = await prisma.user.findFirst({ where: { phone } });
     if (existingPhone) {
-      res.status(400).json({ error: 'Этот номер уже зарегистрирован' });
+      res.status(400).json({ error: 'Номер уже зарегистрирован' });
       return;
     }
 
     // Лимит IP
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const accountsFromIp = await prisma.user.count({ where: { registrationIp: clientIp } });
     if (accountsFromIp >= config.maxRegistrationsPerIp) {
-      res.status(403).json({ error: `Лимит регистраций с IP (${config.maxRegistrationsPerIp})` });
+      res.status(403).json({ error: 'Лимит регистраций с IP' });
+      return;
+    }
+
+    // Генерируем token и сохраняем данные
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    pendingRegistrations.set(token, {
+      username: username.toLowerCase(),
+      displayName: displayName || username,
+      phone,
+      password,
+      bio: bio ? bio.slice(0, 500) : null,
+      birthday: birthday || null,
+      createdAt: Date.now(),
+    });
+
+    res.json({ token });
+  } catch (error) {
+    console.error('Register start error:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ─── Шаг 1b: Загрузка аватарки для pending registration ───
+router.post('/register/upload-avatar', upload.single('avatar'), async (req: Request, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || !pendingRegistrations.has(token)) {
+      res.status(400).json({ error: 'Недействительный token' });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: 'Файл не загружен' });
+      return;
+    }
+
+    const pending = pendingRegistrations.get(token)!;
+    pending.avatarBuffer = req.file.buffer;
+    pending.avatarFilename = req.file.originalname;
+
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ─── Шаг 2: Запрос кода через Telegram ───
+router.post('/register/request-code', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || !pendingRegistrations.has(token)) {
+      res.status(400).json({ error: 'Сессия истекла. Начните регистрацию заново.' });
+      return;
+    }
+
+    const pending = pendingRegistrations.get(token)!;
+
+    // Генерируем 6-значный код
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 мин
+
+    // Сохраняем код
+    (pending as any).verifyCode = code;
+    (pending as any).verifyExpiresAt = expiresAt;
+
+    // Ссылка на бота
+    const botUsername = TELEGRAM_AUTH_BOT.username;
+    const link = `https://t.me/${botUsername}?start=verify_${token}`;
+
+    res.json({ link, devCode: process.env.NODE_ENV === 'development' ? code : undefined });
+  } catch {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ─── Шаг 3: Подтверждение кода и завершение регистрации ───
+router.post('/register/complete', async (req, res) => {
+  try {
+    const { token, code } = req.body;
+    if (!token || !code) {
+      res.status(400).json({ error: 'Token и код обязательны' });
+      return;
+    }
+
+    const pending = pendingRegistrations.get(token);
+    if (!pending) {
+      res.status(400).json({ error: 'Сессия истекла' });
+      return;
+    }
+
+    if ((pending as any).verifyCode !== code) {
+      res.status(400).json({ error: 'Неверный код' });
+      return;
+    }
+
+    if (Date.now() > (pending as any).verifyExpiresAt) {
+      res.status(400).json({ error: 'Код истёк. Запросите новый.' });
       return;
     }
 
     // Сохранение аватарки
     let avatarPath: string | null = null;
-    if (req.file) {
+    if (pending.avatarBuffer && pending.avatarFilename) {
       const fs = await import('fs');
       const path = await import('path');
       const { UPLOADS_ROOT } = await import('../shared');
-      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const ext = pending.avatarFilename.split('.').pop() || 'jpg';
       const filename = `avatar_${Date.now()}.${ext}`;
       avatarPath = `/uploads/avatars/${filename}`;
       const dir = path.join(UPLOADS_ROOT, 'avatars');
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, filename), req.file.buffer);
+      fs.writeFileSync(path.join(dir, filename), pending.avatarBuffer);
     }
 
     // Создание пользователя
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(pending.password, 10);
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
     const user = await prisma.user.create({
       data: {
-        username: username.toLowerCase(),
-        displayName: displayName || username,
-        phone,
-        phoneVerified: true, // Авто-верификация пока
+        username: pending.username,
+        displayName: pending.displayName,
+        phone: pending.phone,
+        phoneVerified: true,
         emailVerified: false,
         password: hashedPassword,
         avatar: avatarPath,
-        bio: bio ? bio.slice(0, 500) : null,
-        birthday: birthday || null,
+        bio: pending.bio,
+        birthday: pending.birthday,
         registrationIp: clientIp,
       },
       select: USER_SELECT,
     });
 
-    const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
-    res.json({ token, user: { ...user, isOnline: true } });
+    // Удаляем pending
+    pendingRegistrations.delete(token);
+
+    const jwtToken = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
+    res.json({ token: jwtToken, user: { ...user, isOnline: true } });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Register complete error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

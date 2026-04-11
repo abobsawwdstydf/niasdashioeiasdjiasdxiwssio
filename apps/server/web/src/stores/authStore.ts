@@ -9,15 +9,17 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (phone: string, password: string) => Promise<void>;
-  register: (data: {
+  registerStart: (data: {
     username: string;
     displayName?: string;
     phone: string;
     password: string;
     bio?: string;
     birthday?: string;
-    avatar?: File;
-  }) => Promise<void>;
+  }) => Promise<string>; // returns token
+  registerUploadAvatar: (token: string, avatar: File) => Promise<void>;
+  registerRequestCode: (token: string) => Promise<{ link: string; devCode?: string }>;
+  registerComplete: (token: string, code: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
@@ -45,14 +47,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (data) => {
+  registerStart: async (data) => {
+    try {
+      set({ error: null });
+      const { token } = await api.registerStart(data);
+      return token;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg });
+      throw err;
+    }
+  },
+
+  registerUploadAvatar: async (token, avatar) => {
+    try {
+      await api.registerUploadAvatar(token, avatar);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg });
+      throw err;
+    }
+  },
+
+  registerRequestCode: async (token) => {
+    try {
+      return await api.registerRequestCode(token);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg });
+      throw err;
+    }
+  },
+
+  registerComplete: async (token, code) => {
     try {
       set({ error: null, isLoading: true });
-      const { token, user } = await api.register(data);
-      localStorage.setItem('nexo_token', token);
-      api.setToken(token);
-      connectSocket(token);
-      set({ token, user, isLoading: false });
+      const { token: jwtToken, user } = await api.registerComplete(token, code);
+      localStorage.setItem('nexo_token', jwtToken);
+      api.setToken(jwtToken);
+      connectSocket(jwtToken);
+      set({ token: jwtToken, user, isLoading: false });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ error: msg, isLoading: false });

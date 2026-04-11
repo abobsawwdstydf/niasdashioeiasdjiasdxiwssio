@@ -91,24 +91,42 @@ app.use('/api/admin', adminRoutes);
 app.post(`/webhook/telegram/${TELEGRAM_AUTH_BOT.token.split(':')[0]}`, async (req, res) => {
   try {
     const update = req.body;
-    if (!update.message?.text) { res.status(200).json({ ok: true }); return; }
+    if (!update.message) { res.status(200).json({ ok: true }); return; }
 
     const { message } = update;
     const chatId = message.chat.id;
-    const text = message.text;
+    const text = message.text || '';
+
+    // /start verify_TOKEN
+    const match = text.match(/^\/start verify_([a-zA-Z0-9]+)/i);
+    if (match) {
+      const token = match[1];
+      const pending = (global as any).__pendingRegistrations?.get(token);
+
+      if (!pending || Date.now() - pending.createdAt > 30 * 60 * 1000) {
+        await tgSend(chatId,
+          `⏰ Ссылка устарела.\n\n` +
+          `Начните регистрацию заново на сайте.`
+        );
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      const code = (pending as any).verifyCode || '------';
+      await tgSend(chatId,
+        `🎉 *Добро пожаловать в Nexo!*\n\n` +
+        `🔐 Ваш код подтверждения: \`${code}\`\n\n` +
+        `⏱ Код действует 5 минут.\n\n` +
+        `Введите этот код на сайте для завершения регистрации.`
+      );
+      res.status(200).json({ ok: true });
+      return;
+    }
 
     if (text === '/start') {
       await tgSend(chatId,
-        `👋 Добро пожаловать в *Nexo*!\n\n` +
-        `Для регистрации или входа перейдите на сайт и введите этот код.\n\n` +
-        `Отправьте \`/code 123456\` для подтверждения.`
-      );
-    } else if (text.startsWith('/code ')) {
-      const code = text.slice(6).trim();
-      // Просто подтверждаем — код обрабатывается на сайте через API
-      await tgSend(chatId,
-        `✅ Код принят: \`${code}\`\n\n` +
-        `Вернитесь на сайт для завершения.`
+        `👋 Привет! Я бот *Nexo*.\n\n` +
+        `Для подтверждения номера перейдите по ссылке с сайта.`
       );
     }
 
