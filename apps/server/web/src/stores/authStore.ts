@@ -9,17 +9,15 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (phone: string, password: string) => Promise<void>;
-  registerStart: (data: {
+  register: (data: {
     username: string;
     displayName?: string;
     phone: string;
     password: string;
     bio?: string;
     birthday?: string;
-  }) => Promise<string>; // returns token
-  registerUploadAvatar: (token: string, avatar: File) => Promise<void>;
-  registerRequestCode: (token: string) => Promise<{ link: string; devCode?: string }>;
-  registerComplete: (token: string, code: string) => Promise<void>;
+    avatar?: File;
+  }) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
@@ -47,46 +45,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  registerStart: async (data) => {
-    try {
-      set({ error: null });
-      const { token } = await api.registerStart(data);
-      return token;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ error: msg });
-      throw err;
-    }
-  },
-
-  registerUploadAvatar: async (token, avatar) => {
-    try {
-      await api.registerUploadAvatar(token, avatar);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ error: msg });
-      throw err;
-    }
-  },
-
-  registerRequestCode: async (token) => {
-    try {
-      return await api.registerRequestCode(token);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ error: msg });
-      throw err;
-    }
-  },
-
-  registerComplete: async (token, code) => {
+  register: async (data) => {
     try {
       set({ error: null, isLoading: true });
-      const { token: jwtToken, user } = await api.registerComplete(token, code);
-      localStorage.setItem('nexo_token', jwtToken);
-      api.setToken(jwtToken);
-      connectSocket(jwtToken);
-      set({ token: jwtToken, user, isLoading: false });
+      const { token, user } = await api.register(data);
+      localStorage.setItem('nexo_token', token);
+      api.setToken(token);
+      connectSocket(token);
+      set({ token, user, isLoading: false });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ error: msg, isLoading: false });
@@ -103,11 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   checkAuth: async () => {
     const token = get().token;
-    if (!token) {
-      set({ isLoading: false });
-      return;
-    }
-
+    if (!token) { set({ isLoading: false }); return; }
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -132,9 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updateUser: (data) => {
     const currentUser = get().user;
-    if (currentUser) {
-      set({ user: { ...currentUser, ...data } });
-    }
+    if (currentUser) set({ user: { ...currentUser, ...data } });
   },
 
   loginWithToken: (token, user) => {

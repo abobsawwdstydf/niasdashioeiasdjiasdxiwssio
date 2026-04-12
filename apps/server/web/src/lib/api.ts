@@ -63,54 +63,35 @@ class ApiClient {
     });
   }
 
-  /** Шаг 1: Начало регистрации — проверка + генерация token */
-  async registerStart(data: {
+  async register(data: {
     username: string;
     displayName?: string;
     phone: string;
     password: string;
     bio?: string;
     birthday?: string;
+    avatar?: File;
   }) {
-    return this.request<{ token: string }>('/auth/register/start', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  /** Шаг 1b: Загрузка аватарки для pending регистрации */
-  async registerUploadAvatar(token: string, avatar: File) {
     const formData = new FormData();
-    formData.append('token', token);
-    formData.append('avatar', avatar);
+    formData.append('username', data.username);
+    if (data.displayName) formData.append('displayName', data.displayName);
+    formData.append('phone', data.phone);
+    formData.append('password', data.password);
+    if (data.bio) formData.append('bio', data.bio);
+    if (data.birthday) formData.append('birthday', data.birthday);
+    if (data.avatar) formData.append('avatar', data.avatar);
 
-    const response = await fetch(`${API_BASE}/auth/register/upload-avatar`, {
+    const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       body: formData,
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Ошибка' }));
-      throw new Error(error.error || 'Ошибка загрузки аватарки');
+      const error = await response.json().catch(() => ({ error: 'Ошибка сервера' }));
+      throw new Error(error.error || 'Ошибка регистрации');
     }
 
     return response.json();
-  }
-
-  /** Шаг 2: Запрос кода верификации через Telegram */
-  async registerRequestCode(token: string) {
-    return this.request<{ link: string; devCode?: string }>('/auth/register/request-code', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
-  }
-
-  /** Шаг 3: Подтверждение кода и завершение регистрации */
-  async registerComplete(token: string, code: string) {
-    return this.request<{ token: string; user: User }>('/auth/register/complete', {
-      method: 'POST',
-      body: JSON.stringify({ token, code }),
-    });
   }
 
   async checkUsername(username: string) {
