@@ -30,6 +30,7 @@ import { setupSocket } from './socket';
 import { authenticateToken, AuthRequest } from './middleware/auth';
 import { decryptFileToBuffer, isEncryptionEnabled } from './encrypt';
 import { UPLOADS_ROOT } from './shared';
+import { setupTunnel, sendEmailTask, getTunnelInfo } from './tunnel';
 
 // Disable all console logs for performance
 if (process.env.NODE_ENV === 'production') {
@@ -49,6 +50,10 @@ const io = new Server(server, {
 
 // Trust first proxy (Nginx) so req.ip returns real client IP from X-Forwarded-For
 app.set('trust proxy', 1);
+
+// ─── Инициализация туннеля ───
+const tunnelSecret = process.env.TUNNEL_SECRET || 'nexo-tunnel-dev-fallback';
+setupTunnel(server, tunnelSecret);
 
 app.use(cors({ origin: config.corsOrigins }));
 app.use(express.json({ limit: '10mb' }));
@@ -87,68 +92,126 @@ app.use('/api/threads', apiLimiter, authenticateToken, require('./routes/threads
 app.use('/api/ai', apiLimiter, authenticateToken, require('./routes/ai').default);
 app.use('/api/admin', adminRoutes);
 
-// ─── Telegram Auth Webhook ───
-app.post(`/webhook/telegram/${TELEGRAM_AUTH_BOT.token.split(':')[0]}`, async (req, res) => {
+// ─── Telegram Auth Bot (Long Polling — без webhook!) ───
+async function startTelegramBot() {
+  const botToken = TELEGRAM_AUTH_BOT.token;
+  let offset = 0;
+
+  console.log(`🤖 Telegram бот запущен (@${TELEGRAM_AUTH_BOT.username})`);
+
+  // Удаляем webhook если был установлен
   try {
-    const update = req.body;
-    if (!update.message) { res.status(200).json({ ok: true }); return; }
+    await fetch(`https://api.telegram.org/bot${botToken}/deleteWebhook`);
+  } catch {}
 
-    const { message } = update;
-    const chatId = message.chat.id;
-    const text = message.text || '';
+  async function getUpdates() {
+    try {
+      const url = `https://api.telegram.org/bot${botToken}/getUpdates?offset=${offset}&timeout=30`;
+      const resp = await fetch(url);
+      const data = await resp.json();
 
-    // /start verify_TOKEN
-    const match = text.match(/^\/start verify_([a-zA-Z0-9]+)/i);
-    if (match) {
-      const token = match[1];
-      const pending = (global as any).__pendingRegistrations?.get(token);
+      if (!data.ok || !data.result) return;
 
-      if (!pending || Date.now() - pending.createdAt > 30 * 60 * 1000) {
-        await tgSend(chatId,
-          `⏰ Ссылка устарела.\n\n` +
-          `Начните регистрацию заново на сайте.`
-        );
-        res.status(200).json({ ok: true });
-        return;
+      for (const update of data.result) {
+        offset = update.update_id + 1;
+        const message = update.message;
+        if (!message?.text) continue;
+
+        const chatId = message.chat.id;
+        const text = message.text;
+
+        console.log(`[TG] Сообщение: ${text}`);
+
+        // /start verify_TOKEN
+        const match = text.match(/^\/start verify_([a-zA-Z0-9]+)/i);
+        if (match) {
+          const token = match[1];
+          console.log(`[TG] Верификация: ${token}`);
+
+          const pending = (global as any).__pendingRegistrations?.get(token);
+
+          if (!pending) {
+            console.log(`[TG] Токен НЕ НАЙДЕН. Всего pending: ${(global as any).__pendingRegistrations?.size || 0}`);
+            await tgSend(chatId, botToken,
+              `⏰ Ссылка устарела или не найдена.\n\n` +
+              `Начните регистрацию заново на сайте.`
+            );
+            continue;
+          }
+
+          console.log(`[TG] Токен найден! ${pending.username} / ${pending.phone}`);
+
+          // Генерируем код если ещё нет
+          if (!pending.verifyCode) {
+            pending.verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+            pending.verifyExpiresAt = Date.now() + 5 * 60 * 1000;
+            console.log(`[TG] Код сгенерирован: ${pending.verifyCode}`);
+          }
+
+          const minsLeft = Math.max(0, Math.floor((pending.verifyExpiresAt - Date.now()) / 60000));
+          await tgSend(chatId, botToken,
+            `🎉 Добро пожаловать в Nexo!\n\n` +
+            `🔐 Ваш код: ${pending.verifyCode}\n\n` +
+            `⏱ Код действует ещё ${minsLeft} мин.\n\n` +
+            `Введите этот код на сайте.`
+          );
+          console.log(`[TG] Код отправлен в чат ${chatId}`);
+          continue;
+        }
+
+        if (text === '/start') {
+          await tgSend(chatId, botToken,
+            `👋 Привет! Я бот Nexo.\n\n` +
+            `Для подтверждения номера перейдите по ссылке с сайта.`
+          );
+        }
       }
-
-      const code = (pending as any).verifyCode || '------';
-      await tgSend(chatId,
-        `🎉 *Добро пожаловать в Nexo!*\n\n` +
-        `🔐 Ваш код подтверждения: \`${code}\`\n\n` +
-        `⏱ Код действует 5 минут.\n\n` +
-        `Введите этот код на сайте для завершения регистрации.`
-      );
-      res.status(200).json({ ok: true });
-      return;
+    } catch (err) {
+      console.error('[TG] Ошибка getUpdates:', err.message);
     }
-
-    if (text === '/start') {
-      await tgSend(chatId,
-        `👋 Привет! Я бот *Nexo*.\n\n` +
-        `Для подтверждения номера перейдите по ссылке с сайта.`
-      );
-    }
-
-    res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error('TG webhook error:', err);
-    res.status(200).json({ ok: true });
   }
-});
 
-async function tgSend(chatId: number | string, text: string) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_AUTH_BOT.token}/sendMessage`;
-  await fetch(url, {
+  // Poll каждые 2 секунды
+  setInterval(getUpdates, 2000);
+  getUpdates();
+}
+
+async function tgSend(chatId: number | string, token: string, text: string) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
-  }).catch(err => console.error('TG send error:', err));
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    console.error(`[TG] Ошибка отправки:`, body);
+  }
 }
 
 // Проверка здоровья
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', name: 'Nexo Server' });
+});
+
+// ─── Tunnel Status ───
+app.get('/api/tunnel-status', (_req, res) => {
+  res.json(getTunnelInfo());
+});
+
+// ─── Send Email (вызывается мессенджером) ───
+app.post('/api/send-email', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { to, subject, html, from, fromName } = req.body;
+    if (!to || !subject) {
+      res.status(400).json({ error: 'to и subject обязательны' });
+      return;
+    }
+    const result = await sendEmailTask({ to, subject, html: html || subject, from, fromName });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка отправки' });
+  }
 });
 
 // Админ панель

@@ -15,8 +15,8 @@ if (process.env.ENCRYPTION_KEY) {
 // Telegram bots configuration
 // Telegram auth bot
 export const TELEGRAM_AUTH_BOT = {
-  token: '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg',
-  username: 'nexo_auth_bot',
+  token: process.env.TELEGRAM_BOT_TOKEN || '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg',
+  username: process.env.TELEGRAM_BOT_USERNAME || 'nexo_auth_bot',
 };
 
 export const TELEGRAM_BOTS = [
