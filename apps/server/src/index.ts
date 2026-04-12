@@ -106,6 +106,14 @@ app.use(express.static(webDistPath));
 const publicPath = path.resolve(__dirname, '..', 'web', 'public');
 app.use(express.static(publicPath));
 
+// Serve uploads (avatars, etc.)
+app.use('/uploads', express.static(UPLOADS_ROOT, {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  },
+}));
+
 // SPA fallback - serve index.html for all other routes
 app.get('*', (_req, res) => {
   const indexPath = path.join(webDistPath, 'index.html');

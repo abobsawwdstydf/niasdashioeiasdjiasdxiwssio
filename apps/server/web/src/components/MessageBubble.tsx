@@ -33,6 +33,7 @@ import { api } from '../lib/api';
 import { useLang } from '../lib/i18n';
 import { extractWaveform } from '../lib/utils';
 import { normalizeMediaUrl } from '../lib/mediaUrl';
+import { audioManager } from '../lib/audioManager';
 import type { Message, MediaItem, Reaction, ChatMember } from '../lib/types';
 import ImageLightbox from './ImageLightbox';
 import VideoPlayer from './VideoPlayer';
@@ -238,11 +239,11 @@ function MessageBubble({
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isPlaying) {
-      audio.pause();
+    if (audioManager.isPlaying(audio)) {
+      audioManager.pause(audio);
       setIsPlaying(false);
     } else {
-      audio.play().then(() => {
+      audioManager.play(audio).then(() => {
         setIsPlaying(true);
       }).catch(() => {
         setIsPlaying(false);
@@ -741,22 +742,26 @@ function MessageBubble({
               const voiceMedia = media.find((m) => m.type === 'voice');
               if (!voiceMedia?.url) return null;
               const voiceUrl = normalizeMediaUrl(voiceMedia.url);
+              if (!voiceUrl) return null;
+
               const duration = voiceMedia.duration || 0;
               const size = voiceMedia.size || 0;
               const sizeStr = size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024).toFixed(0)} KB`;
+              const voiceId = `voice-${message.id}`;
 
               return (
                 <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
-                  {/* Всегда рендерим аудио тег, чтобы браузер мог загрузить метаданные */}
                   <audio
                     ref={audioRef}
+                    id={voiceId}
                     src={voiceUrl}
-                    preload="auto"
-                    onError={() => {
+                    preload="none"
+                    onError={(e) => {
+                      console.error('[Voice] Ошибка загрузки:', voiceUrl);
                       setIsPlaying(false);
                     }}
                   />
-                  {/* Play button - Telegram style circle */}
+                  {/* Play button */}
                   <button
                     onClick={toggleAudio}
                     className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
@@ -779,12 +784,18 @@ function MessageBubble({
                       className="flex items-end gap-[2px] h-7 cursor-pointer mb-1"
                       onClick={(e) => {
                         const audio = audioRef.current;
-                        if (!audio || !audio.duration) return;
+                        if (!audio) return;
+                        // Если не играет — запускаем
+                        if (!audioManager.isPlaying(audio)) {
+                          toggleAudio();
+                          return;
+                        }
+                        // Если играет — перематываем
+                        if (!audio.duration) return;
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const pct = (e.clientX - rect.left) / rect.width;
+                        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                         audio.currentTime = pct * audio.duration;
                         setAudioProgress(pct * 100);
-                        if (!isPlaying) toggleAudio();
                       }}
                     >
                       {(waveformBars || Array(28).fill(0.5)).map((val, i) => {
@@ -824,8 +835,10 @@ function MessageBubble({
             {/* Аудио (mp3 файлы) */}
             {hasAudio && (() => {
               const audioMedia = media.find((m) => m.type === 'audio');
-              if (!audioMedia) return null;
+              if (!audioMedia?.url) return null;
               const audioUrl = normalizeMediaUrl(audioMedia.url);
+              if (!audioUrl) return null;
+
               return (
                 <div className="min-w-[220px]">
                   {audioMedia?.filename && (
@@ -838,16 +851,18 @@ function MessageBubble({
                     <audio
                       ref={audioRef}
                       src={audioUrl}
-                      preload="metadata"
+                      preload="none"
                       onError={() => {
+                        console.error('[Audio] Ошибка загрузки:', audioUrl);
                         setIsPlaying(false);
                         setAudioProgress(0);
                       }}
                     />
                     <button
                       onClick={toggleAudio}
-                      className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-nexo-500/20 hover:bg-nexo-500/30'
-                        } transition-colors`}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-nexo-500/20 hover:bg-nexo-500/30'
+                      } transition-colors`}
                     >
                       {isPlaying ? (
                         <Pause size={16} className={isMine ? 'text-white' : 'text-nexo-400'} />
