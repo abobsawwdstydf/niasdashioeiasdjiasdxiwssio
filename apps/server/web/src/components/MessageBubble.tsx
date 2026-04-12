@@ -39,6 +39,7 @@ import VideoPlayer from './VideoPlayer';
 import Avatar from './Avatar';
 import YouTubePreview from './YouTubePreview';
 import LinkEmbedPreview from './LinkEmbedPreview';
+import CodeBlock from './CodeBlock';
 
 interface MessageBubbleProps {
   message: Message;
@@ -241,23 +242,11 @@ function MessageBubble({
       audio.pause();
       setIsPlaying(false);
     } else {
-      try {
-        audio.play().then(() => {
-          setIsPlaying(true);
-        }).catch((err) => {
-          if (err.name === 'AbortError') {
-            // Ignore AbortError - happens when switching between audio
-            setIsPlaying(false);
-          } else if (err.name === 'NotSupportedError') {
-            console.error('Audio format not supported');
-            setIsPlaying(false);
-          } else {
-            setIsPlaying(false);
-          }
-        });
-      } catch (e) {
+      audio.play().then(() => {
+        setIsPlaying(true);
+      }).catch(() => {
         setIsPlaying(false);
-      }
+      });
     }
   };
 
@@ -369,127 +358,92 @@ function MessageBubble({
     if (r.userId === user?.id) reactionGroups[r.emoji].isMine = true;
   });
 
-  // Simple Markdown formatter
+  // Simple Markdown formatter — поддерживает ```code blocks```
   const renderFormattedText = (text: string): React.ReactNode => {
     if (!text) return text;
 
-    // First, extract and render URLs
+    // Проверяем есть ли ```code blocks```
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const segments: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let cbMatch;
+    let hasCodeBlocks = false;
+
+    const tempText = text;
+    while ((cbMatch = codeBlockRegex.exec(tempText)) !== null) {
+      hasCodeBlocks = true;
+      // Текст до блока кода
+      if (cbMatch.index > lastIdx) {
+        const before = tempText.slice(lastIdx, cbMatch.index);
+        segments.push(renderInlineMarkdown(before));
+      }
+      // Блок кода
+      const lang = cbMatch[1] || '';
+      const code = cbMatch[2].trimEnd();
+      segments.push(<CodeBlock key={`cb-${cbMatch.index}`} language={lang} code={code} />);
+      lastIdx = cbMatch.index + cbMatch[0].length;
+    }
+
+    if (hasCodeBlocks) {
+      if (lastIdx < text.length) {
+        segments.push(renderInlineMarkdown(text.slice(lastIdx)));
+      }
+      return segments;
+    }
+
+    // Нет блоков кода — обычный inline markdown
+    return renderInlineMarkdown(text);
+  };
+
+  // Inline markdown (ссылки, bold, italic, mentions, inline code)
+  const renderInlineMarkdown = (text: string): React.ReactNode => {
+    // URLs
     const urlRegex = /(https?:\/\/[^\s<]+)/gi;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
 
     while ((match = urlRegex.exec(text)) !== null) {
-      // Add text before URL
-      if (match.index > lastIndex) {
-        const textBefore = text.slice(lastIndex, match.index);
-        parts.push(textBefore);
-      }
-      // Add URL as clickable
+      if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
       parts.push(
-        <a
-          key={`url-${match.index}`}
-          href={match[0]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sky-400 hover:text-sky-300 hover:underline cursor-pointer break-all"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <a key={`url-${match.index}`} href={match[0]} target="_blank" rel="noopener noreferrer"
+          className="text-sky-400 hover:text-sky-300 hover:underline cursor-pointer break-all" onClick={(e) => e.stopPropagation()}>
           {match[0]}
         </a>
       );
       lastIndex = match.index + match[0].length;
     }
+    if (lastIndex < text.length) parts.push(text.slice(lastIndex));
 
-    // Add remaining text
-    if (lastIndex < text.length) {
-      parts.push(text.slice(lastIndex));
-    }
+    if (parts.length === 0) return text;
 
-    // If no URLs found, fall back to markdown formatting
-    if (parts.length === 1 && typeof parts[0] === 'string') {
-      const markdownParts = (text as string).split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
-      return markdownParts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
-        if (part.startsWith('_') && part.endsWith('_')) return <em key={i} className="italic">{part.slice(1, -1)}</em>;
-        if (part.startsWith('*') && part.endsWith('*')) return <em key={i} className="italic">{part.slice(1, -1)}</em>;
-        if (part.startsWith('~') && part.endsWith('~')) return <del key={i} className="line-through opacity-80">{part.slice(1, -1)}</del>;
-        if (part.startsWith('`') && part.endsWith('`')) {
-          return <code key={i} className="font-mono text-[13px] bg-black/20 px-1 py-0.5 rounded-[0.35rem]">{part.slice(1, -1)}</code>;
-        }
-        if (part.startsWith('@') && part.length > 1) {
-          const mentionUsername = part.slice(1);
-          return (
-            <span
-              key={i}
-              className="font-semibold text-sky-300 cursor-pointer hover:underline"
-              onClick={async (e) => {
-                e.stopPropagation();
-                try {
-                  const channels = await api.searchChannels(mentionUsername);
-                  const channel = channels.find(c => c.username === mentionUsername);
-                  if (channel) {
-                    const event = new CustomEvent('open-channel-by-username', { detail: { channel } });
-                    window.dispatchEvent(event);
-                    return;
-                  }
-                  const users = await api.searchUsers(mentionUsername);
-                  const user = users.find(u => u.username === mentionUsername);
-                  if (user) {
-                    const event = new CustomEvent('open-chat-by-username', { detail: { user } });
-                    window.dispatchEvent(event);
-                  }
-                } catch (err) {
-                  console.error('Failed to open mention:', err);
-                }
-              }}
-            >{part}</span>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      });
-    }
-
-    // Render parts - process markdown in string parts
     return parts.map((part, i) => {
       if (typeof part === 'string') {
-        const markdownParts = part.split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
-        return markdownParts.map((mp, j) => {
-          if (mp.startsWith('**') && mp.endsWith('**')) return <strong key={`${i}-${j}`} className="font-bold">{mp.slice(2, -2)}</strong>;
-          if (mp.startsWith('_') && mp.endsWith('_')) return <em key={`${i}-${j}`} className="italic">{mp.slice(1, -1)}</em>;
-          if (mp.startsWith('*') && mp.endsWith('*')) return <em key={`${i}-${j}`} className="italic">{mp.slice(1, -1)}</em>;
-          if (mp.startsWith('~') && mp.endsWith('~')) return <del key={`${i}-${j}`} className="line-through opacity-80">{mp.slice(1, -1)}</del>;
-          if (mp.startsWith('`') && mp.endsWith('`')) return <code key={`${i}-${j}`} className="font-mono text-[13px] bg-black/20 px-1 py-0.5 rounded-[0.35rem]">{mp.slice(1, -1)}</code>;
-          if (mp.startsWith('@') && mp.length > 1) {
-            const mentionUsername = mp.slice(1);
+        const tokens = part.split(/(\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_|~[\s\S]*?~|`[\s\S]*?`|@\w+)/g);
+        return tokens.map((t, j) => {
+          const key = `${i}-${j}`;
+          if (t.startsWith('**') && t.endsWith('**')) return <strong key={key}>{t.slice(2, -2)}</strong>;
+          if ((t.startsWith('_') && t.endsWith('_')) || (t.startsWith('*') && t.endsWith('*'))) return <em key={key}>{t.slice(1, -1)}</em>;
+          if (t.startsWith('~') && t.endsWith('~')) return <del key={key}>{t.slice(1, -1)}</del>;
+          if (t.startsWith('`') && t.endsWith('`')) return <code key={key} className="font-mono text-[13px] bg-black/20 px-1 py-0.5 rounded">{t.slice(1, -1)}</code>;
+          if (t.startsWith('@') && t.length > 1) {
+            const mentionUsername = t.slice(1);
             return (
-              <span
-                key={`${i}-${j}`}
-                className="font-semibold text-sky-300 cursor-pointer hover:underline"
+              <span key={key} className="font-semibold text-sky-300 cursor-pointer hover:underline"
                 onClick={async (e) => {
                   e.stopPropagation();
                   try {
                     const channels = await api.searchChannels(mentionUsername);
                     const channel = channels.find(c => c.username === mentionUsername);
-                    if (channel) {
-                      const event = new CustomEvent('open-channel-by-username', { detail: { channel } });
-                      window.dispatchEvent(event);
-                      return;
-                    }
+                    if (channel) { window.dispatchEvent(new CustomEvent('open-channel-by-username', { detail: { channel } })); return; }
                     const users = await api.searchUsers(mentionUsername);
                     const user = users.find(u => u.username === mentionUsername);
-                    if (user) {
-                      const event = new CustomEvent('open-chat-by-username', { detail: { user } });
-                      window.dispatchEvent(event);
-                    }
-                  } catch (err) {
-                    console.error('Failed to open mention:', err);
-                  }
-                }}
-              >{mp}</span>
+                    if (user) window.dispatchEvent(new CustomEvent('open-chat-by-username', { detail: { user } }));
+                  } catch (err) { console.error('Failed to open mention:', err); }
+                }}>{t}</span>
             );
           }
-          return <span key={`${i}-${j}`}>{mp}</span>;
+          return <span key={key}>{t}</span>;
         });
       }
       return part;

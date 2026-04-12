@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mic, MicOff, Loader2, Sparkles, X, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../lib/api';
+import CodeBlock from '../components/CodeBlock';
 
 interface AIMessage {
   id: string;
@@ -213,10 +214,44 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
   /** Приветственное сообщение */
   const welcomeMessage = "Привет! Я Nexo AI 🤖\n\nМогу помочь с ответами на вопросы, переводами, кодом или просто поболтать. Спрашивай что угодно!";
 
+  /** Рендер сообщения ИИ с code blocks */
+  const renderAIMessage = (content: string): React.ReactNode => {
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const segments: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let match;
+    let hasCode = false;
+
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      hasCode = true;
+      if (match.index > lastIdx) {
+        segments.push(<span key={`t-${lastIdx}`} className="whitespace-pre-wrap">{content.slice(lastIdx, match.index)}</span>);
+      }
+      segments.push(<CodeBlock key={`cb-${match.index}`} language={match[1] || ''} code={match[2].trimEnd()} />);
+      lastIdx = match.index + match[0].length;
+    }
+
+    if (hasCode) {
+      if (lastIdx < content.length) {
+        segments.push(<span key={`t-${lastIdx}`} className="whitespace-pre-wrap">{content.slice(lastIdx)}</span>);
+      }
+      return segments;
+    }
+
+    return <span className="whitespace-pre-wrap">{content}</span>;
+  };
+
   return (
-    <div className="h-full flex flex-col bg-[#0a0a0f]">
+    <div className="h-full flex flex-col relative">
+      {/* Фон как в чатах */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+
       {/* ====== HEADER ====== */}
-      <div className="glass-strong px-4 py-3 flex items-center gap-3 flex-shrink-0">
+      <div className="glass-strong px-4 py-3 flex items-center gap-3 flex-shrink-0 relative z-10">
         {/* Закрыть (мобилки) */}
         {isMobile && onClose && (
           <button
@@ -253,10 +288,9 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
       </div>
 
       {/* ====== СООБЩЕНИЯ ====== */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 relative z-10">
         <AnimatePresence>
           {messages.length === 0 ? (
-            /* Приветствие */
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -274,7 +308,6 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
               </div>
             </motion.div>
           ) : (
-            /* Список сообщений */
             <div className="space-y-3">
               {messages.map((msg) => (
                 <motion.div
@@ -284,13 +317,15 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap ${
+                    className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm rounded-br-md ${
                       msg.role === 'user'
-                        ? 'bg-gradient-to-br from-nexo-500 to-purple-600 text-white rounded-br-md'
+                        ? 'bg-gradient-to-br from-nexo-500 to-purple-600 text-white'
                         : 'glass-subtle text-zinc-200 rounded-bl-md'
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === 'assistant' ? renderAIMessage(msg.content) : (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    )}
                     {msg.isStreaming && (
                       <span className="inline-block w-1.5 h-4 bg-nexo-400 ml-0.5 animate-pulse-soft rounded-full" />
                     )}
@@ -304,52 +339,44 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
       </div>
 
       {/* ====== ПОЛЕ ВВОДА ====== */}
-      <div className="glass-strong px-4 py-3 flex-shrink-0">
-        <div className="flex items-end gap-2">
-          {/* Кнопка записи голоса */}
+      <div className="px-3 py-3 flex-shrink-0 relative z-10">
+        <div className="bg-[#1a1a25] border border-white/5 rounded-2xl px-3 py-2 flex items-end gap-2 focus-within:border-nexo-500/30 transition-colors">
+          {/* Голос */}
           <button
             onClick={toggleRecording}
-            className={`glass-btn w-10 h-10 rounded-xl flex-shrink-0 transition-all ${
-              isRecording
-                ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse-soft'
-                : 'text-zinc-400 hover:text-white'
+            className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center transition-all ${
+              isRecording ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-white'
             }`}
           >
-            {isRecording ? <Mic size={18} /> : <MicOff size={18} />}
+            {isRecording ? <Mic size={16} /> : <MicOff size={16} />}
           </button>
 
-          {/* Поле ввода */}
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Напиши сообщение..."
-              rows={1}
-              className="w-full px-4 py-2.5 rounded-xl text-sm text-white placeholder-zinc-500 glass-input resize-none max-h-24"
-              style={{ minHeight: '40px' }}
-            />
-          </div>
+          {/* Textarea */}
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Сообщение..."
+            rows={1}
+            className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 resize-none outline-none py-1.5 max-h-24"
+            style={{ minHeight: '36px' }}
+          />
 
-          {/* Кнопка отправки */}
+          {/* Send */}
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isSending}
-            className="glass-btn w-10 h-10 rounded-xl flex-shrink-0 text-nexo-400 disabled:opacity-30 disabled:cursor-not-allowed hover:text-nexo-300"
+            className="w-9 h-9 rounded-full bg-nexo-500 flex items-center justify-center flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-nexo-600 transition-colors"
           >
-            {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {isSending ? <Loader2 size={16} className="animate-spin text-white" /> : <Send size={16} className="text-white" />}
           </button>
         </div>
 
-        {/* Индикатор записи */}
         {isRecording && (
-          <motion.p
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-xs text-red-400 mt-2 text-center"
-          >
-            🔴 Запись голоса... Говори сейчас
+          <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+            className="text-xs text-red-400 mt-2 text-center">
+            🔴 Запись голоса...
           </motion.p>
         )}
       </div>

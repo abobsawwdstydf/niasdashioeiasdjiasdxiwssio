@@ -45,8 +45,8 @@ router.post('/register', registerLimiter, upload.single('avatar'), async (req: R
     const { username, displayName, phone, password, bio, birthday } = req.body;
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
-    if (!username || !phone || !password) {
-      res.status(400).json({ error: 'Username, телефон и пароль обязательны' });
+    if (!username || !displayName || !phone || !password) {
+      res.status(400).json({ error: 'Username, имя, телефон и пароль обязательны' });
       return;
     }
 

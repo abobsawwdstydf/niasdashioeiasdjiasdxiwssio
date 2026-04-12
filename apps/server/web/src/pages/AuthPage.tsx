@@ -131,6 +131,7 @@ export default function AuthPage() {
 
   const handleRegister = async () => {
     setError('');
+    if (!displayName.trim()) { setError('Введите имя'); return; }
     if (!/^\+\d{7,15}$/.test(phone)) { setError('Введите корректный номер'); return; }
     if (!username || usernameStatus === 'taken') { setError('Выберите свободный username'); return; }
     if (password.length < 6) { setError('Пароль минимум 6 символов'); return; }
@@ -256,8 +257,8 @@ export default function AuthPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5">Имя</label>
-                <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Ваше имя"
+                <label className="block text-sm font-medium text-zinc-400 mb-1.5 flex items-center gap-2"><AtSignSvg /> Имя <span className="text-red-400">*</span></label>
+                <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Ваше имя" required
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-600 focus:border-nexo-500/50 focus:ring-1 focus:ring-nexo-500/25 transition-all" />
               </div>
 
