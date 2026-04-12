@@ -214,7 +214,7 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
   /** Приветственное сообщение */
   const welcomeMessage = "Привет! Я Nexo AI 🤖\n\nМогу помочь с ответами на вопросы, переводами, кодом или просто поболтать. Спрашивай что угодно!";
 
-  /** Рендер сообщения ИИ с code blocks */
+  /** Рендер сообщения ИИ с code blocks + inline markdown */
   const renderAIMessage = (content: string): React.ReactNode => {
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
     const segments: React.ReactNode[] = [];
@@ -225,7 +225,7 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
     while ((match = codeBlockRegex.exec(content)) !== null) {
       hasCode = true;
       if (match.index > lastIdx) {
-        segments.push(<span key={`t-${lastIdx}`} className="whitespace-pre-wrap">{content.slice(lastIdx, match.index)}</span>);
+        segments.push(renderInlineAI(content.slice(lastIdx, match.index)));
       }
       segments.push(<CodeBlock key={`cb-${match.index}`} language={match[1] || ''} code={match[2].trimEnd()} />);
       lastIdx = match.index + match[0].length;
@@ -233,12 +233,24 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
 
     if (hasCode) {
       if (lastIdx < content.length) {
-        segments.push(<span key={`t-${lastIdx}`} className="whitespace-pre-wrap">{content.slice(lastIdx)}</span>);
+        segments.push(renderInlineAI(content.slice(lastIdx)));
       }
       return segments;
     }
 
-    return <span className="whitespace-pre-wrap">{content}</span>;
+    return renderInlineAI(content);
+  };
+
+  /** Inline markdown для ИИ (bold, italic, code, strike) */
+  const renderInlineAI = (text: string): React.ReactNode => {
+    const tokens = text.split(/(\*\*[\s\S]*?\*\*|~~[\s\S]*?~~|\*[\s\S]*?\*|`[\s\S]*?`)/g);
+    return tokens.map((t, i) => {
+      if (t.startsWith('**') && t.endsWith('**')) return <strong key={i}>{t.slice(2, -2)}</strong>;
+      if (t.startsWith('~~') && t.endsWith('~~')) return <del key={i}>{t.slice(2, -2)}</del>;
+      if ((t.startsWith('*') && t.endsWith('*'))) return <em key={i}>{t.slice(1, -1)}</em>;
+      if (t.startsWith('`') && t.endsWith('`')) return <code key={i} className="font-mono text-[13px] bg-black/30 px-1.5 py-0.5 rounded">{t.slice(1, -1)}</code>;
+      return <span key={i} className="whitespace-pre-wrap">{t}</span>;
+    });
   };
 
   return (

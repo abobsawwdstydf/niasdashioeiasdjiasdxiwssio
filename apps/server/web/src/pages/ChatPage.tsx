@@ -497,13 +497,13 @@ export default function ChatPage() {
       exit={{ opacity: 0 }}
       className="h-full w-full flex flex-col sm:flex-row bg-surface gap-0 overflow-hidden"
     >
-      {/* Sidebar — всегда виден (и на ПК, и на мобилках), скрыт только когда ИИ открыт на ПК */}
-      <div className={`flex w-full sm:w-[340px] flex-shrink-0 min-w-0 ${showAI && !isMobile ? 'hidden' : ''}`}>
+      {/* Sidebar — на мобилках скрыт когда открыт чат, на ПК всегда виден */}
+      <div className={`${isMobile && activeChat ? 'hidden' : 'flex'} sm:flex w-full sm:w-[340px] flex-shrink-0 min-w-0 ${showAI && !isMobile ? 'hidden' : ''}`}>
         <Sidebar onOpenAI={() => setShowAI(true)} onOpenFriends={() => setShowFriends(true)} />
       </div>
 
-      {/* ChatView — поверх sidebar на мобилках когда activeChat, на ПК всегда рядом. Скрыт когда ИИ открыт. */}
-      <div className={`${(isMobile && (!activeChat || showAI)) ? 'hidden' : 'flex'} sm:flex flex-1 min-w-0 relative overflow-hidden`}>
+      {/* ChatView — на мобилках поверх когда activeChat, на ПК всегда рядом */}
+      <div className={`${isMobile && !activeChat ? 'hidden' : 'flex'} sm:flex flex-1 min-w-0 relative overflow-hidden`}>
         {/* Back button for mobile — возвращает к sidebar */}
         {isMobile && (
           <button
