@@ -738,151 +738,7 @@ function MessageBubble({
             )}
 
             {/* Опрос — рендерим если type === 'poll' ИЛИ если content содержит JSON опроса */}
-            {(message.type === 'poll' || (message.content && message.content.startsWith('{"question"'))) && message.content && (() => {
-              try {
-                const poll = JSON.parse(message.content);
-                if (poll.question && poll.options && Array.isArray(poll.options)) {
-                  // Подсчёт голосов из reactions или из poll.votes (если есть)
-                  const votesByOption = new Map<number, number>();
-                  let totalVotes = 0;
-
-                  // Если есть votes в poll data (старые сообщения)
-                  if (poll.votes) {
-                    totalVotes = Object.values(poll.votes).reduce((sum: number, v: any) => sum + (typeof v === 'number' ? v : 0), 0);
-                    Object.entries(poll.votes).forEach(([idx, count]) => {
-                      votesByOption.set(parseInt(idx), count as number);
-                    });
-                  } else {
-                    // Считаем reactions как голоса
-                    totalVotes = (message.reactions || []).length;
-                    (message.reactions || []).forEach(r => {
-                      const match = r.emoji?.match(/^option_(\d+)$/);
-                      if (match) {
-                        const optIdx = parseInt(match[1]);
-                        votesByOption.set(optIdx, (votesByOption.get(optIdx) || 0) + 1);
-                      }
-                    });
-                  }
-
-                  // Проверяем, голосовал ли текущий пользователь
-                  const userVoted = (message.reactions || []).some(r => r.userId === user?.id && r.emoji?.startsWith('option_'));
-
-                  return (
-                    <div className="min-w-[280px] max-w-[340px]">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <BarChart3 size={16} className={isMine ? 'text-white/60' : 'text-nexo-400'} />
-                        <span className="text-xs font-medium opacity-60">
-                          {poll.quiz ? 'Викторина' : 'Опрос'}
-                        </span>
-                        {totalVotes > 0 && (
-                          <span className="text-xs opacity-50">
-                            {totalVotes} {totalVotes === 1 ? 'голос' : totalVotes < 5 ? 'голоса' : 'голосов'}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Question */}
-                      <p className="text-sm font-semibold mb-3 leading-snug">{poll.question}</p>
-
-                      {/* Options */}
-                      <div className="space-y-2">
-                        {poll.options.map((option: string, i: number) => {
-                          const optionVotes = votesByOption.get(i) || 0;
-                          const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
-                          const isCorrect = poll.quiz && poll.correctAnswer === i;
-                          const hasVoted = userVoted || totalVotes > 0;
-
-                          return (
-                            <button
-                              key={i}
-                              disabled={hasVoted && !poll.multiple}
-                              onClick={() => {
-                                if (hasVoted && !poll.multiple) return;
-                                // Голосуем через reaction
-                                const socket = getSocket();
-                                if (socket) {
-                                  // Снимаем предыдущий голос если был
-                                  (message.reactions || []).forEach(r => {
-                                    if (r.userId === user?.id && r.emoji?.startsWith('option_')) {
-                                      socket.emit('remove_reaction', { messageId: message.id, chatId: message.chatId, emoji: r.emoji });
-                                    }
-                                  });
-                                  // Голосуем за новый вариант
-                                  socket.emit('add_reaction', { messageId: message.id, chatId: message.chatId, emoji: `option_${i}` });
-                                }
-                              }}
-                              className={`relative w-full px-3 py-2.5 rounded-xl text-sm transition-all duration-300 ${
-                                hasVoted && !poll.multiple
-                                  ? isMine ? 'bg-white/10 cursor-default' : 'bg-nexo-500/10 cursor-default'
-                                  : isMine
-                                    ? 'bg-white/15 hover:bg-white/25 active:scale-[0.98] cursor-pointer'
-                                    : 'bg-nexo-500/15 hover:bg-nexo-500/25 active:scale-[0.98] cursor-pointer'
-                              }`}
-                            >
-                              {/* Progress bar background */}
-                              {hasVoted && (
-                                <div
-                                  className={`absolute inset-0 rounded-xl transition-all duration-500 ease-out ${
-                                    isCorrect
-                                      ? 'bg-emerald-500/30'
-                                      : isMine ? 'bg-white/20' : 'bg-nexo-500/30'
-                                  }`}
-                                  style={{
-                                    width: `${percentage}%`,
-                                  }}
-                                />
-                              )}
-
-                              {/* Option content */}
-                              <div className="relative flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  {/* Option letter/icon */}
-                                  <span className={`text-xs font-bold w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                    hasVoted
-                                      ? isCorrect
-                                        ? 'bg-emerald-500/40 text-emerald-300'
-                                        : isMine ? 'bg-white/20 text-white/70' : 'bg-nexo-500/30 text-nexo-300'
-                                      : isMine ? 'bg-white/15 text-white/50' : 'bg-nexo-500/20 text-nexo-400'
-                                  }`}>
-                                    {String.fromCharCode(65 + i)}
-                                  </span>
-                                  <span className="flex-1 truncate text-left">{option}</span>
-                                  {isCorrect && hasVoted && (
-                                    <span className="text-emerald-400 text-xs flex-shrink-0">✓</span>
-                                  )}
-                                </div>
-                                {hasVoted && (
-                                  <span className="text-xs font-medium opacity-80 flex-shrink-0 tabular-nums">
-                                    {percentage}%
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Footer */}
-                      {poll.multiple && (
-                        <div className="mt-2 text-xs opacity-50 flex items-center gap-1">
-                          <span>Можно выбрать несколько</span>
-                        </div>
-                      )}
-                      {!userVoted && totalVotes === 0 && (
-                        <div className="mt-2 text-xs opacity-40 text-center">
-                          Выберите вариант
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-              } catch (e) {
-                // Если не JSON - показать как текст
-                return <p className="text-sm">{message.content}</p>;
-              }
-              return null;
-            })()}
+            <PollRenderer message={message} isMine={isMine} />
 
             {/* Геолокация */}
             {message.type === 'location' && message.content && (() => {
@@ -1517,6 +1373,158 @@ function VideoMessage({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Отдельный компонент для рендеринга опросов.
+ * Вынесен чтобы избежать stale closure при обновлении реакций.
+ */
+function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }) {
+  const { user } = useAuthStore();
+  const { messages } = useChatStore();
+
+  // Берём актуальные реакции из store, а не из замыкания
+  const chatMessages = messages[message.chatId] || [];
+  const currentMessage = chatMessages.find(m => m.id === message.id);
+  const currentReactions = currentMessage?.reactions || message.reactions || [];
+
+  // Проверяем что это действительно опрос
+  const isPoll = message.type === 'poll' || (message.content && message.content.startsWith('{"question"'));
+  if (!isPoll || !message.content) return null;
+
+  let poll: { question: string; options: string[]; multiple?: boolean; quiz?: boolean; correctAnswer?: number };
+  try {
+    poll = JSON.parse(message.content);
+    if (!poll.question || !Array.isArray(poll.options)) return null;
+  } catch {
+    return null;
+  }
+
+  // Подсчёт голосов
+  const votesByOption = new Map<number, number>();
+  let totalVotes = 0;
+
+  currentReactions.forEach(r => {
+    const match = r.emoji?.match(/^option_(\d+)$/);
+    if (match) {
+      const optIdx = parseInt(match[1]);
+      votesByOption.set(optIdx, (votesByOption.get(optIdx) || 0) + 1);
+      totalVotes++;
+    }
+  });
+
+  const userVoted = currentReactions.some(r => r.userId === user?.id && r.emoji?.startsWith('option_'));
+  const hasVoted = userVoted || totalVotes > 0;
+
+  const handleVote = (optionIndex: number) => {
+    if (hasVoted && !poll.multiple) return;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    // Снимаем предыдущий голос
+    currentReactions.forEach(r => {
+      if (r.userId === user?.id && r.emoji?.startsWith('option_')) {
+        socket.emit('remove_reaction', { messageId: message.id, chatId: message.chatId, emoji: r.emoji });
+      }
+    });
+
+    // Голосуем за новый вариант
+    socket.emit('add_reaction', { messageId: message.id, chatId: message.chatId, emoji: `option_${optionIndex}` });
+  };
+
+  return (
+    <div className="min-w-[280px] max-w-[340px]">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart3 size={16} className={isMine ? 'text-white/60' : 'text-nexo-400'} />
+        <span className="text-xs font-medium opacity-60">
+          {poll.quiz ? 'Викторина' : 'Опрос'}
+        </span>
+        {totalVotes > 0 && (
+          <span className="text-xs opacity-50">
+            {totalVotes} {totalVotes === 1 ? 'голос' : totalVotes < 5 ? 'голоса' : 'голосов'}
+          </span>
+        )}
+      </div>
+
+      {/* Question */}
+      <p className="text-sm font-semibold mb-3 leading-snug">{poll.question}</p>
+
+      {/* Options */}
+      <div className="space-y-2">
+        {poll.options.map((option: string, i: number) => {
+          const optionVotes = votesByOption.get(i) || 0;
+          const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+          const isCorrect = poll.quiz && poll.correctAnswer === i;
+
+          return (
+            <button
+              key={i}
+              disabled={hasVoted && !poll.multiple}
+              onClick={() => handleVote(i)}
+              className={`relative w-full px-3 py-2.5 rounded-xl text-sm transition-all duration-300 ${
+                hasVoted && !poll.multiple
+                  ? isMine ? 'bg-white/10 cursor-default' : 'bg-nexo-500/10 cursor-default'
+                  : isMine
+                    ? 'bg-white/15 hover:bg-white/25 active:scale-[0.98] cursor-pointer'
+                    : 'bg-nexo-500/15 hover:bg-nexo-500/25 active:scale-[0.98] cursor-pointer'
+              }`}
+            >
+              {/* Progress bar background */}
+              {hasVoted && (
+                <div
+                  className={`absolute inset-0 rounded-xl transition-all duration-500 ease-out ${
+                    isCorrect
+                      ? 'bg-emerald-500/30'
+                      : isMine ? 'bg-white/20' : 'bg-nexo-500/30'
+                  }`}
+                  style={{ width: `${percentage}%` }}
+                />
+              )}
+
+              {/* Option content */}
+              <div className="relative flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {/* Option letter */}
+                  <span className={`text-xs font-bold w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${
+                    hasVoted
+                      ? isCorrect
+                        ? 'bg-emerald-500/40 text-emerald-300'
+                        : isMine ? 'bg-white/20 text-white/70' : 'bg-nexo-500/30 text-nexo-300'
+                      : isMine ? 'bg-white/15 text-white/50' : 'bg-nexo-500/20 text-nexo-400'
+                  }`}>
+                    {String.fromCharCode(65 + i)}
+                  </span>
+                  <span className="flex-1 truncate text-left">{option}</span>
+                  {isCorrect && hasVoted && (
+                    <span className="text-emerald-400 text-xs flex-shrink-0">✓</span>
+                  )}
+                </div>
+                {hasVoted && (
+                  <span className="text-xs font-medium opacity-80 flex-shrink-0 tabular-nums">
+                    {percentage}%
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      {poll.multiple && (
+        <div className="mt-2 text-xs opacity-50 flex items-center gap-1">
+          <span>Можно выбрать несколько</span>
+        </div>
+      )}
+      {!userVoted && totalVotes === 0 && (
+        <div className="mt-2 text-xs opacity-40 text-center">
+          Выберите вариант
+        </div>
+      )}
     </div>
   );
 }

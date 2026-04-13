@@ -180,23 +180,39 @@ app.get('/api/files/:fileId/download', async (req, res) => {
 
     if (!telegramFile) {
       console.error(`[FILES] Файл ${fileId} не найден в БД`);
-      res.status(404).json({ error: 'Файл не найден' });
+      res.status(404).json({ error: 'Файл не найден в хранилище' });
+      return;
+    }
+
+    if (!telegramFile.chunks || telegramFile.chunks.length === 0) {
+      console.error(`[FILES] Файл ${fileId} без чанков`);
+      res.status(404).json({ error: 'Файл повреждён (нет чанков)' });
       return;
     }
 
     console.error(`[FILES] Файл найден: ${telegramFile.originalName} (${telegramFile.mimeType}, ${telegramFile.totalSize}b, ${telegramFile.chunks.length} чанков)`);
 
-    const fileBuffer = await telegramStorage.downloadFile(
-      telegramFile.fileId,
-      telegramFile.chunks
-    );
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await telegramStorage.downloadFile(
+        telegramFile.fileId,
+        telegramFile.chunks
+      );
+    } catch (downloadError: any) {
+      console.error(`[FILES] Ошибка загрузки из Telegram:`, downloadError.message);
+      res.status(502).json({
+        error: 'Ошибка загрузки файла из хранилища',
+        detail: process.env.NODE_ENV === 'development' ? downloadError.message : undefined
+      });
+      return;
+    }
 
     console.error(`[FILES] Файл скачан: ${fileBuffer.length}b`);
 
     await prisma.telegramFile.update({
       where: { fileId },
       data: { lastAccessed: new Date(), accessCount: { increment: 1 } }
-    });
+    }).catch(() => {}); // ignore update errors
 
     const isInline = telegramFile.mimeType.startsWith('image/') ||
                      telegramFile.mimeType.startsWith('video/') ||
@@ -213,13 +229,13 @@ app.get('/api/files/:fileId/download', async (req, res) => {
         const parts = range.replace(/bytes=/, '').split('-');
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : fileBuffer.length - 1;
-        
+
         if (start >= fileBuffer.length) {
           res.writeHead(416, { 'Content-Range': `bytes */${fileBuffer.length}` });
           res.end();
           return;
         }
-        
+
         const chunk = fileBuffer.slice(start, Math.min(end + 1, fileBuffer.length));
         res.writeHead(206, {
           'Content-Range': `bytes ${start}-${Math.min(end, fileBuffer.length - 1)}/${fileBuffer.length}`,

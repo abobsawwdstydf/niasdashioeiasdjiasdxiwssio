@@ -21,16 +21,58 @@ export default function LocationModal({ onClose, onSend }: LocationModalProps) {
       return;
     }
 
+    // Таймаут 15 секунд — если не определилось, пробуем getCurrentPosition
+    const fallbackTimer = setTimeout(() => {
+      if (loading && !location) {
+        console.log('[Geo] watchPosition timeout, trying getCurrentPosition...');
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude, accuracy } = position.coords;
+            setLocation({ lat: latitude, lng: longitude, accuracy: accuracy || 1000 });
+            setLoading(false);
+
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=ru`, {
+              headers: { 'User-Agent': 'Nexo Messenger App' }
+            })
+              .then(res => res.json())
+              .then(data => {
+                if (data.address) {
+                  const parts = [];
+                  if (data.address.road) parts.push(data.address.road);
+                  if (data.address.house_number) parts.push(data.address.house_number);
+                  if (data.address.city || data.address.town || data.address.village) parts.push(data.address.city || data.address.town || data.address.village);
+                  if (data.address.country) parts.push(data.address.country);
+                  setAddress(parts.join(', ') || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                }
+              })
+              .catch(() => setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`));
+          },
+          (err) => {
+            console.error('[Geo] getCurrentPosition error:', err);
+            if (err.code === 1) {
+              setError('Доступ к геолокации запрещён. Разрешите в настройках браузера.');
+            } else if (err.code === 2) {
+              setError('Не удалось определить местоположение. Попробуйте на мобильном устройстве.');
+            } else {
+              setError('Превышено время ожидания');
+            }
+            setLoading(false);
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+        );
+      }
+    }, 15000);
+
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-        // Accuracy should be reasonable - filter out very inaccurate readings
-        if (accuracy > 500) return; // Wait for better accuracy
-        
+        // На ПК точность часто плохая — принимаем до 5000м
+        if (accuracy > 5000) return;
+
         setLocation({ lat: latitude, lng: longitude, accuracy });
         setLoading(false);
 
-        // Reverse geocoding with Nominatim (free, no API key)
+        // Reverse geocoding
         fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=ru`, {
           headers: { 'User-Agent': 'Nexo Messenger App' }
         })
@@ -48,7 +90,7 @@ export default function LocationModal({ onClose, onSend }: LocationModalProps) {
           .catch(() => setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`));
       },
       (err) => {
-        console.error('Geolocation error:', err);
+        console.error('[Geo] watchPosition error:', err);
         switch (err.code) {
           case 1: setError('Доступ к геолокации запрещён. Разрешите в настройках браузера.'); break;
           case 2: setError('Не удалось определить местоположение'); break;
@@ -60,8 +102,11 @@ export default function LocationModal({ onClose, onSend }: LocationModalProps) {
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
 
-    return () => { navigator.geolocation.clearWatch(watchId); };
-  }, []);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      clearTimeout(fallbackTimer);
+    };
+  }, [loading, location]);
 
   const handleSend = () => {
     if (!location) return;
