@@ -301,19 +301,18 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
 
           {/* Header */}
           <div className="relative h-[64px] px-4 flex items-center gap-3 flex-shrink-0 glass-strong">
-            {/* Меню (мобилки) */}
-            {isMobile && (
-              <button
-                onClick={() => setShowSideMenu(true)}
-                className="glass-btn w-10 h-10 rounded-xl text-zinc-300 hover:text-white"
-              >
-                <Menu size={18} />
-              </button>
-            )}
+            {/* Меню */}
+            <button
+              onClick={() => setShowSideMenu(true)}
+              className="glass-btn w-10 h-10 rounded-xl text-zinc-300 hover:text-white flex-shrink-0"
+              title="Меню"
+            >
+              <Menu size={18} />
+            </button>
 
             {/* Заголовок */}
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              {isMobile && (
+              {!isMobile && (
                 <div className="relative">
                   <div className="absolute inset-0 bg-nexo-500/30 blur-xl rounded-xl" />
                   <img src="/logo.png" alt="Nexo" className="relative w-7 h-7 rounded-xl object-cover" />
@@ -613,13 +612,13 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                   <span className="text-[10px]">Nexo AI</span>
                 </button>
 
-                {/* Меню */}
+                {/* Профиль */}
                 <button
-                  onClick={() => setShowSideMenu(true)}
+                  onClick={() => setShowProfile(true)}
                   className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 hover:text-white transition-colors"
                 >
-                  <Menu size={22} />
-                  <span className="text-[10px]">Меню</span>
+                  <User size={22} />
+                  <span className="text-[10px]">Профиль</span>
                 </button>
               </div>
             </div>
