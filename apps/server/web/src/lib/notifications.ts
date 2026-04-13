@@ -60,7 +60,7 @@ export async function subscribeToNotifications(): Promise<PushSubscription | nul
     // Subscribe to push notifications
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
     });
 
     console.log('[Push] Subscribed to push notifications');
@@ -151,9 +151,8 @@ export async function sendTestNotification(): Promise<boolean> {
   registration.showNotification('Nexo Messenger', {
     body: 'Уведомления работают!',
     icon: '/logo.png',
-    badge: '/logo.png',
-    vibrate: [200, 100, 200]
-  });
+    badge: '/logo.png'
+  } as NotificationOptions);
 
   return true;
 }

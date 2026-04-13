@@ -272,14 +272,6 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
 
             <div className="flex-1" />
 
-            {/* Меню */}
-            <NavButton
-              icon={Menu}
-              label="Меню"
-              active={false}
-              onClick={() => setShowSideMenu(true)}
-            />
-
             {/* Настройки */}
             <NavButton
               icon={Settings}
