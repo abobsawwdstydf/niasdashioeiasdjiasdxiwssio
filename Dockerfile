@@ -34,6 +34,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Install tsx globally in production stage
+RUN npm install -g tsx@4.19.2
+
 # Copy built artifacts and dependencies from builder
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/server/package*.json ./apps/server/
@@ -56,35 +59,8 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start script with DB migration and retry logic
-COPY <<'EOF' /app/start.sh
-#!/bin/sh
-set -e
-
-echo "🚀 Starting Nexo Messenger..."
-
-# Run Prisma migrations
-echo "📦 Running database migrations..."
-cd /app/apps/server
-for i in $(seq 1 15); do
-  if npx prisma db push --accept-data-loss; then
-    echo "✅ Database schema pushed successfully"
-    break
-  else
-    echo "⏳ DB not ready, retry $i/15..."
-    sleep 4
-  fi
-done
-
-# Generate Prisma client (just in case)
-npx prisma generate
-
-# Start server
-echo "🌐 Starting server on port $PORT..."
-cd /app/apps/server
-exec tsx src/index.ts
-EOF
-
+# Copy start script
+COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]
