@@ -301,14 +301,16 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
 
           {/* Header */}
           <div className="relative h-[64px] px-4 flex items-center gap-3 flex-shrink-0 glass-strong">
-            {/* Меню */}
-            <button
-              onClick={() => setShowSideMenu(true)}
-              className="glass-btn w-10 h-10 rounded-xl text-zinc-300 hover:text-white flex-shrink-0"
-              title="Меню"
-            >
-              <Menu size={18} />
-            </button>
+            {/* Меню (ПК) */}
+            {!isMobile && (
+              <button
+                onClick={() => setShowSideMenu(true)}
+                className="glass-btn w-10 h-10 rounded-xl text-zinc-300 hover:text-white flex-shrink-0"
+                title="Меню"
+              >
+                <Menu size={18} />
+              </button>
+            )}
 
             {/* Заголовок */}
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
