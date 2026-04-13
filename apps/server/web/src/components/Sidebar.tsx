@@ -272,6 +272,14 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
 
             <div className="flex-1" />
 
+            {/* Меню */}
+            <NavButton
+              icon={Menu}
+              label="Меню"
+              active={false}
+              onClick={() => setShowSideMenu(true)}
+            />
+
             {/* Настройки */}
             <NavButton
               icon={Settings}
@@ -612,13 +620,21 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                   <span className="text-[10px]">Nexo AI</span>
                 </button>
 
-                {/* Профиль */}
+                {/* Профиль с аватаркой */}
                 <button
                   onClick={() => setShowProfile(true)}
-                  className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 hover:text-white transition-colors"
+                  className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-colors"
                 >
-                  <User size={22} />
-                  <span className="text-[10px]">Профиль</span>
+                  <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-nexo-500/50 transition-all">
+                    {user?.avatar ? (
+                      <img src={normalizeMediaUrl(user.avatar)} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-nexo-500 to-purple-600 text-white text-xs font-bold">
+                        {(user?.displayName || user?.username || '?')[0].toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-zinc-400">Профиль</span>
                 </button>
               </div>
             </div>

@@ -755,7 +755,7 @@ function MessageBubble({
                     ref={audioRef}
                     id={voiceId}
                     src={voiceUrl}
-                    preload="none"
+                    preload="auto"
                     onError={(e) => {
                       console.error('[Voice] Ошибка загрузки:', voiceUrl);
                       setIsPlaying(false);
@@ -785,12 +785,10 @@ function MessageBubble({
                       onClick={(e) => {
                         const audio = audioRef.current;
                         if (!audio) return;
-                        // Если не играет — запускаем
                         if (!audioManager.isPlaying(audio)) {
                           toggleAudio();
                           return;
                         }
-                        // Если играет — перематываем
                         if (!audio.duration) return;
                         const rect = e.currentTarget.getBoundingClientRect();
                         const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -816,7 +814,7 @@ function MessageBubble({
                         );
                       })}
                     </div>
-                    {/* Duration + size row */}
+                    {/* Duration + size */}
                     <div className="flex items-center justify-between">
                       <span className={`text-xs ${isMine ? 'text-white/70' : 'text-blue-200'}`}>
                         {isPlaying
@@ -851,7 +849,7 @@ function MessageBubble({
                     <audio
                       ref={audioRef}
                       src={audioUrl}
-                      preload="none"
+                      preload="auto"
                       onError={() => {
                         console.error('[Audio] Ошибка загрузки:', audioUrl);
                         setIsPlaying(false);

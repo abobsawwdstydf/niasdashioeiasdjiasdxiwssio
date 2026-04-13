@@ -36,8 +36,14 @@ export default function CameraModal({ onClose, onCapture }: CameraModalProps) {
       setCameraError(null);
       stopCamera();
 
+      const isMobile = window.innerWidth < 640;
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: {
+          facingMode,
+          // На мобилках — вертикальное видео (9:16)
+          width: isMobile ? { ideal: 720 } : { ideal: 1280 },
+          height: isMobile ? { ideal: 1280 } : { ideal: 720 },
+        },
         audio: mode === 'video',
       });
 
@@ -149,24 +155,47 @@ export default function CameraModal({ onClose, onCapture }: CameraModalProps) {
         </div>
 
         {/* Camera view */}
-        <div className="relative aspect-video bg-black">
-          {cameraError ? (
-            <div className="flex items-center justify-center h-full text-white p-4 text-center">
-              <div><Camera size={32} className="mx-auto mb-2 opacity-50" /><p className="text-sm">{cameraError}</p></div>
-            </div>
-          ) : (
-            <>
-              <video ref={videoRef} autoPlay playsInline muted
-                className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} />
-              <canvas ref={canvasRef} className="hidden" />
-              {isRecording && (
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-red-500/90 px-3 py-1 rounded-full flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="text-white font-mono text-xs">{formatTime(recordingTime)}</span>
-                </div>
-              )}
-            </>
-          )}
+        <div className="relative bg-black sm:aspect-video">
+          {/* На мобилках — вертикальный режим (9:16) */}
+          <div className="sm:hidden aspect-[9/16] max-h-[60vh] mx-auto">
+            {cameraError ? (
+              <div className="flex items-center justify-center h-full text-white p-4 text-center">
+                <div><Camera size={32} className="mx-auto mb-2 opacity-50" /><p className="text-sm">{cameraError}</p></div>
+              </div>
+            ) : (
+              <>
+                <video ref={videoRef} autoPlay playsInline muted
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} />
+                <canvas ref={canvasRef} className="hidden" />
+                {isRecording && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-red-500/90 px-3 py-1 rounded-full flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span className="text-white font-mono text-xs">{formatTime(recordingTime)}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {/* На ПК — горизонтальный режим */}
+          <div className="hidden sm:block">
+            {cameraError ? (
+              <div className="flex items-center justify-center h-64 text-white p-4 text-center">
+                <div><Camera size={32} className="mx-auto mb-2 opacity-50" /><p className="text-sm">{cameraError}</p></div>
+              </div>
+            ) : (
+              <>
+                <video ref={videoRef} autoPlay playsInline muted
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} />
+                <canvas ref={canvasRef} className="hidden" />
+                {isRecording && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-red-500/90 px-3 py-1 rounded-full flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span className="text-white font-mono text-xs">{formatTime(recordingTime)}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Controls */}

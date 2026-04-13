@@ -74,7 +74,7 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
 
     for (const file of files) {
       const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      
+
       // Fix empty/wrong MIME type based on file extension
       let mimeType = file.mimetype;
       if (!mimeType || mimeType === 'application/octet-stream') {
@@ -103,53 +103,62 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
           mimeType,
           req.userId!
         );
+        console.log(`[UPLOAD] Telegram OK: ${storedFile.fileId} (${mimeType})`);
       } catch (telegramError: any) {
-        console.error(`❌ Ошибка Telegram: ${telegramError.message}`);
-        console.error('⚠️ Файл не может быть загружен в Telegram');
-        res.status(500).json({ 
+        console.error(`[UPLOAD] Telegram error: ${telegramError.message}`);
+        res.status(500).json({
           error: 'Ошибка загрузки в Telegram: ' + telegramError.message,
-          details: 'Проверьте что боты добавлены в каналы хранения'
         });
         return;
       }
 
       // Сохраняем метаданные в БД
-      const telegramFile = await prisma.telegramFile.create({
-        data: {
+      try {
+        const telegramFile = await prisma.telegramFile.create({
+          data: {
+            fileId: storedFile.fileId,
+            userId: req.userId!,
+            originalName: storedFile.originalName,
+            mimeType: storedFile.mimeType,
+            totalSize: storedFile.totalSize,
+            encryptionLevel: storedFile.encryptionLevel,
+            chunks: {
+              create: storedFile.chunks.map(chunk => ({
+                fileId: storedFile.fileId,
+                chunkIndex: chunk.chunkIndex,
+                channelId: chunk.channelId,
+                messageId: chunk.messageId,
+                botId: chunk.botId,
+                size: chunk.size,
+              }))
+            }
+          },
+          include: { chunks: true }
+        });
+        console.log(`[UPLOAD] БД OK: ${telegramFile.fileId}`);
+        uploadedFiles.push({
+          fileId: telegramFile.fileId,
+          filename: telegramFile.originalName,
+          size: telegramFile.totalSize,
+          mimetype: telegramFile.mimeType,
+          url: `/api/files/${telegramFile.fileId}/download`,
+        });
+      } catch (dbError: any) {
+        console.error(`[UPLOAD] БД error: ${dbError.message}`);
+        // Файл в Telegram есть, но не в БД — возвращаем fileId напрямую
+        uploadedFiles.push({
           fileId: storedFile.fileId,
-          userId: req.userId!,
-          originalName: storedFile.originalName,
-          mimeType: storedFile.mimeType,
-          totalSize: storedFile.totalSize,
-          encryptionLevel: storedFile.encryptionLevel,
-          chunks: {
-            create: storedFile.chunks.map(chunk => ({
-              fileId: storedFile.fileId,
-              chunkIndex: chunk.chunkIndex,
-              channelId: chunk.channelId,
-              messageId: chunk.messageId,
-              botId: chunk.botId,
-              size: chunk.size,
-            }))
-          }
-        },
-        include: { chunks: true }
-      });
-
-      uploadedFiles.push({
-        fileId: telegramFile.fileId,
-        filename: telegramFile.originalName,
-        size: telegramFile.totalSize,
-        mimetype: telegramFile.mimeType,
-        url: `/api/files/${telegramFile.fileId}/download`,
-      });
+          filename: storedFile.originalName,
+          size: storedFile.totalSize,
+          mimetype: storedFile.mimeType,
+          url: `/api/files/${storedFile.fileId}/download`,
+        });
+      }
     }
 
-    console.log(`\n✅ ВСЕ ФАЙЛЫ (${uploadedFiles.length}) ОТПРАВЛЕНЫ В TELEGRAM И СОХРАНЕНЫ В БД\n`);
     res.json(uploadedFiles);
   } catch (error: any) {
-    console.error('❌ ОШИБКА ЗАГРУЗКИ В TELEGRAM:', error.message);
-    console.error(error);
+    console.error('[UPLOAD] Critical error:', error.message);
     res.status(500).json({ error: 'Ошибка загрузки: ' + (error.message || 'Неизвестная ошибка') });
   }
 });
