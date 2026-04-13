@@ -33,7 +33,7 @@ export const REDIS_INSTANCES = [
 ];
 
 // File chunking configuration
-export const CHUNK_SIZE = 20 * 1024 * 1024; // 20 MB per chunk
+export const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB — below Telegram's 20MB limit
 
 // Encryption levels
 export const ENCRYPTION_LEVELS = {

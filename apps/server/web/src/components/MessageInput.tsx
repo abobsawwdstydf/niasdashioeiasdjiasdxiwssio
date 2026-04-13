@@ -532,6 +532,13 @@ export default function MessageInput({ chatId }: MessageInputProps) {
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
+
+      // Check file size before adding
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`${file.name}: файл слишком большой (макс. ${(MAX_FILE_SIZE / 1024 / 1024 / 1024).toFixed(1)} ГБ)`);
+        return;
+      }
+
       const isVideo = file.type.startsWith('video/');
       const isImage = file.type.startsWith('image/');
       const audioExts = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.wma', '.opus'];

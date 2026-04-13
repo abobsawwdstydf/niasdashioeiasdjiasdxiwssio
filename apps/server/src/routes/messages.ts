@@ -62,7 +62,8 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 });
 
 // Загрузка файлов - ОТПРАВКА В TELEGRAM (не локально!)
-router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, res) => {
+// Limit increased to 1200 files to match client UI
+router.post('/upload', uploadFile.array('files', 1200), async (req: AuthRequest, res) => {
   try {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -71,6 +72,7 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
     }
 
     const uploadedFiles = [];
+    const failedFiles = [];
 
     for (const file of files) {
       const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -105,11 +107,9 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
         );
         console.log(`[UPLOAD] Telegram OK: ${storedFile.fileId} (${mimeType})`);
       } catch (telegramError: any) {
-        console.error(`[UPLOAD] Telegram error: ${telegramError.message}`);
-        res.status(500).json({
-          error: 'Ошибка загрузки в Telegram: ' + telegramError.message,
-        });
-        return;
+        console.error(`[UPLOAD] Telegram error for ${originalName}: ${telegramError.message}`);
+        failedFiles.push({ name: originalName, error: telegramError.message });
+        continue; // Continue with next file instead of failing all
       }
 
       // Сохраняем метаданные в БД
@@ -156,7 +156,14 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
       }
     }
 
-    res.json(uploadedFiles);
+    // Return results with partial success info
+    const response: any = { files: uploadedFiles };
+    if (failedFiles.length > 0) {
+      response.failed = failedFiles;
+      response.partialSuccess = true;
+    }
+
+    res.json(response);
   } catch (error: any) {
     console.error('[UPLOAD] Critical error:', error.message);
     res.status(500).json({ error: 'Ошибка загрузки: ' + (error.message || 'Неизвестная ошибка') });

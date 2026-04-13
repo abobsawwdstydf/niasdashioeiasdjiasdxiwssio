@@ -595,6 +595,15 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                   <span className="text-[10px]">Друзья</span>
                 </button>
 
+                {/* Меню — кнопка гамбургер */}
+                <button
+                  onClick={() => setShowSideMenu(true)}
+                  className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 transition-colors"
+                >
+                  <Menu size={22} />
+                  <span className="text-[10px]">Меню</span>
+                </button>
+
                 {/* Новый чат — выступающая центральная кнопка */}
                 <div className="relative -mt-8">
                   <button
