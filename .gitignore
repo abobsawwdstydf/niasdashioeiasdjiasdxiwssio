@@ -1,53 +1,62 @@
-# Dependencies
-node_modules/
-
-# Build output
-apps/server/dist/
-apps/web/dist/
-
 # Environment files
 .env
-.env.render
 .env.local
-.env.production
 .env.*.local
-apps/server/.env
 
-# Uploads (user data)
-apps/server/uploads/avatars/*
-!apps/server/uploads/avatars/.gitkeep
+# Build outputs
+dist/
+build/
+.vite/
 
-# Deploy artifacts
-vortex-deploy/
-vortex-deploy.tar.gz
+# Node modules
+node_modules/
+*/node_modules/
+apps/*/node_modules/
+apps/server/*/node_modules/
 
-# Credentials
-CREDENTIALS.txt
+# Database files
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+apps/server/prisma/*.db
+apps/server/prisma/*.db-journal
 
-# Security audit (personal)
-SECURITY_AUDIT.md
-
-# OS files
-Thumbs.db
-.DS_Store
-
-# Backup (don't commit)
-telega/
+# Uploads
+uploads/
+apps/server/uploads/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
-apps/server/uploads/
-desktop/dist/
-apps/server/web/node_modules/
-apps/server/web/dist/
+*~
 
-# App build artifacts
-pppdison/*/app/dist/
-pppdison/windows/app/dist/
-*.exe
-*.apk
-*.dmg
-*.app
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Debug
+npm-debug.log*
+jspm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+pppdison/
+telega/
+
+# Sensitive files (NEVER commit these)
+**/config.ts
+!apps/server/src/config.example.ts
+.env.render 

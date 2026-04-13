@@ -4,7 +4,7 @@ import { prisma } from '../db';
 import { config } from '../config';
 import { SENDER_SELECT, deleteUploadedFile } from '../shared';
 // @ts-ignore - WebPush module is JavaScript
-import { sendCallNotification, sendMessageNotification, sendFriendRequestNotification } from '../webPush';
+import { sendCallNotification, sendMessageNotification, sendFriendRequestNotification } from '../lib/webPush';
 
 interface AuthSocket extends Socket {
   userId?: string;

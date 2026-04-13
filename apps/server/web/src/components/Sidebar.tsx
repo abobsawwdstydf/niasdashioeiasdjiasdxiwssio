@@ -620,7 +620,7 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                   <span className="text-[10px]">Nexo AI</span>
                 </button>
 
-                {/* Профиль с аватаркой */}
+                {/* Профиль с аватаркой - только аватарка без текста */}
                 <button
                   onClick={() => setShowProfile(true)}
                   className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-colors"
@@ -634,7 +634,6 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                       </div>
                     )}
                   </div>
-                  <span className="text-[10px] text-zinc-400">Профиль</span>
                 </button>
               </div>
             </div>

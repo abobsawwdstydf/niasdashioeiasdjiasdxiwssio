@@ -159,12 +159,16 @@ import { telegramStorage } from './lib/telegramStorage';
 app.get('/api/files/:fileId/download', async (req, res) => {
   try {
     const { fileId } = req.params;
+    console.error(`[FILES] Запрос скачивания: ${fileId}`);
 
     // CORS для медиа
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
 
     if (!fileId || !fileId.startsWith('tg_')) {
+      console.error(`[FILES] Неверный fileId: ${fileId}`);
       res.status(400).json({ error: 'Неверный ID файла' });
       return;
     }
@@ -180,10 +184,14 @@ app.get('/api/files/:fileId/download', async (req, res) => {
       return;
     }
 
+    console.error(`[FILES] Файл найден: ${telegramFile.originalName} (${telegramFile.mimeType}, ${telegramFile.totalSize}b, ${telegramFile.chunks.length} чанков)`);
+
     const fileBuffer = await telegramStorage.downloadFile(
       telegramFile.fileId,
       telegramFile.chunks
     );
+
+    console.error(`[FILES] Файл скачан: ${fileBuffer.length}b`);
 
     await prisma.telegramFile.update({
       where: { fileId },
@@ -198,16 +206,23 @@ app.get('/api/files/:fileId/download', async (req, res) => {
       res.setHeader('Content-Type', telegramFile.mimeType);
       res.setHeader('Content-Length', fileBuffer.length);
       res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
       const range = req.headers.range;
       if (range) {
         const parts = range.replace(/bytes=/, '').split('-');
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : fileBuffer.length - 1;
-        const chunk = fileBuffer.slice(start, end + 1);
+        
+        if (start >= fileBuffer.length) {
+          res.writeHead(416, { 'Content-Range': `bytes */${fileBuffer.length}` });
+          res.end();
+          return;
+        }
+        
+        const chunk = fileBuffer.slice(start, Math.min(end + 1, fileBuffer.length));
         res.writeHead(206, {
-          'Content-Range': `bytes ${start}-${end}/${fileBuffer.length}`,
+          'Content-Range': `bytes ${start}-${Math.min(end, fileBuffer.length - 1)}/${fileBuffer.length}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': chunk.length,
           'Content-Type': telegramFile.mimeType,
@@ -226,8 +241,10 @@ app.get('/api/files/:fileId/download', async (req, res) => {
     }
 
   } catch (error: any) {
-    console.error('[FILES] Ошибка скачивания:', error.message);
-    res.status(500).json({ error: 'Ошибка скачивания: ' + error.message });
+    console.error('[FILES] Ошибка скачивания:', error.message, error.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Ошибка скачивания: ' + error.message });
+    }
   }
 });
 

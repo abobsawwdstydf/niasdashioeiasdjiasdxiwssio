@@ -82,7 +82,10 @@ function MessageBubble({
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const speedMenuRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -213,10 +216,8 @@ function MessageBubble({
   };
 
   const handleCreateThread = () => {
+    // Thread functionality removed per user request
     setShowContext(false);
-    // Dispatch event to open thread
-    const event = new CustomEvent('create-thread', { detail: { messageId: message.id, chatId: message.chatId } });
-    window.dispatchEvent(event);
   };
 
   const handleReaction = (emoji: string) => {
@@ -243,12 +244,26 @@ function MessageBubble({
       audioManager.pause(audio);
       setIsPlaying(false);
     } else {
+      audio.playbackRate = playbackSpeed;
       audioManager.play(audio).then(() => {
         setIsPlaying(true);
       }).catch(() => {
         setIsPlaying(false);
       });
     }
+  };
+
+  const changePlaybackSpeed = () => {
+    const speeds = [1, 1.5, 2, 2.5, 3];
+    const currentIndex = speeds.indexOf(playbackSpeed);
+    const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+    setPlaybackSpeed(nextSpeed);
+    
+    const audio = audioRef.current;
+    if (audio) {
+      audio.playbackRate = nextSpeed;
+    }
+    setShowSpeedMenu(false);
   };
 
   useEffect(() => {
@@ -268,6 +283,35 @@ function MessageBubble({
     const onEnded = () => {
       setIsPlaying(false);
       setAudioProgress(0);
+      
+      // Пометить как прослушанное
+      if (message.id && user?.id) {
+        const listenedKey = `voice_listened_${message.id}_${user.id}`;
+        localStorage.setItem(listenedKey, 'true');
+      }
+      
+      // Авто-переход к следующему голосовому
+      const chatMessages = useChatStore.getState().messages[message.chatId] || [];
+      const currentIndex = chatMessages.findIndex(m => m.id === message.id);
+      if (currentIndex !== -1) {
+        // Ищем следующее голосовое сообщение
+        for (let i = currentIndex + 1; i < chatMessages.length; i++) {
+          const nextMsg = chatMessages[i];
+          const nextMedia = nextMsg.media || [];
+          const hasNextVoice = nextMsg.type === 'voice' || nextMedia.some(m => m.type === 'voice');
+          if (hasNextVoice) {
+            // Находим аудио элемент следующего голосового
+            setTimeout(() => {
+              const nextAudioEl = document.querySelector(`#voice-${nextMsg.id}`) as HTMLAudioElement;
+              if (nextAudioEl) {
+                nextAudioEl.playbackRate = playbackSpeed;
+                audioManager.play(nextAudioEl).catch(() => {});
+              }
+            }, 500);
+            break;
+          }
+        }
+      }
     };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
@@ -315,6 +359,20 @@ function MessageBubble({
       window.removeEventListener('contextmenu', hideMenu, true);
     };
   }, [showContext]);
+
+  // Close speed menu on outside click
+  useEffect(() => {
+    if (!showSpeedMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (speedMenuRef.current && !speedMenuRef.current.contains(e.target as Node)) {
+        setShowSpeedMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSpeedMenu]);
 
   // Deleted message — auto-hide after 5 seconds
   const [deletedVisible, setDeletedVisible] = useState(true);
@@ -604,37 +662,55 @@ function MessageBubble({
                 <div className="grid grid-cols-2 gap-1">
                   {media
                     .filter((m) => m.type === 'image')
-                    .map((m) => (
-                      <div key={m.id} className="relative aspect-square overflow-hidden rounded-lg bg-black">
-                        <img
-                          src={normalizeMediaUrl(m.url)}
-                          alt=""
-                          className="w-full h-full object-cover cursor-pointer hover:brightness-90 transition-all select-none"
-                          onClick={() => setLightboxUrl(normalizeMediaUrl(m.url))}
-                          draggable={false}
-                          onError={(e) => {
-                            // Show broken image indicator
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            const parent = (e.target as HTMLImageElement).parentElement;
-                            if (parent && !parent.querySelector('.broken-img')) {
-                              const div = document.createElement('div');
-                              div.className = 'broken-img absolute inset-0 flex items-center justify-center bg-zinc-800 text-zinc-500';
-                              div.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
-                              parent.appendChild(div);
-                            }
-                          }}
-                        />
-                      </div>
-                    ))}
+                    .map((m) => {
+                      const imageUrl = normalizeMediaUrl(m.url);
+                      return (
+                        <div key={m.id} className="relative aspect-square overflow-hidden rounded-lg bg-black">
+                          <img
+                            src={imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover cursor-pointer hover:brightness-90 transition-all select-none"
+                            onClick={() => setLightboxUrl(imageUrl)}
+                            draggable={false}
+                            loading="lazy"
+                            onLoad={(e) => {
+                              // Image loaded successfully
+                              (e.target as HTMLImageElement).style.opacity = '1';
+                            }}
+                            onError={(e) => {
+                              console.error('[Image] Ошибка загрузки:', imageUrl);
+                              const img = e.target as HTMLImageElement;
+                              img.style.display = 'none';
+                              const parent = img.parentElement;
+                              if (parent && !parent.querySelector('.broken-img')) {
+                                const div = document.createElement('div');
+                                div.className = 'broken-img absolute inset-0 flex flex-col items-center justify-center bg-zinc-800/90 text-zinc-500 gap-2';
+                                div.innerHTML = `
+                                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <path d="m21 15-5-5L5 21"/>
+                                  </svg>
+                                  <span class="text-xs">Ошибка загрузки</span>
+                                `;
+                                parent.appendChild(div);
+                              }
+                            }}
+                            style={{ opacity: 0, transition: 'opacity 0.3s ease' }}
+                          />
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             )}
 
-            {/* Видео - Telegram style */}
+            {/* Видео */}
             {hasVideo &&
               media
                 .filter((m) => m.type === 'video')
                 .map((m, idx) => {
+                  const videoUrl = normalizeMediaUrl(m.url);
                   const size = m.size || 0;
                   const sizeStr = size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024).toFixed(0)} KB`;
                   const dur = m.duration || 0;
@@ -647,6 +723,7 @@ function MessageBubble({
                       isMine={isMine}
                       sizeStr={sizeStr}
                       durStr={durStr}
+                      videoUrl={videoUrl}
                       onOpenPlayer={(url) => setShowVideoPlayer(url)}
                     />
                   );
@@ -665,27 +742,70 @@ function MessageBubble({
               try {
                 const poll = JSON.parse(message.content);
                 if (poll.question && poll.options) {
+                  // Подсчёт голосов из reactions
+                  const totalVotes = (message.reactions || []).length;
+                  
                   return (
-                    <div className="min-w-[260px]">
+                    <div className="min-w-[280px]">
                       <div className="flex items-center gap-2 mb-3">
                         <BarChart3 size={16} className={isMine ? 'text-white/60' : 'text-nexo-400'} />
-                        <span className="text-xs font-medium opacity-60">Опрос</span>
+                        <span className="text-xs font-medium opacity-60">
+                          {poll.quiz ? 'Викторина' : 'Опрос'}
+                        </span>
+                        {totalVotes > 0 && (
+                          <span className="text-xs opacity-50">
+                            {totalVotes} {totalVotes === 1 ? 'голос' : totalVotes < 5 ? 'голоса' : 'голосов'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-semibold mb-3">{poll.question}</p>
                       <div className="space-y-2">
-                        {poll.options.map((option: string, i: number) => (
-                          <div
-                            key={i}
-                            className={`px-3 py-2 rounded-lg text-sm ${
-                              isMine ? 'bg-white/10 hover:bg-white/15' : 'bg-nexo-500/10 hover:bg-nexo-500/20'
-                            } transition-colors`}
-                          >
-                            {option}
-                          </div>
-                        ))}
+                        {poll.options.map((option: string, i: number) => {
+                          // Подсчитываем голоса для каждого варианта
+                          const optionVotes = (message.reactions || []).filter(r => {
+                            // Проверяем, голосовал ли пользователь за этот вариант
+                            return r.emoji === `option_${i}`;
+                          }).length;
+                          
+                          const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+                          const isCorrect = poll.quiz && poll.correctAnswer === i;
+                          
+                          return (
+                            <div
+                              key={i}
+                              className={`relative px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                                isMine ? 'bg-white/10' : 'bg-nexo-500/10'
+                              }`}
+                            >
+                              {/* Progress bar background */}
+                              <div 
+                                className={`absolute inset-0 rounded-lg transition-all ${
+                                  isMine ? 'bg-white/10' : 'bg-nexo-500/20'
+                                }`}
+                                style={{ 
+                                  width: `${percentage}%`,
+                                  opacity: 0.5
+                                }}
+                              />
+                              
+                              {/* Option content */}
+                              <div className="relative flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="flex-1 truncate">{option}</span>
+                                  {isCorrect && (
+                                    <span className="text-emerald-400 text-xs">✓</span>
+                                  )}
+                                </div>
+                                <span className="text-xs font-medium opacity-70">
+                                  {percentage}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      {poll.quiz && (
-                        <div className="mt-3 text-xs text-emerald-400">Викторина</div>
+                      {poll.multiple && (
+                        <div className="mt-2 text-xs opacity-50">Можно выбрать несколько вариантов</div>
                       )}
                     </div>
                   );
@@ -748,11 +868,21 @@ function MessageBubble({
               const size = voiceMedia.size || 0;
               const sizeStr = size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${(size / 1024).toFixed(0)} KB`;
               const voiceId = `voice-${message.id}`;
+              
+              // Проверка, прослушано ли сообщение
+              const listenedKey = `voice_listened_${message.id}_${user?.id}`;
+              const isListened = localStorage.getItem(listenedKey) === 'true';
 
               return (
                 <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
                   <audio
-                    ref={audioRef}
+                    ref={(el) => {
+                      if (el) {
+                        el.playbackRate = playbackSpeed;
+                      }
+                      // @ts-ignore - assigning ref correctly
+                      audioRef.current = el;
+                    }}
                     id={voiceId}
                     src={voiceUrl}
                     preload="auto"
@@ -764,7 +894,7 @@ function MessageBubble({
                   {/* Play button */}
                   <button
                     onClick={toggleAudio}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all relative ${
                       isMine
                         ? 'bg-white/25 hover:bg-white/35'
                         : 'bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/20'
@@ -775,45 +905,94 @@ function MessageBubble({
                     ) : (
                       <Play size={18} className="text-white ml-0.5" />
                     )}
+                    {/* Индикатор прослушанного */}
+                    {isListened && !isPlaying && (
+                      <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white">
+                        <Check size={8} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
                   </button>
 
-                  {/* Waveform + info */}
+                  {/* Waveform + info + speed button */}
                   <div className="flex-1 min-w-0">
-                    {/* Waveform */}
-                    <div
-                      className="flex items-end gap-[2px] h-7 cursor-pointer mb-1"
-                      onClick={(e) => {
-                        const audio = audioRef.current;
-                        if (!audio) return;
-                        if (!audioManager.isPlaying(audio)) {
-                          toggleAudio();
-                          return;
-                        }
-                        if (!audio.duration) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                        audio.currentTime = pct * audio.duration;
-                        setAudioProgress(pct * 100);
-                      }}
-                    >
-                      {(waveformBars || Array(28).fill(0.5)).map((val, i) => {
-                        const barHeight = Math.max(8, val * 100);
-                        const progress = audioProgress / 100;
-                        const barProgress = i / 28;
-                        const isActive = barProgress < progress;
-                        return (
-                          <div
-                            key={i}
-                            className={`flex-1 rounded-full transition-colors duration-100 ${
-                              isActive
-                                ? isMine ? 'bg-white' : 'bg-blue-300'
-                                : isMine ? 'bg-white/30' : 'bg-white/20'
-                            }`}
-                            style={{ height: `${barHeight}%` }}
-                          />
-                        );
-                      })}
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* Waveform */}
+                      <div
+                        className="flex-1 flex items-end gap-[2px] h-7 cursor-pointer"
+                        onClick={(e) => {
+                          const audio = audioRef.current;
+                          if (!audio) return;
+                          if (!audioManager.isPlaying(audio)) {
+                            toggleAudio();
+                            return;
+                          }
+                          if (!audio.duration) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                          audio.currentTime = pct * audio.duration;
+                          setAudioProgress(pct * 100);
+                        }}
+                      >
+                        {(waveformBars || Array(28).fill(0.5)).map((val, i) => {
+                          const barHeight = Math.max(8, val * 100);
+                          const progress = audioProgress / 100;
+                          const barProgress = i / 28;
+                          const isActive = barProgress < progress;
+                          return (
+                            <div
+                              key={i}
+                              className={`flex-1 rounded-full transition-colors duration-100 ${
+                                isActive
+                                  ? isMine ? 'bg-white' : 'bg-blue-300'
+                                  : isMine ? 'bg-white/30' : 'bg-white/20'
+                              }`}
+                              style={{ height: `${barHeight}%` }}
+                            />
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Кнопка скорости воспроизведения */}
+                      <div className="relative" ref={speedMenuRef}>
+                        <button
+                          onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                          className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors flex-shrink-0 ${
+                            isMine
+                              ? 'bg-white/20 hover:bg-white/30 text-white/80'
+                              : 'bg-blue-500/30 hover:bg-blue-500/40 text-blue-200'
+                          }`}
+                        >
+                          {playbackSpeed}x
+                        </button>
+                        
+                        {/* Меню выбора скорости */}
+                        {showSpeedMenu && (
+                          <div className="absolute bottom-full mb-2 left-0 py-1 rounded-lg bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-xl z-50">
+                            {[1, 1.5, 2, 2.5, 3].map((speed) => (
+                              <button
+                                key={speed}
+                                onClick={() => {
+                                  setPlaybackSpeed(speed);
+                                  const audio = audioRef.current;
+                                  if (audio) {
+                                    audio.playbackRate = speed;
+                                  }
+                                  setShowSpeedMenu(false);
+                                }}
+                                className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${
+                                  playbackSpeed === speed
+                                    ? 'bg-nexo-500/30 text-nexo-300'
+                                    : 'text-zinc-300 hover:bg-white/10'
+                                }`}
+                              >
+                                {speed}x
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
                     {/* Duration + size */}
                     <div className="flex items-center justify-between">
                       <span className={`text-xs ${isMine ? 'text-white/70' : 'text-blue-200'}`}>
@@ -949,8 +1128,8 @@ function MessageBubble({
               </div>
             )}
 
-            {/* Текст */}
-            {message.content && (
+            {/* Текст (исключая poll, location, voice, call) */}
+            {message.content && message.type !== 'poll' && message.type !== 'location' && message.type !== 'voice' && message.type !== 'call' && (
               <div ref={contentRef} className="flex items-end gap-2">
                 <div className={`text-sm flex-1 leading-relaxed overflow-hidden ${isCollapsed ? 'max-h-[300px]' : ''}`}>
                   <p className="whitespace-pre-wrap break-all word-break">
@@ -1145,17 +1324,6 @@ function MessageBubble({
                 {isPinned ? t('unpinMessage') : t('pinMessage')}
               </button>
 
-              {/* Thread button - only for non-channel chats */}
-              {!isChannel && (
-                <button
-                  onClick={handleCreateThread}
-                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
-                >
-                  <MessageSquare size={16} />
-                  Создать тред
-                </button>
-              )}
-
               {message.content && (
                 <button
                   onClick={handleCopy}
@@ -1211,6 +1379,7 @@ function VideoMessage({
   isMine,
   sizeStr,
   durStr,
+  videoUrl: externalVideoUrl,
   onOpenPlayer,
 }: {
   media: MediaItem;
@@ -1218,10 +1387,11 @@ function VideoMessage({
   isMine: boolean;
   sizeStr: string;
   durStr: string;
+  videoUrl?: string;
   onOpenPlayer: (url: string) => void;
 }) {
   const [loadError, setLoadError] = useState(false);
-  const videoUrl = normalizeMediaUrl(media.url);
+  const videoUrl = externalVideoUrl || normalizeMediaUrl(media.url);
   const posterUrl = normalizeMediaUrl(media.thumbnail);
 
   return (
@@ -1236,7 +1406,11 @@ function VideoMessage({
             poster={posterUrl || ''}
             className="w-full max-w-[320px] max-h-64 object-contain"
             preload="metadata"
-            onError={() => setLoadError(true)}
+            crossOrigin="anonymous"
+            onError={(e) => {
+              console.error('[Video] Ошибка загрузки:', videoUrl);
+              setLoadError(true);
+            }}
           />
         ) : (
           /* Фоллбэк при ошибке загрузки — пробуем открыть напрямую */

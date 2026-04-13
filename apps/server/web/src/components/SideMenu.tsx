@@ -297,81 +297,82 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   // ======= MAIN VIEW =======
   const renderMain = () => (
     <motion.div key="main" className="flex flex-col h-full" initial={false} animate="center" exit="exit" variants={viewVariants} custom={-1} transition={{ duration: 0.2 }}>
-      {/* Header */}
+      {/* Header — стеклянный стиль */}
       <div className="relative overflow-hidden flex-shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-nexo-500/40 via-purple-600/25 to-transparent pointer-events-none" />
-        <div className="relative p-6 pb-5">
-          <div className="flex items-start justify-between mb-5">
+        <div className="absolute inset-0 bg-gradient-to-br from-nexo-500/30 via-purple-600/15 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 backdrop-blur-xl bg-white/[0.03] pointer-events-none" />
+        <div className="relative p-5 pb-4">
+          <div className="flex items-start justify-between mb-4">
             <div className="relative group cursor-pointer" onClick={() => changeView('profile')}>
-              <div className="absolute -inset-1 bg-gradient-to-r from-accent via-purple-500 to-accent rounded-full opacity-60 blur group-hover:opacity-90 transition duration-500 animate-[spin_4s_linear_infinite]" />
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-nexo-500/50 via-purple-500/30 to-nexo-500/50 rounded-full opacity-60 blur-sm group-hover:opacity-90 transition duration-500" />
               <div className="relative">
                 {user?.avatar ? (
-                  <img src={user.avatar} alt="" className="w-[72px] h-[72px] rounded-full object-cover ring-[3px] ring-surface" />
+                  <img src={user.avatar} alt="" className="w-[64px] h-[64px] rounded-full object-cover ring-2 ring-white/10" />
                 ) : (
-                  <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-surface to-surface-secondary flex items-center justify-center ring-[3px] ring-surface relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-accent/20 to-purple-500/20" />
-                    <span className="relative z-10 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 drop-shadow-md">{initials}</span>
+                  <div className="w-[64px] h-[64px] rounded-full bg-gradient-to-br from-nexo-500/20 to-purple-600/20 flex items-center justify-center ring-2 ring-white/10 relative overflow-hidden backdrop-blur-sm">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-nexo-500/10 to-purple-500/10" />
+                    <span className="relative z-10 text-xl font-bold text-white/90">{initials}</span>
                   </div>
                 )}
               </div>
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full ring-[3px] ring-surface shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-[#0a0a0f]" />
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm">
-              <X size={20} />
+            <button onClick={onClose} className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+              <X size={18} />
             </button>
           </div>
-          <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 tracking-tight leading-tight">
+          <h3 className="text-lg font-semibold text-white/90 tracking-tight leading-tight">
             {user?.displayName || user?.username}
           </h3>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <AtSign size={12} className="text-nexo-400" />
-            <span className="text-sm font-medium text-nexo-100/70">{user?.username}</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <AtSign size={11} className="text-zinc-500" />
+            <span className="text-xs text-zinc-500">{user?.username}</span>
           </div>
         </div>
-        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
       </div>
 
-      {/* Menu items */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      {/* Menu items — стеклянный стиль */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {menuItems.map((item, i) => {
-          if ('divider' in item) return <div key={i} className="my-2 mx-2 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />;
+          if ('divider' in item) return <div key={i} className="my-2 mx-3 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />;
           const Icon = item.icon!;
           return (
             <button
               key={i}
               onClick={item.onClick}
-              className="group w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-left transition-all duration-200 hover:bg-white/[0.06] active:scale-[0.98]"
+              className="group w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left transition-all duration-300 hover:bg-white/[0.06] active:scale-[0.98] backdrop-blur-sm border border-transparent hover:border-white/[0.06]"
             >
-              <div className="w-9 h-9 rounded-xl bg-white/[0.06] group-hover:bg-nexo-500/15 flex items-center justify-center transition-all duration-200 border border-white/[0.04] group-hover:border-nexo-500/20">
-                <Icon size={17} className="text-zinc-400 group-hover:text-nexo-400 transition-colors duration-200" />
+              <div className="w-9 h-9 rounded-xl bg-white/[0.06] group-hover:bg-white/[0.1] flex items-center justify-center transition-all duration-300 border border-white/[0.04] group-hover:border-white/[0.08]">
+                <Icon size={17} className="text-zinc-400 group-hover:text-zinc-200 transition-all duration-300" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13.5px] font-medium text-zinc-200 group-hover:text-white transition-colors">{item.label}</p>
-                {item.subtitle && <p className="text-[11px] text-zinc-500 mt-0.5">{item.subtitle}</p>}
+                <p className="text-[13.5px] font-medium text-zinc-300 group-hover:text-white transition-all duration-300">{item.label}</p>
+                {item.subtitle && <p className="text-[10px] text-zinc-600 mt-0.5">{item.subtitle}</p>}
               </div>
               {'badge' in item && item.badge ? (
-                <span className="bg-gradient-to-r from-nexo-500 to-purple-600 text-white text-[11px] font-bold min-w-[22px] h-[22px] px-1.5 rounded-full flex items-center justify-center flex-shrink-0 shadow-[0_0_12px_rgba(168,85,247,0.4)]">
+                <span className="bg-nexo-500/20 text-nexo-400 text-[10px] font-bold min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center flex-shrink-0">
                   {item.badge}
                 </span>
               ) : (
-                <ChevronRight size={15} className="text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+                <ChevronRight size={14} className="text-zinc-700 group-hover:text-zinc-500 transition-colors flex-shrink-0" />
               )}
             </button>
           );
         })}
       </div>
 
-      {/* Logout */}
-      <div className="px-3 pb-4 pt-1">
-        <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent mb-3" />
+      {/* Logout — стеклянный стиль */}
+      <div className="px-3 pb-3 pt-1">
+        <div className="h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent mb-3" />
         <button
           onClick={handleLogout}
-          className="group w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-200 hover:bg-red-500/[0.08] active:scale-[0.98]"
+          className="group w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-red-500/[0.08] active:scale-[0.98] border border-transparent hover:border-red-500/[0.15]"
         >
-          <div className="w-9 h-9 rounded-xl bg-red-500/[0.08] group-hover:bg-red-500/15 flex items-center justify-center transition-all duration-200 border border-red-500/[0.06] group-hover:border-red-500/20">
-            <LogOut size={17} className="text-red-400/70 group-hover:text-red-400 transition-colors duration-200" />
+          <div className="w-9 h-9 rounded-xl bg-red-500/[0.08] group-hover:bg-red-500/[0.15] flex items-center justify-center transition-all duration-300 border border-red-500/[0.1] group-hover:border-red-500/[0.2]">
+            <LogOut size={17} className="text-red-400/70 group-hover:text-red-400 transition-all duration-300" />
           </div>
-          <span className="text-[13.5px] font-medium text-red-400/70 group-hover:text-red-400 transition-colors">{t('logout')}</span>
+          <span className="text-[13.5px] font-medium text-red-400/70 group-hover:text-red-400 transition-all duration-300">{t('logout')}</span>
         </button>
       </div>
     </motion.div>
@@ -929,7 +930,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -320, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed left-3 top-3 bottom-3 w-[340px] max-w-[calc(100vw-24px)] bg-surface-secondary/95 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-border/50 rounded-3xl z-50 flex flex-col overflow-hidden"
+            className="fixed left-3 top-3 bottom-3 w-[340px] max-w-[calc(100vw-24px)] bg-white/[0.08] backdrop-blur-3xl backdrop-saturate-150 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_100px_rgba(99,102,241,0.1)] border border-white/[0.12] rounded-3xl z-50 flex flex-col overflow-hidden"
           >
             <AnimatePresence mode="wait" custom={slideDir}>
               {view === 'main' && renderMain()}

@@ -57,7 +57,7 @@ export default function LegalPage({ onClose, type }: LegalPageProps) {
                 отправкой файлов и медиафайлов.
               </p>
               <p className="text-zinc-300 text-sm leading-relaxed mb-4">
-                3.2. Все файлы хранятся в Telegram через Telegram Bot API, что обеспечивает надёжность и безопасность хранения.
+                3.2. Все файлы хранятся на защищённых серверах Nexo с распределённой системой хранения, что обеспечивает надёжность и безопасность.
               </p>
               <p className="text-zinc-300 text-sm leading-relaxed mb-4">
                 3.3. Запрещается использование Сервиса для рассылки спама, мошенничества, распространения вредоносного ПО 
@@ -118,14 +118,14 @@ export default function LegalPage({ onClose, type }: LegalPageProps) {
 
               <h2 className="text-lg font-semibold text-white mt-6 mb-3">2. Хранение данных</h2>
               <p className="text-zinc-300 text-sm leading-relaxed mb-4">
-                2.1. Все данные хранятся в PostgreSQL базе данных Neon.tech с использованием шифрования при передаче (SSL).
+                2.1. Все данные хранятся в защищённой базе данных с использованием шифрования при передаче (SSL).
               </p>
               <p className="text-zinc-300 text-sm leading-relaxed mb-4">
-                2.2. Файлы (сообщения, медиа, документы) хранятся в Telegram через Telegram Bot API. 
-                Файлы разбиваются на чанки и распределяются по нескольким Telegram-каналам для обеспечения надёжности.
+                2.2. Файлы (сообщения, медиа, документы) хранятся в распределённой системе хранения Nexo.
+                Файлы разбиваются на чанки и распределяются по нескольким серверам для обеспечения надёжности.
               </p>
               <p className="text-zinc-300 text-sm leading-relaxed mb-4">
-                2.3. Сессии пользователей кэшируются в Redis для обеспечения быстрой работы Сервиса.
+                2.3. Сессии пользователей кэшируются для обеспечения быстрой работы Сервиса.
               </p>
 
               <h2 className="text-lg font-semibold text-white mt-6 mb-3">3. Использование информации</h2>
@@ -145,7 +145,7 @@ export default function LegalPage({ onClose, type }: LegalPageProps) {
                 предусмотренных законодательством.
               </p>
               <p className="text-zinc-300 text-sm leading-relaxed mb-4">
-                4.2. Файлы хранятся в инфраструктуре Telegram, что подразумевает передачу данных в Telegram для хранения.
+                4.2. Файлы хранятся в защищенной распределенной системе хранения данных, что обеспечивает высокую надежность и доступность.
               </p>
 
               <h2 className="text-lg font-semibold text-white mt-6 mb-3">5. Права Пользователя</h2>

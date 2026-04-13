@@ -8,6 +8,12 @@ services:
     dockerContext: .
     healthCheckPath: /api/health
     autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/server/**/*
+        - apps/server/web/**/*
+        - Dockerfile
+        - render.yaml
     envVars:
       - key: NODE_ENV
         value: production

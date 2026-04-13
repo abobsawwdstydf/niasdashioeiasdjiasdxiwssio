@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -6,6 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY apps/server/package*.json ./apps/server/
 COPY apps/server/web/package*.json ./apps/server/web/
+
+# Install all dependencies (including web-push)
 RUN npm install --legacy-peer-deps
 RUN cd apps/server && npm install --legacy-peer-deps
 RUN cd apps/server/web && npm install --legacy-peer-deps
@@ -25,6 +27,24 @@ RUN npm install -g tsx@4.19.2
 # Create uploads directory
 RUN mkdir -p apps/server/uploads
 
+# ============================================
+# Production stage
+# ============================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy built artifacts and dependencies from builder
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/apps/server/package*.json ./apps/server/
+COPY --from=builder /app/apps/server/web/package*.json ./apps/server/web/
+COPY --from=builder /app/apps/server/web/dist ./apps/server/web/dist
+COPY --from=builder /app/apps/server/web/public ./apps/server/web/public
+COPY --from=builder /app/apps/server/src ./apps/server/src
+COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
+COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
+COPY --from=builder /app/node_modules ./node_modules
+
 # Environment
 ENV NODE_ENV=production
 ENV PORT=3001
@@ -33,13 +53,38 @@ ENV PORT=3001
 EXPOSE 3001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start
-CMD ["sh", "-c", "cd apps/server && \
-  for i in $(seq 1 10); do \
-    npx prisma@6.3.0 db push --accept-data-loss && break || \
-    { echo \"DB not ready, retry $i/10...\"; sleep 3; }; \
-  done && \
-  tsx src/index.ts"]
+# Start script with DB migration and retry logic
+COPY <<'EOF' /app/start.sh
+#!/bin/sh
+set -e
+
+echo "🚀 Starting Nexo Messenger..."
+
+# Run Prisma migrations
+echo "📦 Running database migrations..."
+cd /app/apps/server
+for i in $(seq 1 15); do
+  if npx prisma db push --accept-data-loss; then
+    echo "✅ Database schema pushed successfully"
+    break
+  else
+    echo "⏳ DB not ready, retry $i/15..."
+    sleep 4
+  fi
+done
+
+# Generate Prisma client (just in case)
+npx prisma generate
+
+# Start server
+echo "🌐 Starting server on port $PORT..."
+cd /app/apps/server
+exec tsx src/index.ts
+EOF
+
+RUN chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]

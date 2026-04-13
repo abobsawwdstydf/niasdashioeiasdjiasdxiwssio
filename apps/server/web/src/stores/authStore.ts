@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
+import { subscribeToNotifications } from '../lib/notifications';
 import type { User } from '../lib/types';
 
 interface AuthState {
@@ -38,6 +39,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       api.setToken(token);
       connectSocket(token);
       set({ token, user, isLoading: false });
+      
+      // Auto-subscribe to notifications after login
+      setTimeout(() => {
+        subscribeToNotifications().catch(() => {});
+      }, 2000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ error: msg, isLoading: false });
@@ -53,6 +59,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       api.setToken(token);
       connectSocket(token);
       set({ token, user, isLoading: false });
+      
+      // Auto-subscribe to notifications after register
+      setTimeout(() => {
+        subscribeToNotifications().catch(() => {});
+      }, 2000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ error: msg, isLoading: false });

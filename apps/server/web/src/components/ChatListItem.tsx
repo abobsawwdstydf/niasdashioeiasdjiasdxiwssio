@@ -191,21 +191,34 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
           className="fixed z-[9999] min-w-[180px] py-1 rounded-xl bg-surface-secondary border border-border shadow-xl animate-in fade-in zoom-in-95 duration-100"
           style={{ top: ctxMenu.y, left: ctxMenu.x }}
         >
-          <button
-            onClick={handlePin}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
-          >
-            <Pin size={16} className={isPinned ? 'rotate-45' : ''} />
-            {isPinned ? t('unpinChat') : t('pinChat')}
-          </button>
-          <div className="border-t border-border my-1" />
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            <Trash2 size={16} />
-            {t('deleteChat')}
-          </button>
+          {!isFavorites && (
+            <>
+              <button
+                onClick={handlePin}
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+              >
+                <Pin size={16} className={isPinned ? 'rotate-45' : ''} />
+                {isPinned ? t('unpinChat') : t('pinChat')}
+              </button>
+              <div className="border-t border-border my-1" />
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 size={16} />
+                {t('deleteChat')}
+              </button>
+            </>
+          )}
+          {isFavorites && (
+            <button
+              onClick={handlePin}
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+            >
+              <Pin size={16} className={isPinned ? 'rotate-45' : ''} />
+              {isPinned ? t('unpinChat') : t('pinChat')}
+            </button>
+          )}
         </div>
       )}
 
