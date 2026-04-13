@@ -34,7 +34,7 @@ interface SidebarProps {
 
 /**
  * Боковая кнопка навигации (ПК)
- * Узкая иконка → при наведении раскрывается с текстом
+ * Иконка + tooltip с текстом справа при hover
  */
 function NavButton({
   icon: Icon,
@@ -50,40 +50,33 @@ function NavButton({
   badge?: number;
 }) {
   return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      className={`relative group flex items-center h-12 rounded-2xl transition-all duration-300 overflow-hidden ${
-        active ? 'glass-tab-active' : 'hover:bg-white/5'
-      }`}
-      style={{ width: active ? 'auto' : '48px', minWidth: '48px' }}
-    >
-      {/* Иконка — всегда видна */}
-      <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
-        <Icon size={20} className={active ? 'text-nexo-400' : 'text-zinc-400 group-hover:text-white transition-colors'} />
-      </div>
-
-      {/* Текст — плавно появляется при hover, всегда виден когда active */}
-      <span
-        className={`whitespace-nowrap text-sm font-medium transition-all duration-300 ease-in-out pr-4 ${
-          active
-            ? 'text-white max-w-[120px] opacity-100'
-            : 'text-zinc-400 group-hover:text-white max-w-0 opacity-0 group-hover:max-w-[120px] group-hover:opacity-100'
+    <div className="relative group">
+      <motion.button
+        onClick={onClick}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className={`relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 ${
+          active ? 'glass-tab-active' : 'hover:bg-white/5'
         }`}
       >
-        {label}
-      </span>
+        {/* Иконка */}
+        <Icon size={20} className={active ? 'text-nexo-400' : 'text-zinc-400 hover:text-white transition-colors'} />
 
-      {/* Бейдж */}
-      {badge && badge > 0 && (
-        <div className={`absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-nexo-500 flex items-center justify-center transition-opacity ${
-          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}>
-          <span className="text-[9px] font-bold text-white">{badge > 99 ? '99+' : badge}</span>
-        </div>
-      )}
-    </motion.button>
+        {/* Бейдж */}
+        {badge && badge > 0 && (
+          <div className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-nexo-500 flex items-center justify-center">
+            <span className="text-[9px] font-bold text-white">{badge > 99 ? '99+' : badge}</span>
+          </div>
+        )}
+      </motion.button>
+
+      {/* Tooltip — текст справа при hover */}
+      <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/10 text-sm text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 shadow-xl pointer-events-none">
+        {label}
+        {/* Стрелка */}
+        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-800" />
+      </div>
+    </div>
   );
 }
 
@@ -269,14 +262,6 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
               onClick={() => setShowNewChat(true)}
             />
 
-            {/* Друзья */}
-            <NavButton
-              icon={Users}
-              label="Друзья"
-              active={activeTab === 'friends'}
-              onClick={() => handleTabChange('friends')}
-            />
-
             {/* Nexo AI */}
             <NavButton
               icon={Sparkles}
@@ -415,7 +400,15 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                             : 'bg-zinc-700'
                       }`}>
                         <div className="w-full h-full rounded-full overflow-hidden border-2 border-[#0a0a0f]">
-                          <Avatar src={avatarUrl} name={group.user.displayName || group.user.username} size="lg" className="w-full h-full" />
+                          <Avatar
+                            src={avatarUrl}
+                            name={group.user.displayName || group.user.username}
+                            size="lg"
+                            className="w-full h-full"
+                            isVerified={(group.user as any).isVerified}
+                            verifiedBadgeUrl={(group.user as any).verifiedBadgeUrl}
+                            verifiedBadgeType={(group.user as any).verifiedBadgeType}
+                          />
                         </div>
                       </div>
                       <span className="text-[10px] text-zinc-400 truncate w-14 text-center">
@@ -556,19 +549,13 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="flex flex-col items-center justify-center h-full text-zinc-500 gap-3 px-6"
+                  className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4 px-6"
                 >
                   <div className="w-20 h-20 rounded-full glass-subtle flex items-center justify-center">
                     <Users size={36} className="opacity-30" />
                   </div>
-                  <p className="text-sm text-center">Друзья</p>
-                  <p className="text-xs text-zinc-600">Откройте меню для управления друзьями</p>
-                  <button
-                    onClick={() => setShowSideMenu(true)}
-                    className="glass-btn px-6 py-2.5 rounded-xl text-sm text-nexo-400"
-                  >
-                    Открыть меню
-                  </button>
+                  <p className="text-sm text-center font-medium">Друзья</p>
+                  <p className="text-xs text-zinc-600 text-center">Управление друзьями через панель</p>
                 </motion.div>
               )}
             </AnimatePresence>

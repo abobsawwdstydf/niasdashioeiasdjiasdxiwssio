@@ -587,6 +587,9 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
                   size="md"
                   online={isOnline ? true : undefined}
                   className="ring-2 ring-transparent group-hover:ring-accent/30 transition-all duration-300 rounded-full"
+                  isVerified={chat.isVerified}
+                  verifiedBadgeUrl={chat.verifiedBadgeUrl}
+                  verifiedBadgeType={chat.verifiedBadgeType}
                 />
               )}
             </div>

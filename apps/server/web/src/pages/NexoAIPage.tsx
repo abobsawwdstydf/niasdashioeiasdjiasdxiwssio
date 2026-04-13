@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, Loader2, Sparkles, X, ArrowLeft } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2, X, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../lib/api';
 import CodeBlock from '../components/CodeBlock';
@@ -276,12 +276,7 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
 
         {/* Логотип и название */}
         <div className="flex items-center gap-2.5 flex-1">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-nexo-500 to-purple-600 blur-lg rounded-xl opacity-50" />
-            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center">
-              <Sparkles size={18} className="text-white" />
-            </div>
-          </div>
+          <img src="/no_bg.png" alt="Nexo AI" className="w-9 h-9 rounded-xl object-cover" />
           <div>
             <h1 className="text-base font-bold text-white">Nexo AI</h1>
             <p className="text-[10px] text-zinc-500">Умный ассистент</p>
@@ -310,9 +305,7 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
             >
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-nexo-500/30 to-purple-600/30 blur-2xl rounded-full" />
-                <div className="relative w-20 h-20 rounded-full glass flex items-center justify-center animate-float">
-                  <Sparkles size={32} className="text-nexo-400" />
-                </div>
+                <img src="/no_bg.png" alt="Nexo AI" className="relative w-20 h-20 rounded-full object-cover animate-float" />
               </div>
               <div className="max-w-xs">
                 <h2 className="text-lg font-bold text-white mb-2">Nexo AI</h2>

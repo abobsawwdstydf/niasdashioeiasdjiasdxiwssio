@@ -160,6 +160,10 @@ app.get('/api/files/:fileId/download', async (req, res) => {
   try {
     const { fileId } = req.params;
 
+    // CORS для медиа
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+
     if (!fileId || !fileId.startsWith('tg_')) {
       res.status(400).json({ error: 'Неверный ID файла' });
       return;
@@ -171,7 +175,8 @@ app.get('/api/files/:fileId/download', async (req, res) => {
     });
 
     if (!telegramFile) {
-      res.status(404).json({ error: 'Файл не найден в БД' });
+      console.error(`[FILES] Файл ${fileId} не найден в БД`);
+      res.status(404).json({ error: 'Файл не найден' });
       return;
     }
 
@@ -180,18 +185,11 @@ app.get('/api/files/:fileId/download', async (req, res) => {
       telegramFile.chunks
     );
 
-    // Обновляем статистику
     await prisma.telegramFile.update({
       where: { fileId },
-      data: {
-        lastAccessed: new Date(),
-        accessCount: { increment: 1 }
-      }
+      data: { lastAccessed: new Date(), accessCount: { increment: 1 } }
     });
 
-    // Отправляем файл клиенту
-    // Для изображений, видео и аудио используем inline (браузер показывает/воспроизводит)
-    // Для остальных файлов - attachment (скачивание)
     const isInline = telegramFile.mimeType.startsWith('image/') ||
                      telegramFile.mimeType.startsWith('video/') ||
                      telegramFile.mimeType.startsWith('audio/');
@@ -200,7 +198,8 @@ app.get('/api/files/:fileId/download', async (req, res) => {
       res.setHeader('Content-Type', telegramFile.mimeType);
       res.setHeader('Content-Length', fileBuffer.length);
       res.setHeader('Accept-Ranges', 'bytes');
-      // Support range requests for audio/video seeking
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+
       const range = req.headers.range;
       if (range) {
         const parts = range.replace(/bytes=/, '').split('-');
@@ -212,23 +211,22 @@ app.get('/api/files/:fileId/download', async (req, res) => {
           'Accept-Ranges': 'bytes',
           'Content-Length': chunk.length,
           'Content-Type': telegramFile.mimeType,
-          'Cache-Control': 'public, max-age=86400',
         });
         res.end(chunk);
       } else {
         res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(telegramFile.originalName)}"`);
-        res.setHeader('Cache-Control', 'public, max-age=86400');
         res.end(fileBuffer);
       }
     } else {
       res.setHeader('Content-Type', telegramFile.mimeType);
       res.setHeader('Content-Length', fileBuffer.length);
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(telegramFile.originalName)}"`);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
       res.end(fileBuffer);
     }
 
   } catch (error: any) {
-    console.error('❌ ОШИБКА СКАЧИВАНИЯ:', error.message);
+    console.error('[FILES] Ошибка скачивания:', error.message);
     res.status(500).json({ error: 'Ошибка скачивания: ' + error.message });
   }
 });

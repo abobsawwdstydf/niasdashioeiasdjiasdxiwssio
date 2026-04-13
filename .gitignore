@@ -31,6 +31,9 @@ SECURITY_AUDIT.md
 Thumbs.db
 .DS_Store
 
+# Backup (don't commit)
+telega/
+
 # IDE
 .idea/
 .vscode/
