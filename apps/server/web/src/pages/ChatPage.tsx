@@ -166,6 +166,17 @@ export default function ChatPage() {
         });
       }, 1000);
     }
+
+    // Handle incoming call from notification click (e.g., /?call_action=incoming&callerId=xxx&callType=voice)
+    const callAction = urlParams.get('call_action');
+    const callerId = urlParams.get('callerId');
+    const callTypeParam = urlParams.get('callType');
+
+    if (callAction === 'incoming' && callerId) {
+      window.history.replaceState({}, '', window.location.pathname);
+      // Server will send call_incoming event, just wait for it
+      // The socket handler will open the call modal automatically
+    }
     
     // Listen for smooth username clicks (no page reload)
     const handleOpenChannel = (e: Event) => {

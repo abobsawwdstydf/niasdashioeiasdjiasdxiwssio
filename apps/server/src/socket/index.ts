@@ -945,19 +945,24 @@ export function setupSocket(io: Server) {
           });
         }
       } else {
-        // Target is offline - send FCM push notification
+        // Target is offline - send push notification
         socket.emit('call_unavailable', { targetUserId: data.targetUserId });
-        
-        // Get caller info and send push notification
+
+        // Get TARGET user's subscription and send push notification
         try {
-          const caller = await prisma.user.findUnique({
-            where: { id: userId },
+          const targetUser = await prisma.user.findUnique({
+            where: { id: data.targetUserId },
             select: { id: true, username: true, displayName: true, avatar: true, pushSubscription: true },
           });
 
-          if (caller?.pushSubscription) {
+          if (targetUser?.pushSubscription) {
             try {
-              const subscription = JSON.parse(caller.pushSubscription);
+              const subscription = JSON.parse(targetUser.pushSubscription);
+              // Get caller info for display
+              const caller = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true, username: true, displayName: true, avatar: true },
+              });
               await sendCallNotification(data.targetUserId, subscription, caller, data.callType);
             } catch (e) {
               console.error('Failed to send Web Push for call:', e);

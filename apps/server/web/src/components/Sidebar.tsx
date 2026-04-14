@@ -301,25 +301,21 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
 
           {/* Header */}
           <div className="relative h-[64px] px-4 flex items-center gap-3 flex-shrink-0 glass-strong">
-            {/* Меню (ПК) */}
-            {!isMobile && (
-              <button
-                onClick={() => setShowSideMenu(true)}
-                className="glass-btn w-10 h-10 rounded-xl text-zinc-300 hover:text-white flex-shrink-0"
-                title="Меню"
-              >
-                <Menu size={18} />
-              </button>
-            )}
+            {/* Меню (ПК и мобилки) */}
+            <button
+              onClick={() => setShowSideMenu(true)}
+              className="glass-btn w-10 h-10 rounded-xl text-zinc-300 hover:text-white flex-shrink-0"
+              title="Меню"
+            >
+              <Menu size={18} />
+            </button>
 
             {/* Заголовок */}
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              {!isMobile && (
-                <div className="relative">
-                  <div className="absolute inset-0 bg-nexo-500/30 blur-xl rounded-xl" />
-                  <img src="/logo.png" alt="Nexo" className="relative w-7 h-7 rounded-xl object-cover" />
-                </div>
-              )}
+              <div className="relative">
+                <div className="absolute inset-0 bg-nexo-500/30 blur-xl rounded-xl" />
+                <img src="/logo.png" alt="Nexo" className="relative w-7 h-7 rounded-xl object-cover" />
+              </div>
               <h1 className="text-lg font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent truncate">
                 {activeTab === 'chats' && 'Nexo'}
                 {activeTab === 'friends' && 'Друзья'}
@@ -593,15 +589,6 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                 >
                   <Users size={22} />
                   <span className="text-[10px]">Друзья</span>
-                </button>
-
-                {/* Меню — кнопка гамбургер */}
-                <button
-                  onClick={() => setShowSideMenu(true)}
-                  className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-zinc-400 transition-colors"
-                >
-                  <Menu size={22} />
-                  <span className="text-[10px]">Меню</span>
                 </button>
 
                 {/* Новый чат — выступающая центральная кнопка */}

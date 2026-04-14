@@ -61,7 +61,10 @@ self.addEventListener('notificationclick', (event) => {
   let url = '/';
 
   // Build URL based on notification type
-  if (data?.chatId) {
+  if (data?.type === 'incoming_call') {
+    // Call notification — open app to answer
+    url = `/?call_action=incoming&callerId=${data.callerId || ''}&callType=${data.callType || 'voice'}`;
+  } else if (data?.chatId) {
     url = `/?chat=${data.chatId}`;
   } else if (data?.friendRequestId) {
     url = `/?friend_request=${data.friendRequestId}`;
@@ -82,7 +85,7 @@ self.addEventListener('notificationclick', (event) => {
           return client.focus();
         }
       }
-      
+
       // Focus any existing window
       for (const client of windowClients) {
         if (client.url.includes(self.location.origin)) {

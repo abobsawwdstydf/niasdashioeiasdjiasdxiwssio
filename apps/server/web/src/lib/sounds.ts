@@ -76,9 +76,12 @@ export function isChatMuted(chatId: string): boolean {
 
 // Call ringtone
 let callAudio: HTMLAudioElement | null = null;
+let callAudioContext: AudioContext | null = null;
+let callOscillators: { osc: OscillatorNode; gain: GainNode }[] = [];
 
 export function playCallRingtone() {
   try {
+    // First try HTMLAudioElement approach
     if (callAudio) {
       callAudio.pause();
       callAudio.currentTime = 0;
@@ -86,9 +89,100 @@ export function playCallRingtone() {
     callAudio = new Audio('/sounds/call_sound.mp3');
     callAudio.loop = true;
     callAudio.volume = 0.5;
-    callAudio.play().catch(() => {});
+    
+    // Try to play, fallback to Web Audio API if blocked
+    callAudio.play().catch(() => {
+      // Browser blocked autoplay — use Web Audio API fallback
+      playCallRingtoneWebAudio();
+    });
   } catch (e) {
-    // silent fail
+    // If HTMLAudioElement fails, use Web Audio API
+    playCallRingtoneWebAudio();
+  }
+}
+
+/**
+ * Alternative ringtone using Web Audio API — more reliable for autoplay
+ */
+function playCallRingtoneWebAudio() {
+  try {
+    if (!callAudioContext) {
+      callAudioContext = new AudioContext();
+    }
+    if (callAudioContext.state === 'suspended') {
+      callAudioContext.resume();
+    }
+
+    // Stop any existing oscillators
+    stopCallRingtoneWebAudio();
+
+    const ctx = callAudioContext;
+    const now = ctx.currentTime;
+
+    // Create a pleasant ringing pattern — two alternating tones
+    // Pattern: 440Hz + 480Hz (classic ringtone frequencies)
+    const ringPattern = () => {
+      const duration = 2.0; // 2 seconds ring cycle
+      const ringOn = 0.8;   // ring for 0.8s
+      const ringOff = 1.2;  // pause for 1.2s
+      
+      // Tone 1: 440 Hz
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(440, now);
+      gain1.gain.setValueAtTime(0.15, now);
+      gain1.gain.setValueAtTime(0.15, now + ringOn);
+      gain1.gain.setValueAtTime(0, now + ringOn + 0.01);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + duration);
+      callOscillators.push({ osc: osc1, gain: gain1 });
+
+      // Tone 2: 480 Hz
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(480, now);
+      gain2.gain.setValueAtTime(0.15, now);
+      gain2.gain.setValueAtTime(0.15, now + ringOn);
+      gain2.gain.setValueAtTime(0, now + ringOn + 0.01);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now);
+      osc2.stop(now + duration);
+      callOscillators.push({ osc: osc2, gain: gain2 });
+
+      // Schedule next ring cycle
+      const scheduleNext = () => {
+        if (callOscillators.length > 0) {
+          ringPattern();
+        }
+      };
+      setTimeout(scheduleNext, duration * 1000);
+    };
+
+    ringPattern();
+  } catch (e) {
+    console.error('Web Audio ringtone failed:', e);
+  }
+}
+
+function stopCallRingtoneWebAudio() {
+  try {
+    // Stop all oscillators
+    callOscillators.forEach(({ osc, gain }) => {
+      try {
+        gain.gain.setValueAtTime(0, callAudioContext!.currentTime);
+        osc.stop();
+      } catch (e) {
+        // Already stopped
+      }
+    });
+    callOscillators = [];
+  } catch (e) {
+    // Silent fail
   }
 }
 
@@ -99,6 +193,7 @@ export function stopCallRingtone() {
       callAudio.currentTime = 0;
       callAudio = null;
     }
+    stopCallRingtoneWebAudio();
   } catch (e) {
     // silent fail
   }
