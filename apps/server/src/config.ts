@@ -20,29 +20,29 @@ export const TELEGRAM_AUTH_BOT = {
 };
 
 export const TELEGRAM_BOTS = [
-  { id: 1, token: '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg' },
-  { id: 2, token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
-  { id: 3, token: '8733182475:AAFBitv4g4LVRuvGnssyqHQpttBydeAda9Y' },
-  { id: 4, token: '8774720953:AAGvExABKj4Z-DYfKdqF-OMEdoeySeOeOoY' },
-  { id: 5, token: '8141008503:AAEaCM1RrN2ppbZmUzhpW4EeLUgT1qQ2QS0' },
-  { id: 6, token: '8687986079:AAGPYjnq4gdXCkf2wT81f0l2tQalKCIIyds' },
-  { id: 7, token: '8758985233:AAF7QfRApnccaByBYa1qjGs7u-erQ47OZcQ' },
-  { id: 8, token: '8554202189:AAGN0wLfcgkqK3KJ9XOJFl40rp2kjkIcm1Y' },
-  { id: 9, token: '8748554768:AAEnJcHklmilbjih9glo3GITnQXSx4YmM_8' },
-  { id: 10, token: '8744960493:AAHB5bn3VxlZWKJjCr70yLYJnVTyXp2zHIs' },
-  { id: 11, token: '8734408678:AAH7eTD97tepfwqdYKieNOoxsGZaEdPYWhI' },
-  { id: 12, token: '8141208214:AAFOOel84oRN3Uj8rEOWI_6H3LaAa6Z76Q0' },
-  { id: 13, token: '8758209438:AAEnaXcJ7ke88fjjHNPwQVTt_u9LYrSzPFk' },
-  { id: 14, token: '8680953724:AAFbz6yKdLC0ANkwTbLsZ0GSN78zVbTWUb8' },
-  { id: 15, token: '8743205528:AAF2V2Z8UU5A3aJiSd5JveswVen_immyp9E' },
+  { id: 'bot1', token: '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg' },
+  { id: 'bot2', token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
+  { id: 'bot3', token: '8733182475:AAFBitv4g4LVRuvGnssyqHQpttBydeAda9Y' },
+  { id: 'bot4', token: '8774720953:AAGvExABKj4Z-DYfKdqF-OMEdoeySeOeOoY' },
+  { id: 'bot5', token: '8141008503:AAEaCM1RrN2ppbZmUzhpW4EeLUgT1qQ2QS0' },
+  { id: 'bot6', token: '8687986079:AAGPYjnq4gdXCkf2wT81f0l2tQalKCIIyds' },
+  { id: 'bot7', token: '8758985233:AAF7QfRApnccaByBYa1qjGs7u-erQ47OZcQ' },
+  { id: 'bot8', token: '8554202189:AAGN0wLfcgkqK3KJ9XOJFl40rp2kjkIcm1Y' },
+  { id: 'bot9', token: '8748554768:AAEnJcHklmilbjih9glo3GITnQXSx4YmM_8' },
+  { id: 'bot10', token: '8744960493:AAHB5bn3VxlZWKJjCr70yLYJnVTyXp2zHIs' },
+  { id: 'bot11', token: '8734408678:AAH7eTD97tepfwqdYKieNOoxsGZaEdPYWhI' },
+  { id: 'bot12', token: '8141208214:AAFOOel84oRN3Uj8rEOWI_6H3LaAa6Z76Q0' },
+  { id: 'bot13', token: '8758209438:AAEnaXcJ7ke88fjjHNPwQVTt_u9LYrSzPFk' },
+  { id: 'bot14', token: '8680953724:AAFbz6yKdLC0ANkwTbLsZ0GSN78zVbTWUb8' },
+  { id: 'bot15', token: '8743205528:AAF2V2Z8UU5A3aJiSd5JveswVen_immyp9E' },
 ];
 
 // Telegram storage channels
 export const TELEGRAM_CHANNELS = [
-  { id: 1, chatId: '-1003850596987' },
-  { id: 2, chatId: '-1003878106202' },
-  { id: 3, chatId: '-1003868880877' },
-  { id: 4, chatId: '-1003738083520' },
+  { id: 'ch1', chatId: '-1003850596987' },
+  { id: 'ch2', chatId: '-1003878106202' },
+  { id: 'ch3', chatId: '-1003868880877' },
+  { id: 'ch4', chatId: '-1003738083520' },
 ];
 
 // Redis instances
