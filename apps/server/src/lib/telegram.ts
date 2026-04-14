@@ -1,35 +1,49 @@
-// Telegram Bot API configuration
-export const TELEGRAM_BOTS = [
-  { id: 1, name: 'qwdjawdHU8QWEGY8QR_BOT', token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
-  { id: 2, name: 'wervsdfsdf_bot', token: '8733182475:AAFBitv4g4LVRuvGnssyqHQpttBydeAda9Y' },
-  { id: 3, name: 'wervsdfsdfewrvs_bot', token: '8774720953:AAGvExABKj4Z-DYfKdqF-OMEdoeySeOeOoY' },
-  { id: 4, name: 'wrvswadawdu8byusefyhu8sef_bot', token: '8141008503:AAEaCM1RrN2ppbZmUzhpW4EeLUgT1qQ2QS0' },
-  { id: 5, name: 'dhdbshiww8ushxbxvxhusbot', token: '8687986079:AAGPYjnq4gdXCkf2wT81f0l2tQalKCIIyds' },
-  { id: 6, name: 'wervsdfsdfewrvswadawd_bot', token: '8758985233:AAF7QfRApnccaByBYa1qjGs7u-erQ47OZcQ' },
-  { id: 7, name: 'fwehfs8ug8s7g87t8f639t_bot', token: '8554202189:AAGN0wLfcgkqK3KJ9XOJFl40rp2kjkIcm1Y' },
-  { id: 8, name: 'Nsjsjsjns8s8euhshxubot', token: '8748554768:AAEnJcHklmilbjih9glo3GITnQXSx4YmM_8' },
-  { id: 9, name: 'asduhawiduhauwidybot', token: '8744960493:AAHB5bn3VxlZWKJjCr70yLYJnVTyXp2zHIs' },
-  { id: 10, name: 'Dnnsiskehfu38bot', token: '8734408678:AAH7eTD97tepfwqdYKieNOoxsGZaEdPYWhI' },
-  { id: 11, name: 'Bdjsuw8hdburbot', token: '8141208214:AAFOOel84oRN3Uj8rEOWI_6H3LaAaZ76Q0' },
-  { id: 12, name: 'werawewerreebot', token: '8758209438:AAEnaXcJ7ke88fjjHNPwQVTt_u9LYrSzPFk' },
-  { id: 13, name: 'Dygdgdu7ebot', token: '8680953724:AAFbz6yKdLC0ANkwTbLsZ0GSN78zVbTWUb8' },
-  { id: 14, name: 'Sjeu7eufhdbot', token: '8743205528:AAF2V2Z8UU5A3aJiSd5JveswVen_immyp9E' },
-];
+// Telegram Bot API configuration — loaded from environment variables
+function loadTelegramBots() {
+  const bots = [];
+  let i = 1;
+  while (process.env[`TG_BOT${i}`]) {
+    bots.push({
+      id: i,
+      name: `bot_${i}`,
+      token: process.env[`TG_BOT${i}`]!,
+    });
+    i++;
+  }
+  return bots;
+}
 
-// Telegram Channels for storage
-export const TELEGRAM_CHANNELS = [
-  { id: 1, chatId: '-1003850596987', name: 'Storage 1' },
-  { id: 2, chatId: '-1003878106202', name: 'Storage 2' },
-  { id: 3, chatId: '-1003868880877', name: 'Storage 3' },
-  { id: 4, chatId: '-1003738083520', name: 'Storage 4' },
-];
+function loadTelegramChannels() {
+  const channels = [];
+  let i = 1;
+  while (process.env[`TG_CHANEL${i}`] || process.env[`TG_CHANNEL${i}`]) {
+    // Support both TG_CHANEL (typo) and TG_CHANNEL
+    const chatId = process.env[`TG_CHANEL${i}`] || process.env[`TG_CHANNEL${i}`];
+    channels.push({
+      id: i,
+      chatId: chatId!,
+      name: `Storage ${i}`,
+    });
+    i++;
+  }
+  return channels;
+}
+
+export const TELEGRAM_BOTS = loadTelegramBots();
+export const TELEGRAM_CHANNELS = loadTelegramChannels();
+
+// If no env vars found, fall back to empty arrays (will be caught at startup)
+if (TELEGRAM_BOTS.length === 0) {
+  console.warn('[Telegram] ⚠️  TG_BOT1, TG_BOT2... не найдены в ENV!');
+}
+if (TELEGRAM_CHANNELS.length === 0) {
+  console.warn('[Telegram] ⚠️  TG_CHANEL1, TG_CHANEL2... не найдены в ENV!');
+}
 
 // Redis instances for caching
 export const REDIS_INSTANCES = [
-  { id: 1, url: 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339' },
-  { id: 2, url: 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550' },
-  { id: 3, url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
-  { id: 4, url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
+  { id: 1, url: process.env.REDIS_URL || 'redis://localhost:6379' },
+  { id: 2, url: process.env.REDIS_SESSION_URL || 'redis://localhost:6380' },
 ];
 
 // File chunking configuration
