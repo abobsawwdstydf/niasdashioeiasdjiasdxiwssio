@@ -52,6 +52,7 @@ model User {
   messages            Message[]
   chatMembers         ChatMember[]
   reactions           Reaction[]
+  pollVotes           PollVote[]
   readReceipts        ReadReceipt[]
   forwardedMessages   Message[]        @relation("ForwardedFrom")
   stories             Story[]
@@ -132,6 +133,7 @@ model Message {
 
   media         Media[]
   reactions     Reaction[]
+  pollVotes     PollVote[]
   readBy        ReadReceipt[]
   pinnedIn      PinnedMessage[]
   hiddenBy      HiddenMessage[]
@@ -188,8 +190,8 @@ model PollVote {
   optionIndex  Int // Which option was voted (0-based)
   votedAt      DateTime @default(now())
 
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, optionIndex])
   @@index([messageId])
