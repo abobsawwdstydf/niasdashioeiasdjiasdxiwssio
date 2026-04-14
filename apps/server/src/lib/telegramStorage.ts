@@ -39,7 +39,7 @@ class TelegramStorage {
     this.initializeBots();
   }
 
-  private initializeBots() {
+  private async initializeBots() {
     this.bots = TELEGRAM_BOTS.map(bot => ({
       ...bot,
       client: axios.create({
@@ -48,9 +48,36 @@ class TelegramStorage {
       }),
       available: true,
     }));
+
+    // Test each bot
+    for (const bot of this.bots) {
+      try {
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 10000)
+        );
+        const response = await Promise.race([
+          bot.client.get('/getMe'),
+          timeout
+        ]) as any;
+
+        if (!response.data?.ok) {
+          bot.available = false;
+          console.warn(`[TelegramStorage] ❌ Бот ${bot.name} недоступен`);
+        }
+      } catch (error) {
+        bot.available = false;
+        console.warn(`[TelegramStorage] ❌ Бот ${bot.name} недоступен`);
+      }
+    }
+
+    const availableCount = this.bots.filter(b => b.available).length;
     console.log(`\n🤖 TELEGRAM STORAGE:`);
-    console.log(`  ✓ Инициализировано ${this.bots.length} Telegram ботов`);
+    console.log(`  ✓ Инициализировано ${this.bots.length} ботов (${availableCount} доступны)`);
     console.log(`  ✓ Каналов хранения: ${TELEGRAM_CHANNELS.length}`);
+    if (availableCount === 0) {
+      console.error(`  ⚠️  ВНИМАНИЕ: Нет доступных ботов! Загрузка файлов не работает!`);
+      console.error(`  ⚠️  Проверь: 1) Токены валидны 2) Боты не забанены 3) Боты в каналах`);
+    }
     TELEGRAM_CHANNELS.forEach((ch, i) => {
       console.log(`    ${i + 1}. ${ch.name} (${ch.chatId})`);
     });
