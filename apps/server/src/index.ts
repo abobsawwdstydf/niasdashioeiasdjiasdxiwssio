@@ -194,10 +194,23 @@ app.get('/api/files/:fileId/download', async (req, res) => {
 
     let fileBuffer: Buffer;
     try {
-      fileBuffer = await telegramStorage.downloadFile(
-        telegramFile.fileId,
-        telegramFile.chunks
-      );
+      // Retry up to 2 times with delay
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          fileBuffer = await telegramStorage.downloadFile(
+            telegramFile.fileId,
+            telegramFile.chunks
+          );
+          lastError = null;
+          break;
+        } catch (retryError: any) {
+          lastError = retryError;
+          console.warn(`[FILES] Download attempt ${attempt + 1} failed: ${retryError.message}`);
+          if (attempt < 1) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+      if (lastError) throw lastError;
     } catch (downloadError: any) {
       console.error(`[FILES] Ошибка загрузки из Telegram:`, downloadError.message);
       res.status(502).json({

@@ -84,6 +84,7 @@ function MessageBubble({
   const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const speedMenuRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -796,6 +797,24 @@ function MessageBubble({
               const listenedKey = `voice_listened_${message.id}_${user?.id}`;
               const isListened = localStorage.getItem(listenedKey) === 'true';
 
+              if (loadError) {
+                return (
+                  <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
+                    <div className="flex-1 text-center py-3">
+                      <p className="text-xs opacity-60 mb-2">Не удалось загрузить</p>
+                      <button
+                        onClick={() => { setLoadError(false); setIsPlaying(false); }}
+                        className={`text-xs px-3 py-1.5 rounded-lg ${
+                          isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-blue-500/20 hover:bg-blue-500/30'
+                        } transition-colors`}
+                      >
+                        🔄 Повторить
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div className="flex items-center gap-3 min-w-[220px] max-w-[300px]">
                   <audio
@@ -811,6 +830,7 @@ function MessageBubble({
                     preload="auto"
                     onError={(e) => {
                       console.error('[Voice] Ошибка загрузки:', voiceUrl);
+                      setLoadError(true);
                       setIsPlaying(false);
                     }}
                   />
@@ -887,10 +907,16 @@ function MessageBubble({
                         >
                           {playbackSpeed}x
                         </button>
-                        
-                        {/* Меню выбора скорости */}
-                        {showSpeedMenu && (
-                          <div className="absolute bottom-full mb-2 left-0 py-1 rounded-lg bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-xl z-50">
+
+                        {/* Меню выбора скорости — через portal чтобы не обрезалось overflow-hidden */}
+                        {showSpeedMenu && createPortal(
+                          <div className="fixed py-1 rounded-lg bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-xl z-[99999]"
+                            style={{
+                              bottom: `${window.innerHeight - (speedMenuRef.current?.getBoundingClientRect().top || 0) + 8}px`,
+                              left: `${speedMenuRef.current?.getBoundingClientRect().left || 0}px`,
+                              minWidth: '80px'
+                            }}
+                          >
                             {[1, 1.5, 2, 2.5, 3].map((speed) => (
                               <button
                                 key={speed}
@@ -911,7 +937,8 @@ function MessageBubble({
                                 {speed}x
                               </button>
                             ))}
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
                     </div>

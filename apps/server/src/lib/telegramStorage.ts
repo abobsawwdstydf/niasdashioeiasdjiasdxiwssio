@@ -214,7 +214,7 @@ class TelegramStorage {
   async downloadFile(fileId: string, chunks: UploadedChunk[]): Promise<Buffer> {
     const chunkBuffers: Buffer[] = [];
 
-    console.log(`  ⬇️ Скачивание ${chunks.length} чанков...`);
+    console.log(`  ⬇️ Скачивание ${chunks.length} чанков для ${fileId}...`);
 
     // Download chunks in parallel (max 3 concurrent)
     const concurrency = 3;
@@ -223,15 +223,30 @@ class TelegramStorage {
       const promises = batch.map(async (chunk) => {
         const channel = TELEGRAM_CHANNELS.find(c => c.id === chunk.channelId);
         if (!channel) {
-          throw new Error(`Channel ${chunk.channelId} not found`);
+          throw new Error(`Channel ${chunk.channelId} not found for chunk ${chunk.chunkIndex}`);
         }
 
-        const buffer = await this.downloadChunk(
-          channel.chatId,
-          chunk.messageId,
-          chunk.botId
-        );
-        return { index: chunk.chunkIndex, buffer };
+        // Try to download, with fallback bots
+        let lastError: Error | null = null;
+        const botsToTry = [chunk.botId, ...this.bots.filter(b => b.id !== chunk.botId).map(b => b.id)];
+
+        for (const botId of botsToTry.slice(0, 3)) {
+          try {
+            const buffer = await this.downloadChunk(
+              channel.chatId,
+              chunk.messageId,
+              botId
+            );
+            return { index: chunk.chunkIndex, buffer };
+          } catch (err: any) {
+            lastError = err;
+            console.warn(`  ⚠️ Bot ${botId} failed for chunk ${chunk.chunkIndex}: ${err.message}`);
+            // Continue to next bot
+          }
+        }
+
+        // All bots failed
+        throw new Error(`All bots failed for chunk ${chunk.chunkIndex}: ${lastError?.message}`);
       });
 
       const results = await Promise.all(promises);
@@ -243,6 +258,8 @@ class TelegramStorage {
     }
 
     // Reassemble file
+    const totalSize = chunkBuffers.reduce((sum, b) => sum + b.length, 0);
+    console.log(`  ✅ Файл собран: ${totalSize} bytes`);
     return Buffer.concat(chunkBuffers);
   }
 
