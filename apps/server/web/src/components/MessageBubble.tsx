@@ -406,9 +406,9 @@ function MessageBubble({
   const hasFile = media.some((m) => m.type !== 'image' && m.type !== 'voice' && m.type !== 'video' && m.type !== 'audio');
   const hasVideo = media.some((m) => m.type === 'video');
 
-  // Группировка реакций
+  // Группировка реакций (исключаем option_X для опросов)
   const reactionGroups: Record<string, { count: number; users: string[]; isMine: boolean }> = {};
-  (message.reactions || []).forEach((r) => {
+  (message.reactions || []).filter(r => !r.emoji.startsWith('option_')).forEach((r) => {
     if (!reactionGroups[r.emoji]) {
       reactionGroups[r.emoji] = { count: 0, users: [], isMine: false };
     }
@@ -1378,17 +1378,58 @@ function VideoMessage({
 }
 
 /**
- * Отдельный компонент для рендеринга опросов.
- * Вынесен чтобы избежать stale closure при обновлении реакций.
+ * Отдельный компонент для рендеринга опросов (Telegram-style).
+ * Голосование через vote_poll socket событие, не через реакции.
  */
 function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }) {
   const { user } = useAuthStore();
-  const { messages } = useChatStore();
+  const { messages, setMessages } = useChatStore();
+  const [userVote, setUserVote] = useState<number | null>(null);
+  const [voteCounts, setVoteCounts] = useState<Record<number, number>>({});
 
-  // Берём актуальные реакции из store, а не из замыкания
-  const chatMessages = messages[message.chatId] || [];
-  const currentMessage = chatMessages.find(m => m.id === message.id);
-  const currentReactions = currentMessage?.reactions || message.reactions || [];
+  // Инициализация голосов из pollVotes
+  useEffect(() => {
+    const chatMessages = messages[message.chatId] || [];
+    const currentMsg = chatMessages.find(m => m.id === message.id);
+    const pollVotes = (currentMsg as any)?.pollVotes || [];
+
+    const counts: Record<number, number> = {};
+    let myVote: number | null = null;
+
+    pollVotes.forEach((v: any) => {
+      counts[v.optionIndex] = (counts[v.optionIndex] || 0) + 1;
+      if (v.userId === user?.id) {
+        myVote = v.optionIndex;
+      }
+    });
+
+    setVoteCounts(counts);
+    setUserVote(myVote);
+  }, [message.id, message.chatId, messages, user?.id]);
+
+  // Слушаем обновления голосования в реальном времени
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handlePollUpdate = (data: {
+      messageId: string;
+      voteCounts: Record<number, number>;
+      hasVoted: boolean;
+      userId: string;
+      optionIndex: number;
+      removed?: boolean;
+    }) => {
+      if (data.messageId !== message.id) return;
+      setVoteCounts(data.voteCounts);
+      if (data.userId === user?.id) {
+        setUserVote(data.removed ? null : data.optionIndex);
+      }
+    };
+
+    socket.on('poll_updated', handlePollUpdate);
+    return () => { socket.off('poll_updated', handlePollUpdate); };
+  }, [message.id, user?.id]);
 
   // Проверяем что это действительно опрос
   const isPoll = message.type === 'poll' || (message.content && message.content.startsWith('{"question"'));
@@ -1402,37 +1443,25 @@ function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }
     return null;
   }
 
-  // Подсчёт голосов
-  const votesByOption = new Map<number, number>();
-  let totalVotes = 0;
-
-  currentReactions.forEach(r => {
-    const match = r.emoji?.match(/^option_(\d+)$/);
-    if (match) {
-      const optIdx = parseInt(match[1]);
-      votesByOption.set(optIdx, (votesByOption.get(optIdx) || 0) + 1);
-      totalVotes++;
-    }
-  });
-
-  const userVoted = currentReactions.some(r => r.userId === user?.id && r.emoji?.startsWith('option_'));
-  const hasVoted = userVoted || totalVotes > 0;
+  const totalVotes = Object.values(voteCounts).reduce((sum, c) => sum + c, 0);
+  const hasVoted = userVote !== null || totalVotes > 0;
 
   const handleVote = (optionIndex: number) => {
-    if (hasVoted && !poll.multiple) return;
+    if (userVote === optionIndex && !poll.multiple) return; // Уже проголосовал за этот вариант
 
     const socket = getSocket();
     if (!socket) return;
 
-    // Снимаем предыдущий голос
-    currentReactions.forEach(r => {
-      if (r.userId === user?.id && r.emoji?.startsWith('option_')) {
-        socket.emit('remove_reaction', { messageId: message.id, chatId: message.chatId, emoji: r.emoji });
-      }
-    });
-
-    // Голосуем за новый вариант
-    socket.emit('add_reaction', { messageId: message.id, chatId: message.chatId, emoji: `option_${optionIndex}` });
+    if (userVote !== null && !poll.multiple) {
+      // Снимаем предыдущий голос и голосуем за новый
+      socket.emit('unvote_poll', { messageId: message.id, chatId: message.chatId, optionIndex: userVote });
+      setTimeout(() => {
+        socket.emit('vote_poll', { messageId: message.id, chatId: message.chatId, optionIndex });
+      }, 50);
+    } else {
+      // Голосуем
+      socket.emit('vote_poll', { messageId: message.id, chatId: message.chatId, optionIndex });
+    }
   };
 
   return (
@@ -1456,9 +1485,10 @@ function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }
       {/* Options */}
       <div className="space-y-2">
         {poll.options.map((option: string, i: number) => {
-          const optionVotes = votesByOption.get(i) || 0;
+          const optionVotes = voteCounts[i] || 0;
           const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
           const isCorrect = poll.quiz && poll.correctAnswer === i;
+          const isMyVote = userVote === i;
 
           return (
             <button
@@ -1479,7 +1509,9 @@ function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }
                   className={`absolute inset-0 rounded-xl transition-all duration-500 ease-out ${
                     isCorrect
                       ? 'bg-emerald-500/30'
-                      : isMine ? 'bg-white/20' : 'bg-nexo-500/30'
+                      : isMyVote
+                        ? isMine ? 'bg-white/40' : 'bg-nexo-500/50'
+                        : isMine ? 'bg-white/20' : 'bg-nexo-500/30'
                   }`}
                   style={{ width: `${percentage}%` }}
                 />
@@ -1488,20 +1520,14 @@ function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }
               {/* Option content */}
               <div className="relative flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {/* Option letter */}
-                  <span className={`text-xs font-bold w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${
-                    hasVoted
-                      ? isCorrect
-                        ? 'bg-emerald-500/40 text-emerald-300'
-                        : isMine ? 'bg-white/20 text-white/70' : 'bg-nexo-500/30 text-nexo-300'
-                      : isMine ? 'bg-white/15 text-white/50' : 'bg-nexo-500/20 text-nexo-400'
-                  }`}>
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <span className="flex-1 truncate text-left">{option}</span>
+                  {/* Checkmark if this is my vote */}
+                  {hasVoted && isMyVote && (
+                    <span className="text-nexo-400 text-xs flex-shrink-0">✓</span>
+                  )}
                   {isCorrect && hasVoted && (
                     <span className="text-emerald-400 text-xs flex-shrink-0">✓</span>
                   )}
+                  <span className="flex-1 truncate text-left">{option}</span>
                 </div>
                 {hasVoted && (
                   <span className="text-xs font-medium opacity-80 flex-shrink-0 tabular-nums">
@@ -1520,7 +1546,7 @@ function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }
           <span>Можно выбрать несколько</span>
         </div>
       )}
-      {!userVoted && totalVotes === 0 && (
+      {!hasVoted && (
         <div className="mt-2 text-xs opacity-40 text-center">
           Выберите вариант
         </div>
