@@ -426,25 +426,28 @@ export function setupSocket(io: Server) {
             for (const member of chat.members) {
               if (member.userId === userId) continue; // Don't notify sender
 
-              const memberSockets = onlineUsers.get(member.userId);
-              if (!memberSockets || memberSockets.size === 0) {
-                // User is offline - send push notification
-                if (member.user.notifyAll && member.user.notifyMessages) {
-                  // Try Web Push first
-                  if (member.user.pushSubscription) {
+              // Send push notification to ALL users with subscription (not just offline)
+              if (member.user.notifyAll && member.user.notifyMessages && member.user.pushSubscription) {
+                try {
+                  const subscription = JSON.parse(member.user.pushSubscription);
+                  await sendMessageNotification(member.userId, subscription, {
+                    id: message.id,
+                    chatId: data.chatId,
+                    senderId: userId,
+                    content: message.content || (message.type !== 'text' ? '📎 Вложение' : ''),
+                    chatName,
+                    senderAvatar: sender?.avatar
+                  });
+                } catch (e: any) {
+                  console.error('Failed to send Web Push:', e.message);
+                  // Clear expired subscription
+                  if (e.statusCode === 410 || e.statusCode === 404) {
                     try {
-                      const subscription = JSON.parse(member.user.pushSubscription);
-                      await sendMessageNotification(member.userId, subscription, {
-                        id: message.id,
-                        chatId: data.chatId,
-                        senderId: userId,
-                        content: message.content || (message.type !== 'text' ? '📎 Вложение' : ''),
-                        chatName,
-                        senderAvatar: sender?.avatar
+                      await prisma.user.update({
+                        where: { id: member.userId },
+                        data: { pushSubscription: null }
                       });
-                    } catch (e) {
-                      console.error('Failed to send Web Push:', e);
-                    }
+                    } catch {}
                   }
                 }
               }

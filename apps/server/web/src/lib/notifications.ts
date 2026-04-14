@@ -9,12 +9,12 @@ const VAPID_PUBLIC_KEY = 'BPVXBg4HHqwRgo2rX4fnScnnL1bD0AgeSyAiufQluXGctTM0WsSD8V
  */
 export async function registerNotificationServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.log('[Push] Service Worker or Push not supported');
+    console.warn('[Push] Service Worker or Push not supported');
     return null;
   }
 
   try {
-    // Unregister old service workers first to avoid conflicts
+    // Unregister old service workers to avoid conflicts
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) {
       if (registration.active?.scriptURL.includes('firebase')) {
@@ -23,12 +23,22 @@ export async function registerNotificationServiceWorker(): Promise<ServiceWorker
       }
     }
 
-    // Register unified notification service worker
+    // Register notification service worker
     const registration = await navigator.serviceWorker.register('/notification-sw.js', {
       scope: '/'
     });
-    
+
     console.log('[Push] Service Worker registered:', registration.scope);
+
+    // Wait for service worker to be ready
+    if (registration.installing) {
+      await new Promise<void>((resolve) => {
+        registration.installing!.addEventListener('statechange', (e) => {
+          if ((e.target as ServiceWorker).state === 'activated') resolve();
+        });
+      });
+    }
+
     return registration;
   } catch (error) {
     console.error('[Push] Service Worker registration failed:', error);
@@ -41,21 +51,33 @@ export async function registerNotificationServiceWorker(): Promise<ServiceWorker
  */
 export async function subscribeToNotifications(): Promise<PushSubscription | null> {
   if (!('Notification' in window)) {
-    console.log('[Push] Notifications not supported');
+    console.warn('[Push] Notifications not supported in this browser');
     return null;
   }
 
   try {
-    // Request permission
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('[Push] Notification permission denied');
+    // Check current permission
+    if (Notification.permission === 'denied') {
+      console.log('[Push] Notification permission previously denied');
       return null;
+    }
+
+    if (Notification.permission === 'default') {
+      // Request permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('[Push] Notification permission denied by user');
+        return null;
+      }
+      console.log('[Push] Permission granted');
     }
 
     // Register service worker
     const registration = await registerNotificationServiceWorker();
-    if (!registration) return null;
+    if (!registration) {
+      console.warn('[Push] Service worker not available');
+      return null;
+    }
 
     // Subscribe to push notifications
     const subscription = await registration.pushManager.subscribe({
@@ -63,11 +85,14 @@ export async function subscribeToNotifications(): Promise<PushSubscription | nul
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
     });
 
-    console.log('[Push] Subscribed to push notifications');
-    
+    console.log('[Push] Subscribed successfully');
+
     // Send subscription to server
-    await sendSubscriptionToServer(subscription);
-    
+    const saved = await sendSubscriptionToServer(subscription);
+    if (!saved) {
+      console.warn('[Push] Subscription created but not saved to server');
+    }
+
     return subscription;
   } catch (error) {
     console.error('[Push] Subscription failed:', error);
@@ -82,7 +107,7 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
   try {
     const token = localStorage.getItem('nexo_token');
     if (!token) {
-      console.log('[Push] No auth token, skipping server subscription');
+      console.warn('[Push] No auth token, skipping server subscription');
       return false;
     }
 
@@ -96,7 +121,8 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
     });
 
     if (!response.ok) {
-      console.error('[Push] Failed to save subscription:', response.status);
+      const errorText = await response.text();
+      console.error('[Push] Server rejected subscription:', response.status, errorText);
       return false;
     }
 

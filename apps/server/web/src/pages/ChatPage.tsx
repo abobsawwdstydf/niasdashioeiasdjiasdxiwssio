@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 import { playNotificationSound, isChatMuted } from '../lib/sounds';
 import { useLang } from '../lib/i18n';
 import type { Message, UserBasic, CallInfo } from '../lib/types';
-import { Send, Check, ArrowLeft, Phone } from 'lucide-react';
+import { Send, Check, ArrowLeft, Phone, MessageSquare } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ChatView from '../components/ChatView';
 import CallModal from '../components/CallModal';
@@ -45,6 +45,8 @@ export default function ChatPage() {
   const [callSessionId, setCallSessionId] = useState(0);
   const [deliveryNotification, setDeliveryNotification] = useState<string | null>(null);
   const deliveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [incomingNotif, setIncomingNotif] = useState<{ name: string; text: string } | null>(null);
+  const incomingNotifTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Group call state
   const [groupCallOpen, setGroupCallOpen] = useState(false);
@@ -294,8 +296,14 @@ export default function ChatPage() {
         }
       }
       addMessage(message);
-      // Play notification sound for messages from others
+
+      // Show in-app toast for messages from others
       if (message.senderId !== user?.id && !isChatMuted(message.chatId)) {
+        const senderName = message.sender?.displayName || message.sender?.username || 'Кто-то';
+        const preview = message.content || (message.type === 'voice' ? '🎙️ Голосовое' : message.type === 'image' ? '🖼️ Фото' : message.type === 'video' ? '🎥 Видео' : '📎 Файл');
+        setIncomingNotif({ name: senderName, text: preview });
+        if (incomingNotifTimer.current) clearTimeout(incomingNotifTimer.current);
+        incomingNotifTimer.current = setTimeout(() => setIncomingNotif(null), 4000);
         playNotificationSound();
       }
     });
@@ -590,6 +598,27 @@ export default function ChatPage() {
               <Send size={14} className="text-emerald-400" />
             </div>
             <span className="text-sm text-zinc-200">{deliveryNotification}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Incoming message toast notification */}
+      <AnimatePresence>
+        {incomingNotif && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-2xl bg-surface-secondary/95 backdrop-blur-xl shadow-2xl border border-nexo-500/30 flex items-center gap-3 max-w-sm"
+            onClick={() => setIncomingNotif(null)}
+          >
+            <div className="w-9 h-9 rounded-full bg-nexo-500/20 flex items-center justify-center flex-shrink-0">
+              <MessageSquare size={15} className="text-nexo-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-nexo-400 truncate">{incomingNotif.name}</p>
+              <p className="text-sm text-zinc-200 truncate">{incomingNotif.text}</p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
