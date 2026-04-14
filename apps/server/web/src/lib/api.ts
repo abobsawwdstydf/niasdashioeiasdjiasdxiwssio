@@ -223,7 +223,10 @@ class ApiClient {
       throw new Error(error.error || `Ошибка загрузки: ${response.status}`);
     }
     const result = await response.json();
-    return Array.isArray(result) ? result[0] : result;
+    // Handle both old array format and new { files: [...] } format
+    if (Array.isArray(result)) return result[0];
+    if (result.files && Array.isArray(result.files)) return result.files[0];
+    return result;
   }
 
   // \u0413\u0440\u0443\u043f\u043f\u044b
