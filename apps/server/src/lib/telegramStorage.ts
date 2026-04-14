@@ -13,9 +13,9 @@ interface TelegramBot {
 }
 
 interface UploadedChunk {
-  channelId: number;
+  channelId: number; // Index in TELEGRAM_CHANNELS array (0-based)
   messageId: number;
-  botId: number;
+  botId: number;     // Index in bots array (0-based)
   chunkIndex: number;
   size: number;
 }
@@ -84,8 +84,9 @@ class TelegramStorage {
     chunkBuffer: Buffer,
     filename: string,
     channelId: string
-  ): Promise<{ messageId: number; botId: number }> {
+  ): Promise<{ messageId: number; botIndex: number }> {
     const bot = this.getNextBot();
+    const botIndex = this.bots.indexOf(bot);
     const formData = new FormData();
     formData.append('chat_id', channelId);
     formData.append('document', chunkBuffer, {
@@ -101,11 +102,11 @@ class TelegramStorage {
       });
 
       const messageId = response.data.result.message_id;
-      console.log(`   ✅ Чанк отправлен! Message ID: ${messageId}`);
+      console.log(`   ✅ Чанк отправлен! Message ID: ${messageId}, Bot index: ${botIndex}`);
 
       return {
         messageId,
-        botId: bot.id,
+        botIndex,
       };
     } catch (error: any) {
       console.error(`   ❌ ОШИБКА отправки чанка:`, error.response?.data || error.message);
@@ -117,9 +118,9 @@ class TelegramStorage {
   async downloadChunk(
     channelId: string,
     messageId: number,
-    botId: number
+    botIndex: number
   ): Promise<Buffer> {
-    const bot = this.bots.find(b => b.id === botId) || this.getNextBot();
+    const bot = this.bots[botIndex] || this.getNextBot();
 
     try {
       // Get file info
@@ -127,9 +128,11 @@ class TelegramStorage {
         params: { chat_id: channelId, message_id: messageId },
       });
 
-      const file = fileResponse.data.result.document;
+      const msg = fileResponse.data.result;
+      // Document could be in document, video, audio, or photo field
+      const file = msg.document || msg.video || msg.audio || (msg.photo && msg.photo[msg.photo.length - 1]);
       if (!file) {
-        throw new Error('File not found in message');
+        throw new Error(`No file in message ${messageId}. Keys: ${Object.keys(msg).join(', ')}`);
       }
 
       // Download file
@@ -140,7 +143,7 @@ class TelegramStorage {
 
       return Buffer.from(downloadResponse.data);
     } catch (error: any) {
-      console.error('Download error:', error.response?.data || error.message);
+      console.error(`Download error for msg ${messageId}:`, error.response?.data?.description || error.message);
       throw error;
     }
   }
@@ -171,21 +174,22 @@ class TelegramStorage {
       const end = Math.min(start + CHUNK_SIZE, fileBuffer.length);
       const chunk = fileBuffer.slice(start, end);
 
-      // Select channel (round-robin)
-      const channel = TELEGRAM_CHANNELS[i % TELEGRAM_CHANNELS.length];
+      // Select channel (round-robin) — use array index (0-based)
+      const channelIndex = i % TELEGRAM_CHANNELS.length;
+      const channel = TELEGRAM_CHANNELS[channelIndex];
 
-      console.log(`\n   📤 Чанк ${i + 1}/${chunkCount} → ${channel.name}`);
+      console.log(`\n   📤 Чанк ${i + 1}/${chunkCount} → channel[${channelIndex}] ${channel.chatId}`);
 
-      const { messageId, botId } = await this.uploadChunk(
+      const { messageId, botIndex } = await this.uploadChunk(
         chunk,
         `${fileId}_part${i}`,
         channel.chatId
       );
 
       chunks.push({
-        channelId: channel.id,
+        channelId: channelIndex,
         messageId,
-        botId,
+        botId: botIndex,
         chunkIndex: i,
         size: chunk.length,
       });
@@ -195,7 +199,7 @@ class TelegramStorage {
     }
 
     console.log(`\n✅ ФАЙЛ ПОЛНОСТЬЮ ЗАГРУЖЕН В TELEGRAM!`);
-    console.log(`   ${filename} → ${chunks.length} чанков в ${new Set(chunks.map(c => c.channelId)).size} каналах`);
+    console.log(`   ${filename} → ${chunks.length} чанков`);
 
     const storedFile: StoredFile = {
       fileId,
@@ -221,32 +225,45 @@ class TelegramStorage {
     for (let i = 0; i < chunks.length; i += concurrency) {
       const batch = chunks.slice(i, i + concurrency);
       const promises = batch.map(async (chunk) => {
-        const channel = TELEGRAM_CHANNELS.find(c => c.id === chunk.channelId);
-        if (!channel) {
-          throw new Error(`Channel ${chunk.channelId} not found for chunk ${chunk.chunkIndex}`);
-        }
+        // Try channels: stored one first, then all others as fallback
+        const channelIndices = [chunk.channelId, ...TELEGRAM_CHANNELS.map((_, i) => i).filter(i => i !== chunk.channelId)];
+        const lastErrorPerChannel: Record<number, string> = {};
 
-        // Try to download, with fallback bots
-        let lastError: Error | null = null;
-        const botsToTry = [chunk.botId, ...this.bots.filter(b => b.id !== chunk.botId).map(b => b.id)];
+        for (const chIdx of channelIndices) {
+          const channel = TELEGRAM_CHANNELS[chIdx];
+          if (!channel) continue;
 
-        for (const botId of botsToTry.slice(0, 3)) {
-          try {
-            const buffer = await this.downloadChunk(
-              channel.chatId,
-              chunk.messageId,
-              botId
-            );
-            return { index: chunk.chunkIndex, buffer };
-          } catch (err: any) {
-            lastError = err;
-            console.warn(`  ⚠️ Bot ${botId} failed for chunk ${chunk.chunkIndex}: ${err.message}`);
-            // Continue to next bot
+          // Try the stored bot first, then fall back to other bots
+          let lastError: Error | null = null;
+          const allBotIndices = Array.from({ length: this.bots.length }, (_, i) => i);
+          const storedBotIdx = chunk.botId >= 0 && chunk.botId < this.bots.length ? chunk.botId : 0;
+          const orderedIndices = [storedBotIdx, ...allBotIndices.filter(i => i !== storedBotIdx)];
+
+          for (const botIdx of orderedIndices.slice(0, 3)) {
+            try {
+              const bot = this.bots[botIdx];
+              if (!bot || !bot.available) continue;
+
+              const buffer = await this.downloadChunk(
+                channel.chatId,
+                chunk.messageId,
+                botIdx
+              );
+              if (chIdx !== chunk.channelId) {
+                console.log(`  ⚠️ Chunk ${chunk.chunkIndex} downloaded from channel[${chIdx}] instead of [${chunk.channelId}]`);
+              }
+              return { index: chunk.chunkIndex, buffer };
+            } catch (err: any) {
+              lastError = err;
+            }
           }
+
+          if (lastError) lastErrorPerChannel[chIdx] = lastError.message;
         }
 
-        // All bots failed
-        throw new Error(`All bots failed for chunk ${chunk.chunkIndex}: ${lastError?.message}`);
+        // All channels and bots failed
+        const errors = Object.entries(lastErrorPerChannel).map(([ch, msg]) => `ch[${ch}]: ${msg}`).join('; ');
+        throw new Error(`All channels/bots failed for chunk ${chunk.chunkIndex}: ${errors}`);
       });
 
       const results = await Promise.all(promises);
