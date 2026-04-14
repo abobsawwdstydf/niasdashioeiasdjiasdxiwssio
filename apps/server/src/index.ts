@@ -159,16 +159,16 @@ import { telegramStorage } from './lib/telegramStorage';
 app.get('/api/files/:fileId/download', async (req, res) => {
   try {
     const { fileId } = req.params;
-    console.error(`[FILES] Запрос скачивания: ${fileId}`);
+    console.log(`[FILES] Запрос скачивания: ${fileId}`);
 
-    // CORS для медиа
+    // CORS for media
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD');
     res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
     res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
 
     if (!fileId || !fileId.startsWith('tg_')) {
-      console.error(`[FILES] Неверный fileId: ${fileId}`);
+      console.warn(`[FILES] Неверный fileId: ${fileId}`);
       res.status(400).json({ error: 'Неверный ID файла' });
       return;
     }
@@ -179,18 +179,18 @@ app.get('/api/files/:fileId/download', async (req, res) => {
     });
 
     if (!telegramFile) {
-      console.error(`[FILES] Файл ${fileId} не найден в БД`);
+      console.warn(`[FILES] Файл ${fileId} не найден в БД`);
       res.status(404).json({ error: 'Файл не найден в хранилище' });
       return;
     }
 
     if (!telegramFile.chunks || telegramFile.chunks.length === 0) {
-      console.error(`[FILES] Файл ${fileId} без чанков`);
+      console.warn(`[FILES] Файл ${fileId} без чанков`);
       res.status(404).json({ error: 'Файл повреждён (нет чанков)' });
       return;
     }
 
-    console.error(`[FILES] Файл найден: ${telegramFile.originalName} (${telegramFile.mimeType}, ${telegramFile.totalSize}b, ${telegramFile.chunks.length} чанков)`);
+    console.log(`[FILES] Файл найден: ${telegramFile.originalName} (${telegramFile.mimeType}, ${telegramFile.totalSize}b, ${telegramFile.chunks.length} чанков)`);
 
     let fileBuffer: Buffer;
     try {
@@ -213,14 +213,11 @@ app.get('/api/files/:fileId/download', async (req, res) => {
       if (lastError) throw lastError;
     } catch (downloadError: any) {
       console.error(`[FILES] Ошибка загрузки из Telegram:`, downloadError.message);
-      res.status(502).json({
-        error: 'Ошибка загрузки файла из хранилища',
-        detail: process.env.NODE_ENV === 'development' ? downloadError.message : undefined
-      });
+      res.status(503).json({ error: 'Файл временно недоступен (ошибка загрузки из хранилища)' });
       return;
     }
 
-    console.error(`[FILES] Файл скачан: ${fileBuffer.length}b`);
+    console.log(`[FILES] Файл скачан: ${fileBuffer.length}b`);
 
     await prisma.telegramFile.update({
       where: { fileId },
