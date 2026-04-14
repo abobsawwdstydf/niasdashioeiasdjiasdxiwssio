@@ -68,6 +68,9 @@ export const MESSAGE_INCLUDE = {
     include: { user: { select: { id: true, username: true, displayName: true } } },
   },
   readBy: { select: { userId: true } },
+  pollVotes: {
+    include: { user: { select: { id: true, username: true, displayName: true } } },
+  },
 } as const;
 
 // ─── File system helpers ──────────────────────────────────────────────

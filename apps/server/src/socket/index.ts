@@ -709,6 +709,114 @@ export function setupSocket(io: Server) {
       }
     });
 
+    // ======= Poll Voting =======
+
+    socket.on('vote_poll', async (data: { messageId: string; chatId: string; optionIndex: number }) => {
+      try {
+        if (!checkRateLimit(userId)) return;
+        if (!data.chatId || !data.messageId || typeof data.optionIndex !== 'number') return;
+        if (!(await isChatMember(data.chatId, userId))) return;
+
+        // Get the message to parse poll options
+        const message = await prisma.message.findUnique({
+          where: { id: data.messageId },
+          select: { content: true, chatId: true },
+        });
+        if (!message || !message.content) return;
+
+        let poll;
+        try { poll = JSON.parse(message.content); } catch { return; }
+        if (!poll.options || data.optionIndex < 0 || data.optionIndex >= poll.options.length) return;
+
+        // For non-multiple polls, remove previous vote
+        if (!poll.multiple) {
+          await prisma.pollVote.deleteMany({
+            where: { messageId: data.messageId, userId },
+          });
+        }
+
+        // Upsert vote (prevents duplicates for same option)
+        await prisma.pollVote.upsert({
+          where: {
+            messageId_userId_optionIndex: {
+              messageId: data.messageId,
+              userId,
+              optionIndex: data.optionIndex,
+            },
+          },
+          create: {
+            messageId: data.messageId,
+            userId,
+            optionIndex: data.optionIndex,
+          },
+          update: {},
+        });
+
+        // Get vote counts for broadcast
+        const votes = await prisma.pollVote.groupBy({
+          by: ['optionIndex'],
+          where: { messageId: data.messageId },
+          _count: { optionIndex: true },
+        });
+
+        const voteCounts: Record<number, number> = {};
+        votes.forEach(v => { voteCounts[v.optionIndex] = v._count.optionIndex; });
+
+        // Check if current user voted
+        const userVote = await prisma.pollVote.findFirst({
+          where: { messageId: data.messageId, userId, optionIndex: data.optionIndex },
+        });
+
+        io.to(`chat:${data.chatId}`).emit('poll_updated', {
+          messageId: data.messageId,
+          chatId: data.chatId,
+          optionIndex: data.optionIndex,
+          userId,
+          voteCounts,
+          hasVoted: !!userVote,
+        });
+      } catch (error) {
+        console.error('Poll vote error:', error);
+      }
+    });
+
+    socket.on('unvote_poll', async (data: { messageId: string; chatId: string; optionIndex: number }) => {
+      try {
+        if (!data.chatId || !data.messageId || typeof data.optionIndex !== 'number') return;
+        if (!(await isChatMember(data.chatId, userId))) return;
+
+        await prisma.pollVote.deleteMany({
+          where: {
+            messageId: data.messageId,
+            userId,
+            optionIndex: data.optionIndex,
+          },
+        });
+
+        // Get updated vote counts
+        const votes = await prisma.pollVote.groupBy({
+          by: ['optionIndex'],
+          where: { messageId: data.messageId },
+          _count: { optionIndex: true },
+        });
+
+        const voteCounts: Record<number, number> = {};
+        votes.forEach(v => { voteCounts[v.optionIndex] = v._count.optionIndex; });
+
+        io.to(`chat:${data.chatId}`).emit('poll_updated', {
+          messageId: data.messageId,
+          chatId: data.chatId,
+          optionIndex: data.optionIndex,
+          userId,
+          voteCounts,
+          hasVoted: false,
+          removed: true,
+        });
+      } catch (error) {
+        console.error('Poll unvote error:', error);
+      }
+    });
+
     // ======= Pin / Unpin Messages =======
 
     socket.on('pin_message', async (data: { messageId: string; chatId: string }) => {

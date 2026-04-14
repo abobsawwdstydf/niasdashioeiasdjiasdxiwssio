@@ -223,10 +223,17 @@ class ApiClient {
       throw new Error(error.error || `Ошибка загрузки: ${response.status}`);
     }
     const result = await response.json();
-    // Handle both old array format and new { files: [...] } format
+
+    // Handle response formats:
+    // 1. Array: [{ fileId, url, ... }] (old format)
+    // 2. Object: { files: [{ fileId, url, ... }] } (new format)
+    // 3. Object: { fileId, url, ... } (single file)
     if (Array.isArray(result)) return result[0];
     if (result.files && Array.isArray(result.files)) return result.files[0];
-    return result;
+    if (result.fileId || result.url) return result;
+
+    console.error('[uploadFile] Unexpected response:', result);
+    throw new Error('Неожиданный ответ сервера при загрузке');
   }
 
   // \u0413\u0440\u0443\u043f\u043f\u044b

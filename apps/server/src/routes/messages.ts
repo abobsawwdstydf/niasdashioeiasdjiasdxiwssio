@@ -66,6 +66,8 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 router.post('/upload', uploadFile.array('files', 1200), async (req: AuthRequest, res) => {
   try {
     const files = req.files as Express.Multer.File[];
+    console.log(`[UPLOAD] Received ${files?.length || 0} files from user ${req.userId}`);
+
     if (!files || files.length === 0) {
       res.status(400).json({ error: 'Файлы не загружены' });
       return;

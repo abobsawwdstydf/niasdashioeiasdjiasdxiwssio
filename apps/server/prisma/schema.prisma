@@ -181,6 +181,20 @@ model Reaction {
   @@unique([messageId, userId, emoji])
 }
 
+model PollVote {
+  id           String   @id @default(uuid())
+  messageId    String
+  userId       String
+  optionIndex  Int // Which option was voted (0-based)
+  votedAt      DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, optionIndex])
+  @@index([messageId])
+}
+
 model ReadReceipt {
   id        String   @id @default(uuid())
   messageId String
