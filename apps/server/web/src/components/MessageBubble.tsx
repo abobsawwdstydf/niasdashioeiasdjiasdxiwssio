@@ -1383,7 +1383,7 @@ function VideoMessage({
  */
 function PollRenderer({ message, isMine }: { message: Message; isMine: boolean }) {
   const { user } = useAuthStore();
-  const { messages, setMessages } = useChatStore();
+  const { messages } = useChatStore();
   const [userVote, setUserVote] = useState<number | null>(null);
   const [voteCounts, setVoteCounts] = useState<Record<number, number>>({});
 
