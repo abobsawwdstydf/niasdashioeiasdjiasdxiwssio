@@ -828,8 +828,8 @@ function MessageBubble({
                     id={voiceId}
                     src={voiceUrl}
                     preload="auto"
-                    onError={(e) => {
-                      console.error('[Voice] Ошибка загрузки:', voiceUrl);
+                    onError={() => {
+                      // Файл недоступен — показываем fallback UI
                       setLoadError(true);
                       setIsPlaying(false);
                     }}
@@ -1357,8 +1357,8 @@ function VideoMessage({
             className="w-full max-w-[320px] max-h-64 object-contain"
             preload="metadata"
             crossOrigin="anonymous"
-            onError={(e) => {
-              console.error('[Video] Ошибка загрузки:', videoUrl);
+            onError={() => {
+              // Файл недоступен — показываем fallback UI
               setLoadError(true);
             }}
           />
