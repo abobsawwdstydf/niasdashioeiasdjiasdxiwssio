@@ -34,12 +34,10 @@ interface StoredFile {
 class TelegramStorage {
   private bots: TelegramBot[] = [];
   private botIndex = 0;
+  private initialized = false;
 
   constructor() {
-    this.initializeBots();
-  }
-
-  private async initializeBots() {
+    // Sync init — bots initialized on first use
     this.bots = TELEGRAM_BOTS.map(bot => ({
       ...bot,
       client: axios.create({
@@ -48,8 +46,21 @@ class TelegramStorage {
       }),
       available: true,
     }));
+    
+    console.log(`\n🤖 TELEGRAM STORAGE:`);
+    console.log(`  ✓ Инициализировано ${this.bots.length} ботов`);
+    console.log(`  ✓ Каналов хранения: ${TELEGRAM_CHANNELS.length}`);
+    TELEGRAM_CHANNELS.forEach((ch, i) => {
+      console.log(`    ${i + 1}. ${ch.name} (${ch.chatId})`);
+    });
+    console.log('');
+  }
 
-    // Test each bot
+  private async ensureInitialized() {
+    if (this.initialized) return;
+    this.initialized = true;
+    
+    // Test each bot async on first use
     for (const bot of this.bots) {
       try {
         const timeout = new Promise((_, reject) =>
@@ -71,17 +82,10 @@ class TelegramStorage {
     }
 
     const availableCount = this.bots.filter(b => b.available).length;
-    console.log(`\n🤖 TELEGRAM STORAGE:`);
-    console.log(`  ✓ Инициализировано ${this.bots.length} ботов (${availableCount} доступны)`);
-    console.log(`  ✓ Каналов хранения: ${TELEGRAM_CHANNELS.length}`);
+    console.log(`[TelegramStorage] ✓ ${availableCount}/${this.bots.length} ботов доступны`);
     if (availableCount === 0) {
-      console.error(`  ⚠️  ВНИМАНИЕ: Нет доступных ботов! Загрузка файлов не работает!`);
-      console.error(`  ⚠️  Проверь: 1) Токены валидны 2) Боты не забанены 3) Боты в каналах`);
+      console.error('[TelegramStorage] ⚠️ НЕТ ДОСТУПНЫХ БОТОВ! Загрузка файлов не работает!');
     }
-    TELEGRAM_CHANNELS.forEach((ch, i) => {
-      console.log(`    ${i + 1}. ${ch.name} (${ch.chatId})`);
-    });
-    console.log('');
   }
 
   private getNextBot(): TelegramBot {
@@ -182,6 +186,7 @@ class TelegramStorage {
     userId: string,
     encryptionLevel: number = 0
   ): Promise<StoredFile> {
+    await this.ensureInitialized();
     const fileId = `tg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const chunks: UploadedChunk[] = [];
 
@@ -243,6 +248,7 @@ class TelegramStorage {
   }
 
   async downloadFile(fileId: string, chunks: UploadedChunk[]): Promise<Buffer> {
+    await this.ensureInitialized();
     const chunkBuffers: Buffer[] = [];
 
     console.log(`  ⬇️ Скачивание ${chunks.length} чанков для ${fileId}...`);
