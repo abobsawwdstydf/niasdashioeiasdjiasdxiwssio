@@ -9,22 +9,24 @@ const CACHE_NAME = 'nexo-notification-v1';
 self.addEventListener('push', (event) => {
   console.log('[Notification SW] Push received:', event);
 
-  let data = {};
+  let payload = {};
   if (event.data) {
     try {
-      data = event.data.json();
+      payload = event.data.json();
     } catch (e) {
       try {
         const text = event.data.text();
-        data = JSON.parse(text);
+        payload = JSON.parse(text);
       } catch {
-        data = { title: 'Nexo', body: event.data.text() };
+        payload = { notification: { title: 'Nexo', body: event.data.text() } };
       }
     }
   }
 
-  const notification = data.notification || data;
-  const { title, body, icon, badge, image, data: notificationData } = notification;
+  // Extract notification and data from payload
+  const notification = payload.notification || {};
+  const notificationData = payload.data || notification.data || {};
+  const { title, body, icon, badge, image, tag, requireInteraction } = notification;
 
   // Determine notification type and actions
   let actions = [];
@@ -36,7 +38,7 @@ self.addEventListener('push', (event) => {
       { action: 'reply', title: 'Ответить', icon: '/logo.png' },
       { action: 'open', title: 'Открыть', icon: '/logo.png' }
     ];
-  } else if (notificationType === 'incoming_call') {
+  } else if (notificationType === 'call' || notificationType === 'incoming_call') {
     // Call notification - add Accept/Decline actions
     actions = [
       { action: 'accept_call', title: 'Принять', icon: '/logo.png' },
@@ -61,19 +63,19 @@ self.addEventListener('push', (event) => {
     icon: icon || '/logo.png',
     badge: badge || '/logo.png',
     image: image || undefined,
-    vibrate: notificationType === 'incoming_call' ? [300, 200, 300, 200, 300, 200, 300] : [200, 100, 200],
-    tag: notificationData?.chatId || notificationData?.callerId || 'nexo-default',
+    vibrate: notificationType === 'call' || notificationType === 'incoming_call' ? [300, 200, 300, 200, 300, 200, 300] : [200, 100, 200],
+    tag: tag || notificationData?.chatId || notificationData?.callerId || 'nexo-default',
     renotify: true,
     data: {
       dateOfArrival: Date.now(),
       primaryKey: Date.now(),
       ...notificationData
     },
-    requireInteraction: notificationType === 'incoming_call', // Calls require interaction
+    requireInteraction: requireInteraction || notificationType === 'call' || notificationType === 'incoming_call', // Calls require interaction
     silent: false,
     actions: actions,
     // Add sound for calls on mobile
-    sound: notificationType === 'incoming_call' ? '/sounds/call_sound.mp3' : undefined
+    sound: notificationType === 'call' || notificationType === 'incoming_call' ? '/sounds/call_sound.mp3' : undefined
   };
 
   event.waitUntil(
@@ -118,21 +120,21 @@ self.addEventListener('notificationclick', (event) => {
     return; // Don't open window for decline
   } else if (action === 'accept_friend') {
     // Accept friend request
-    url = `/?friend_action=accept&friendRequestId=${data.friendRequestId || ''}`;
+    url = `/?friend_action=accept&friendRequestId=${data.friendRequestId || data.requesterId || ''}`;
   } else if (action === 'decline_friend') {
     // Decline friend request
-    url = `/?friend_action=decline&friendRequestId=${data.friendRequestId || ''}`;
+    url = `/?friend_action=decline&friendRequestId=${data.friendRequestId || data.requesterId || ''}`;
   } else if (action === 'dismiss') {
     // Just close notification
     return;
   } else if (action === 'open' || !action) {
     // Default open action - build URL based on notification type
-    if (data?.type === 'incoming_call') {
+    if (data?.type === 'call' || data?.type === 'incoming_call') {
       url = `/?call_action=incoming&callerId=${data.callerId || ''}&callType=${data.callType || 'voice'}`;
     } else if (data?.chatId) {
       url = `/?chat=${data.chatId}`;
-    } else if (data?.friendRequestId) {
-      url = `/?friend_request=${data.friendRequestId}`;
+    } else if (data?.friendRequestId || data?.requesterId) {
+      url = `/?friend_request=${data.friendRequestId || data.requesterId}`;
     }
   }
 

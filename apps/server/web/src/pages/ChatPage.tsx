@@ -111,6 +111,49 @@ export default function ChatPage() {
     initialized.current = true;
     loadChats();
 
+    // Register push notifications
+    (async () => {
+      try {
+        const { subscribeToNotifications } = await import('../lib/notifications');
+        await subscribeToNotifications();
+        console.log('[Notifications] Successfully registered for push notifications');
+      } catch (error) {
+        console.error('[Notifications] Failed to register:', error);
+      }
+    })();
+
+    // Listen for notification clicks from service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('[SW Message]', event.data);
+        
+        if (event.data?.type === 'notification_click') {
+          const { action, data } = event.data;
+          
+          // Handle different notification actions
+          if (data?.chatId) {
+            // Open chat
+            const store = useChatStore.getState();
+            store.setActiveChat(data.chatId);
+            store.loadMessages(data.chatId);
+            
+            // Focus window
+            window.focus();
+          } else if (data?.callerId && action === 'accept') {
+            // Accept incoming call
+            // This will be handled by the call_incoming socket event
+            window.focus();
+          }
+        } else if (event.data?.type === 'decline_call') {
+          // User declined call from notification
+          const socket = getSocket();
+          if (socket && event.data.callerId) {
+            socket.emit('call_decline', { targetUserId: event.data.callerId });
+          }
+        }
+      });
+    }
+
     // Pre-request media permissions so browser only asks once
     (async () => {
       try {

@@ -470,7 +470,7 @@ export function setupSocket(io: Server) {
           readBy: [{ userId }],
         });
 
-        // Send FCM push to offline users
+        // Send Web Push to OFFLINE users only
         try {
           const chat = await prisma.chat.findUnique({
             where: { id: data.chatId },
@@ -500,7 +500,7 @@ export function setupSocket(io: Server) {
             });
 
             let chatName = '';
-            if (chat.type === 'group') {
+            if (chat.type === 'group' || chat.type === 'channel') {
               chatName = chat.name || 'Группа';
             } else if (chat.type === 'favorites') {
               chatName = 'Избранное';
@@ -512,8 +512,11 @@ export function setupSocket(io: Server) {
             for (const member of chat.members) {
               if (member.userId === userId) continue; // Don't notify sender
 
-              // Send push notification to ALL users with subscription (not just offline)
-              if (member.user.notifyAll && member.user.notifyMessages && member.user.pushSubscription) {
+              // Check if user is OFFLINE (not in onlineUsers map)
+              const isOnline = onlineUsers.has(member.userId);
+              
+              // Send push notification ONLY to offline users with valid subscription and enabled notifications
+              if (!isOnline && member.user.notifyAll && member.user.notifyMessages && member.user.pushSubscription) {
                 try {
                   const subscription = JSON.parse(member.user.pushSubscription);
                   await sendMessageNotification(member.userId, subscription, {
@@ -524,8 +527,9 @@ export function setupSocket(io: Server) {
                     chatName,
                     senderAvatar: sender?.avatar
                   });
+                  console.log(`[Push] Message notification sent to offline user ${member.userId}`);
                 } catch (e: any) {
-                  console.error('Failed to send Web Push:', e.message);
+                  console.error(`[Push] Failed to send Web Push to ${member.userId}:`, e.message);
                   // Clear expired subscription
                   if (e.statusCode === 410 || e.statusCode === 404) {
                     try {
@@ -533,6 +537,7 @@ export function setupSocket(io: Server) {
                         where: { id: member.userId },
                         data: { pushSubscription: null }
                       });
+                      console.log(`[Push] Cleared expired subscription for user ${member.userId}`);
                     } catch {}
                   }
                 }
@@ -540,7 +545,7 @@ export function setupSocket(io: Server) {
             }
           }
         } catch (e) {
-          console.error('Failed to send message notification:', e);
+          console.error('[Push] Failed to send message notification:', e);
         }
       } catch (error) {
         console.error('Send message error:', error);
@@ -1076,10 +1081,19 @@ export function setupSocket(io: Server) {
         try {
           const targetUser = await prisma.user.findUnique({
             where: { id: data.targetUserId },
-            select: { id: true, username: true, displayName: true, avatar: true, pushSubscription: true },
+            select: { 
+              id: true, 
+              username: true, 
+              displayName: true, 
+              avatar: true, 
+              pushSubscription: true,
+              notifyAll: true,
+              notifyCalls: true
+            },
           });
 
-          if (targetUser?.pushSubscription) {
+          // Only send if user has notifications enabled
+          if (targetUser?.pushSubscription && targetUser.notifyAll && targetUser.notifyCalls) {
             try {
               const subscription = JSON.parse(targetUser.pushSubscription);
               // Get caller info for display
@@ -1087,13 +1101,32 @@ export function setupSocket(io: Server) {
                 where: { id: userId },
                 select: { id: true, username: true, displayName: true, avatar: true },
               });
-              await sendCallNotification(data.targetUserId, subscription, caller, data.callType);
-            } catch (e) {
-              console.error('Failed to send Web Push for call:', e);
+              
+              // Send with correct data structure
+              await sendCallNotification(data.targetUserId, subscription, {
+                callerId: userId,
+                callerName: caller?.displayName || caller?.username || 'Неизвестный',
+                callerAvatar: caller?.avatar || null,
+                callType: data.callType,
+                chatId: chatId || ''
+              });
+              console.log(`[Push] Call notification sent to offline user ${data.targetUserId}`);
+            } catch (e: any) {
+              console.error(`[Push] Failed to send Web Push for call to ${data.targetUserId}:`, e.message);
+              // Clear expired subscription
+              if (e.statusCode === 410 || e.statusCode === 404) {
+                try {
+                  await prisma.user.update({
+                    where: { id: data.targetUserId },
+                    data: { pushSubscription: null }
+                  });
+                  console.log(`[Push] Cleared expired subscription for user ${data.targetUserId}`);
+                } catch {}
+              }
             }
           }
         } catch (e) {
-          console.error('Failed to send call notification:', e);
+          console.error('[Push] Failed to send call notification:', e);
         }
       }
     });
@@ -1359,13 +1392,28 @@ export function setupSocket(io: Server) {
 
             try {
               const subscription = JSON.parse(targetUser.pushSubscription);
-              await sendFriendRequestNotification(data.friendId, subscription, requester);
-            } catch (e) {
-              console.error('Failed to send Web Push for friend request:', e);
+              await sendFriendRequestNotification(data.friendId, subscription, {
+                requesterId: userId,
+                requesterName: requester?.displayName || requester?.username || 'Неизвестный',
+                requesterAvatar: requester?.avatar || null
+              });
+              console.log(`[Push] Friend request notification sent to offline user ${data.friendId}`);
+            } catch (e: any) {
+              console.error(`[Push] Failed to send Web Push for friend request to ${data.friendId}:`, e.message);
+              // Clear expired subscription
+              if (e.statusCode === 410 || e.statusCode === 404) {
+                try {
+                  await prisma.user.update({
+                    where: { id: data.friendId },
+                    data: { pushSubscription: null }
+                  });
+                  console.log(`[Push] Cleared expired subscription for user ${data.friendId}`);
+                } catch {}
+              }
             }
           }
         } catch (e) {
-          console.error('Failed to send friend request notification:', e);
+          console.error('[Push] Failed to send friend request notification:', e);
         }
       }
     });
