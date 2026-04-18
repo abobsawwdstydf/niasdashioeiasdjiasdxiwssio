@@ -47,6 +47,14 @@ model User {
   tagColor String? // Hex color e.g. "#ff6b6b" or preset name
   tagStyle String? // 'solid' | 'outline' | 'gradient' | 'glow'
 
+  // Premium subscription
+  isPremium     Boolean   @default(false)
+  premiumUntil  DateTime? // When premium expires
+  premiumType   String? // '1month' | '3months' | '6months' | '12months'
+  beavers       Int       @default(0) // Currency balance (1 beaver = 1 ruble)
+  totalSpent    Int       @default(0) // Total beavers spent
+  totalEarned   Int       @default(0) // Total beavers earned
+
   // Ban system
   isBanned     Boolean   @default(false)
   banReason    String?
@@ -830,4 +838,32 @@ model ChatStatistics {
 
   @@unique([chatId, userId])
   @@index([userId])
+}
+
+// Premium purchases history
+model PremiumPurchase {
+  id          String   @id @default(uuid())
+  userId      String
+  months      Int // 1, 3, 6, or 12
+  beavers     Int // Amount paid in beavers
+  purchasedAt DateTime @default(now())
+  expiresAt   DateTime // When this premium period expires
+
+  @@index([userId])
+  @@index([purchasedAt])
+}
+
+// Transaction history for beavers
+model Transaction {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Int // Positive for earning, negative for spending
+  type        String // 'purchase' | 'admin_add' | 'admin_remove' | 'premium' | 'gift' | 'refund'
+  description String? // Transaction description
+  relatedId   String? // Related entity ID (e.g., premium purchase ID)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }

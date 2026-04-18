@@ -663,7 +663,7 @@ function MessageBubble({
             title={t('reply') ? `${t('reply')} (Double Click)` : 'Double click to reply'}
             className={`cursor-pointer rounded-[1.25rem] overflow-hidden transition-all duration-300 ${
               hasImage && !message.content
-                ? 'p-0 shadow-none border-none'
+                ? 'p-0 shadow-none border-none bg-transparent'
                 : isMine
                   ? 'bubble-sent text-white shadow-sm px-4 py-2.5 hover:shadow-md hover:brightness-105'
                   : 'bubble-received text-zinc-100 shadow-sm px-4 py-2.5 hover:shadow-md hover:brightness-105'
@@ -716,7 +716,7 @@ function MessageBubble({
 
             {/* Изображения */}
             {hasImage && (
-              <div className={`${message.content ? 'mb-2' : ''}`}>
+              <div className="">
                 <div className="grid grid-cols-2 gap-1">
                   {media
                     .filter((m) => m.type === 'image')
