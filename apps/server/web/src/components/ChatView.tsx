@@ -1191,10 +1191,10 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
       </AnimatePresence>
 
       <AnimatePresence>
-        {showForwardModal && (
+        {showForwardModal && activeChat && (
           <ForwardModal
             messages={Array.from(selectedMessages)
-              .map((id) => messages.find((m) => m.id === id))
+              .map((id) => messages[activeChat]?.find((m: Message) => m.id === id))
               .filter((m): m is Message => m !== undefined)}
             onClose={() => setShowForwardModal(false)}
           />
