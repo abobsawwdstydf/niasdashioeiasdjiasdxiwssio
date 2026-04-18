@@ -1,0 +1,77 @@
+// Sticker packs and stickers
+model StickerPack {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  creatorId   String
+  thumbnail   String? // Pack thumbnail
+  isPublic    Boolean  @default(true)
+  isAnimated  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  stickers Sticker[]
+  
+  @@index([creatorId])
+  @@index([isPublic])
+}
+
+model Sticker {
+  id          String   @id @default(uuid())
+  packId      String
+  emoji       String? // Associated emoji
+  fileUrl     String // Sticker image/animation URL
+  fileSize    Int
+  width       Int?
+  height      Int?
+  isAnimated  Boolean  @default(false)
+  order       Int     @default(0)
+  createdAt   DateTime @default(now())
+  
+  pack StickerPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  
+  @@index([packId])
+}
+
+// GIF library
+model Gif {
+  id          String   @id @default(uuid())
+  title       String?
+  url         String
+  thumbnail   String?
+  width       Int?
+  height      Int?
+  size        Int?
+  tags        String? // Comma-separated tags
+  searchCount Int      @default(0) // Track popularity
+  createdAt   DateTime @default(now())
+  
+  @@index([tags])
+  @@index([searchCount])
+}
+
+// Hashtags for search
+model Hashtag {
+  id          String   @id @default(uuid())
+  tag         String   @unique // Without # symbol
+  useCount    Int      @default(0)
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  messages MessageHashtag[]
+  
+  @@index([tag])
+  @@index([useCount])
+}
+
+model MessageHashtag {
+  id        String   @id @default(uuid())
+  messageId String
+  hashtagId String
+  createdAt DateTime @default(now())
+  
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, hashtagId])
+  @@index([hashtagId])
+  @@index([messageId])
+}

@@ -250,4 +250,246 @@ router.delete('/:storyId', async (req: AuthRequest, res) => {
   }
 });
 
+// React to story (emoji)
+router.post('/:storyId/react', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const storyId = req.params.storyId as string;
+    const { emoji } = req.body;
+
+    if (!emoji || typeof emoji !== 'string') {
+      res.status(400).json({ error: 'Emoji обязателен' });
+      return;
+    }
+
+    // Verify story exists and viewer is the owner or a friend
+    const story = await prisma.story.findUnique({ where: { id: storyId }, select: { userId: true } });
+    if (!story) {
+      res.status(404).json({ error: 'История не найдена' });
+      return;
+    }
+    
+    if (story.userId !== userId) {
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          status: 'accepted',
+          OR: [
+            { userId, friendId: story.userId },
+            { userId: story.userId, friendId: userId },
+          ],
+        },
+      });
+      if (!friendship) {
+        res.status(403).json({ error: 'Нет доступа' });
+        return;
+      }
+    }
+
+    await prisma.storyReaction.upsert({
+      where: { storyId_userId: { storyId, userId } },
+      create: { storyId, userId, emoji },
+      update: { emoji },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('React to story error:', error);
+    res.status(500).json({ error: 'Ошибка реакции на историю' });
+  }
+});
+
+// Reply to story (DM)
+router.post('/:storyId/reply', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const storyId = req.params.storyId as string;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string') {
+      res.status(400).json({ error: 'Содержимое обязательно' });
+      return;
+    }
+
+    // Verify story exists and viewer is the owner or a friend
+    const story = await prisma.story.findUnique({ where: { id: storyId }, select: { userId: true } });
+    if (!story) {
+      res.status(404).json({ error: 'История не найдена' });
+      return;
+    }
+    
+    if (story.userId !== userId) {
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          status: 'accepted',
+          OR: [
+            { userId, friendId: story.userId },
+            { userId: story.userId, friendId: userId },
+          ],
+        },
+      });
+      if (!friendship) {
+        res.status(403).json({ error: 'Нет доступа' });
+        return;
+      }
+    }
+
+    const reply = await prisma.storyReply.create({
+      data: { storyId, userId, content },
+    });
+
+    res.json(reply);
+  } catch (error) {
+    console.error('Reply to story error:', error);
+    res.status(500).json({ error: 'Ошибка ответа на историю' });
+  }
+});
+
+// Get story reactions
+router.get('/:storyId/reactions', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const storyId = req.params.storyId as string;
+
+    const story = await prisma.story.findUnique({ where: { id: storyId }, select: { userId: true } });
+    if (!story || story.userId !== userId) {
+      res.status(403).json({ error: 'Только автор может просматривать реакции' });
+      return;
+    }
+
+    const reactions = await prisma.storyReaction.findMany({
+      where: { storyId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(reactions);
+  } catch (error) {
+    console.error('Get story reactions error:', error);
+    res.status(500).json({ error: 'Ошибка получения реакций' });
+  }
+});
+
+// Get story replies
+router.get('/:storyId/replies', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const storyId = req.params.storyId as string;
+
+    const story = await prisma.story.findUnique({ where: { id: storyId }, select: { userId: true } });
+    if (!story || story.userId !== userId) {
+      res.status(403).json({ error: 'Только автор может просматривать ответы' });
+      return;
+    }
+
+    const replies = await prisma.storyReply.findMany({
+      where: { storyId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(replies);
+  } catch (error) {
+    console.error('Get story replies error:', error);
+    res.status(500).json({ error: 'Ошибка получения ответов' });
+  }
+});
+
+// Save story to highlights
+router.post('/:storyId/highlight', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const storyId = req.params.storyId as string;
+    const { title, cover } = req.body;
+
+    const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story || story.userId !== userId) {
+      res.status(403).json({ error: 'Нет прав' });
+      return;
+    }
+
+    const updatedStory = await prisma.story.update({
+      where: { id: storyId },
+      data: {
+        isHighlight: true,
+        highlightTitle: title || 'Highlight',
+        highlightCover: cover || story.mediaUrl,
+      },
+    });
+
+    res.json(updatedStory);
+  } catch (error) {
+    console.error('Save to highlights error:', error);
+    res.status(500).json({ error: 'Ошибка сохранения в highlights' });
+  }
+});
+
+// Get user highlights
+router.get('/highlights/:userId', async (req: AuthRequest, res) => {
+  try {
+    const targetUserId = req.params.userId as string;
+    const currentUserId = req.userId!;
+
+    // Check if viewer has access (self or friend)
+    if (targetUserId !== currentUserId) {
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          status: 'accepted',
+          OR: [
+            { userId: currentUserId, friendId: targetUserId },
+            { userId: targetUserId, friendId: currentUserId },
+          ],
+        },
+      });
+      if (!friendship) {
+        res.status(403).json({ error: 'Нет доступа' });
+        return;
+      }
+    }
+
+    const highlights = await prisma.story.findMany({
+      where: {
+        userId: targetUserId,
+        isHighlight: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: { id: true, username: true, displayName: true, avatar: true },
+        },
+      },
+    });
+
+    res.json(highlights);
+  } catch (error) {
+    console.error('Get highlights error:', error);
+    res.status(500).json({ error: 'Ошибка получения highlights' });
+  }
+});
+
+// Remove story from highlights
+router.delete('/:storyId/highlight', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const storyId = req.params.storyId as string;
+
+    const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story || story.userId !== userId) {
+      res.status(403).json({ error: 'Нет прав' });
+      return;
+    }
+
+    const updatedStory = await prisma.story.update({
+      where: { id: storyId },
+      data: {
+        isHighlight: false,
+        highlightTitle: null,
+        highlightCover: null,
+      },
+    });
+
+    res.json(updatedStory);
+  } catch (error) {
+    console.error('Remove from highlights error:', error);
+    res.status(500).json({ error: 'Ошибка удаления из highlights' });
+  }
+});
+
 export default router;

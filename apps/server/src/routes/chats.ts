@@ -446,24 +446,33 @@ router.post('/join/:username', async (req: AuthRequest, res) => {
   }
 });
 
-// Обновить группу/канал (только админ)
+// Обновить группу/канал (только админ/модератор)
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const chatId = String(req.params.id);
-    const { name, description } = req.body;
+    const { name, description, slowModeInterval, welcomeMessage, rules, canMembersPost, canMembersInvite } = req.body;
 
     const member = await prisma.chatMember.findUnique({
       where: { chatId_userId: { chatId, userId: req.userId! } },
     });
 
-    if (!member || member.role !== 'admin') {
-      res.status(403).json({ error: 'Только администратор может редактировать группу' });
+    if (!member || !['admin', 'moderator'].includes(member.role)) {
+      res.status(403).json({ error: 'Только администратор или модератор может редактировать' });
       return;
     }
 
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (slowModeInterval !== undefined) updateData.slowModeInterval = slowModeInterval;
+    if (welcomeMessage !== undefined) updateData.welcomeMessage = welcomeMessage;
+    if (rules !== undefined) updateData.rules = rules;
+    if (canMembersPost !== undefined) updateData.canMembersPost = canMembersPost;
+    if (canMembersInvite !== undefined) updateData.canMembersInvite = canMembersInvite;
+
     const chat = await prisma.chat.update({
       where: { id: chatId },
-      data: { name, description },
+      data: updateData,
       include: {
         members: { include: { user: { select: USER_SELECT } } },
         messages: {
@@ -572,7 +581,7 @@ router.delete('/:id/avatar', async (req: AuthRequest, res) => {
   }
 });
 
-// Добавить участников в группу (только админ)
+// Добавить участников в группу (только админ или если разрешено участникам)
 router.post('/:id/members', async (req: AuthRequest, res) => {
   try {
     const chatId = String(req.params.id);
@@ -587,23 +596,39 @@ router.post('/:id/members', async (req: AuthRequest, res) => {
       where: { chatId_userId: { chatId, userId: req.userId! } },
     });
 
-    if (!member || member.role !== 'admin') {
-      res.status(403).json({ error: 'Только администратор может добавлять участников' });
-      return;
-    }
-
     const chat = await prisma.chat.findUnique({ where: { id: chatId } });
     if (!chat || chat.type !== 'group') {
       res.status(400).json({ error: 'Чат не является группой' });
       return;
     }
 
+    // Check permissions
+    const isAdmin = member?.role === 'admin';
+    const canInvite = member?.canInvite || false;
+    
+    if (!isAdmin && (!chat.canMembersInvite || !canInvite)) {
+      res.status(403).json({ error: 'Нет прав для добавления участников' });
+      return;
+    }
+
     for (const uid of userIds) {
-      await prisma.chatMember.upsert({
+      const newMember = await prisma.chatMember.upsert({
         where: { chatId_userId: { chatId, userId: uid } },
         create: { chatId, userId: uid, role: 'member' },
         update: {},
       });
+      
+      // Send welcome message if configured
+      if (chat.welcomeMessage && newMember) {
+        await prisma.message.create({
+          data: {
+            chatId,
+            senderId: req.userId!,
+            content: chat.welcomeMessage,
+            type: 'system',
+          },
+        });
+      }
     }
 
     const updatedChat = await prisma.chat.findUnique({
@@ -628,7 +653,7 @@ router.post('/:id/members', async (req: AuthRequest, res) => {
   }
 });
 
-// Удалить участника из группы (только админ)
+// Удалить участника из группы (только админ/модератор)
 router.delete('/:id/members/:userId', async (req: AuthRequest, res) => {
   try {
     const chatId = String(req.params.id);
@@ -638,8 +663,8 @@ router.delete('/:id/members/:userId', async (req: AuthRequest, res) => {
       where: { chatId_userId: { chatId, userId: req.userId! } },
     });
 
-    if (!member || member.role !== 'admin') {
-      res.status(403).json({ error: 'Только администратор может удалять участников' });
+    if (!member || !['admin', 'moderator'].includes(member.role)) {
+      res.status(403).json({ error: 'Только администратор или модератор может удалять участников' });
       return;
     }
 
@@ -916,6 +941,235 @@ router.post('/:id/pin', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Pin chat error:', error);
     res.status(500).json({ error: 'Ошибка закрепления чата' });
+  }
+});
+
+// Изменить роль участника (только админ)
+router.put('/:id/members/:userId/role', async (req: AuthRequest, res) => {
+  try {
+    const chatId = String(req.params.id);
+    const targetUserId = String(req.params.userId);
+    const { role } = req.body;
+
+    if (!['member', 'moderator', 'admin', 'guest'].includes(role)) {
+      res.status(400).json({ error: 'Недопустимая роль' });
+      return;
+    }
+
+    const member = await prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId: req.userId! } },
+    });
+
+    if (!member || member.role !== 'admin') {
+      res.status(403).json({ error: 'Только администратор может изменять роли' });
+      return;
+    }
+
+    await prisma.chatMember.update({
+      where: { chatId_userId: { chatId, userId: targetUserId } },
+      data: { role },
+    });
+
+    const updatedChat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        members: { include: { user: { select: USER_SELECT } } },
+      },
+    });
+
+    res.json(updatedChat);
+  } catch (error) {
+    console.error('Change role error:', error);
+    res.status(500).json({ error: 'Ошибка изменения роли' });
+  }
+});
+
+// Изменить права участника (только админ)
+router.put('/:id/members/:userId/permissions', async (req: AuthRequest, res) => {
+  try {
+    const chatId = String(req.params.id);
+    const targetUserId = String(req.params.userId);
+    const { canPost, canInvite, canPin, canDelete } = req.body;
+
+    const member = await prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId: req.userId! } },
+    });
+
+    if (!member || member.role !== 'admin') {
+      res.status(403).json({ error: 'Только администратор может изменять права' });
+      return;
+    }
+
+    const updateData: any = {};
+    if (canPost !== undefined) updateData.canPost = canPost;
+    if (canInvite !== undefined) updateData.canInvite = canInvite;
+    if (canPin !== undefined) updateData.canPin = canPin;
+    if (canDelete !== undefined) updateData.canDelete = canDelete;
+
+    await prisma.chatMember.update({
+      where: { chatId_userId: { chatId, userId: targetUserId } },
+      data: updateData,
+    });
+
+    const updatedChat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        members: { include: { user: { select: USER_SELECT } } },
+      },
+    });
+
+    res.json(updatedChat);
+  } catch (error) {
+    console.error('Change permissions error:', error);
+    res.status(500).json({ error: 'Ошибка изменения прав' });
+  }
+});
+
+// Создать опрос в чате
+router.post('/:id/polls', async (req: AuthRequest, res) => {
+  try {
+    const chatId = String(req.params.id);
+    const { question, options, multipleChoice = false, anonymous = false } = req.body;
+
+    if (!question || !options || !Array.isArray(options) || options.length < 2) {
+      res.status(400).json({ error: 'Вопрос и минимум 2 варианта обязательны' });
+      return;
+    }
+
+    if (options.length > 10) {
+      res.status(400).json({ error: 'Максимум 10 вариантов ответа' });
+      return;
+    }
+
+    const member = await prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId: req.userId! } },
+    });
+
+    if (!member) {
+      res.status(403).json({ error: 'Нет доступа к этому чату' });
+      return;
+    }
+
+    const chat = await prisma.chat.findUnique({ where: { id: chatId } });
+    
+    // Check if user can post
+    if (chat?.type === 'channel' && !chat.canMembersPost && member.role === 'member') {
+      res.status(403).json({ error: 'Только администраторы могут публиковать в этом канале' });
+      return;
+    }
+
+    // Check slow mode
+    if (chat?.slowModeInterval && chat.slowModeInterval > 0 && member.lastMessageAt) {
+      const timeSinceLastMessage = Date.now() - member.lastMessageAt.getTime();
+      if (timeSinceLastMessage < chat.slowModeInterval * 1000) {
+        const waitTime = Math.ceil((chat.slowModeInterval * 1000 - timeSinceLastMessage) / 1000);
+        res.status(429).json({ error: `Медленный режим. Подождите ${waitTime} сек.` });
+        return;
+      }
+    }
+
+    const pollData = {
+      question,
+      options,
+      multipleChoice,
+      anonymous,
+      votes: {},
+    };
+
+    const message = await prisma.message.create({
+      data: {
+        chatId,
+        senderId: req.userId!,
+        content: JSON.stringify(pollData),
+        type: 'poll',
+      },
+      include: {
+        sender: { select: { id: true, username: true, displayName: true, avatar: true } },
+        media: true,
+        reactions: true,
+        pollVotes: true,
+      },
+    });
+
+    // Update last message time for slow mode
+    if (chat?.slowModeInterval && chat.slowModeInterval > 0) {
+      await prisma.chatMember.update({
+        where: { chatId_userId: { chatId, userId: req.userId! } },
+        data: { lastMessageAt: new Date() },
+      });
+    }
+
+    res.json(message);
+  } catch (error) {
+    console.error('Create poll error:', error);
+    res.status(500).json({ error: 'Ошибка создания опроса' });
+  }
+});
+
+// Голосовать в опросе
+router.post('/polls/:messageId/vote', async (req: AuthRequest, res) => {
+  try {
+    const messageId = String(req.params.messageId);
+    const { optionIndex } = req.body;
+
+    if (typeof optionIndex !== 'number' || optionIndex < 0) {
+      res.status(400).json({ error: 'Недопустимый индекс варианта' });
+      return;
+    }
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { pollVotes: true },
+    });
+
+    if (!message || message.type !== 'poll') {
+      res.status(404).json({ error: 'Опрос не найден' });
+      return;
+    }
+
+    const pollData = JSON.parse(message.content || '{}');
+    
+    if (optionIndex >= pollData.options.length) {
+      res.status(400).json({ error: 'Недопустимый индекс варианта' });
+      return;
+    }
+
+    // Check if user is member of the chat
+    const member = await prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId: message.chatId, userId: req.userId! } },
+    });
+
+    if (!member) {
+      res.status(403).json({ error: 'Нет доступа к этому чату' });
+      return;
+    }
+
+    // If not multiple choice, remove previous votes
+    if (!pollData.multipleChoice) {
+      await prisma.pollVote.deleteMany({
+        where: { messageId, userId: req.userId! },
+      });
+    }
+
+    // Add new vote
+    await prisma.pollVote.upsert({
+      where: { messageId_userId_optionIndex: { messageId, userId: req.userId!, optionIndex } },
+      create: { messageId, userId: req.userId!, optionIndex },
+      update: {},
+    });
+
+    // Get updated votes
+    const votes = await prisma.pollVote.findMany({
+      where: { messageId },
+      include: {
+        user: { select: { id: true, username: true, displayName: true, avatar: true } },
+      },
+    });
+
+    res.json({ votes });
+  } catch (error) {
+    console.error('Vote poll error:', error);
+    res.status(500).json({ error: 'Ошибка голосования' });
   }
 });
 

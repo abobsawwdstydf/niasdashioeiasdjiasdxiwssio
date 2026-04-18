@@ -93,6 +93,9 @@ app.use('/api/messages', apiLimiter, authenticateToken, messageRoutes);
 app.use('/api/threads', apiLimiter, authenticateToken, require('./routes/threads').default);
 app.use('/api/ai', apiLimiter, authenticateToken, require('./routes/ai').default);
 app.use('/api/secret-chats', apiLimiter, authenticateToken, require('./routes/secretChats').default);
+app.use('/api/stickers', apiLimiter, authenticateToken, require('./routes/stickers').default);
+app.use('/api/search', apiLimiter, authenticateToken, require('./routes/search').default);
+app.use('/api/media', apiLimiter, authenticateToken, require('./routes/media').default);
 app.use('/api/admin', adminRoutes);
 
 // Проверка здоровья

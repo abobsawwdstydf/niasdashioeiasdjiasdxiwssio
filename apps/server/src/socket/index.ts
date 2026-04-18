@@ -267,6 +267,16 @@ export function setupSocket(io: Server) {
         // Parse markdown and extract mentions
         const parsed = data.content ? parseMarkdown(data.content) : { html: '', plainText: '', mentions: [] };
 
+        // Extract hashtags from content
+        const hashtagRegex = /#(\w+)/g;
+        const hashtags: string[] = [];
+        if (data.content) {
+          let match;
+          while ((match = hashtagRegex.exec(data.content)) !== null) {
+            hashtags.push(match[1].toLowerCase());
+          }
+        }
+
         const message = await prisma.message.create({
           data: {
             chatId: data.chatId,
@@ -322,6 +332,23 @@ export function setupSocket(io: Server) {
             readBy: true,
           },
         });
+
+        // Process hashtags after message creation
+        if (hashtags.length > 0) {
+          for (const tag of hashtags) {
+            // Upsert hashtag
+            const hashtag = await prisma.hashtag.upsert({
+              where: { tag },
+              create: { tag, useCount: 1, lastUsedAt: new Date() },
+              update: { useCount: { increment: 1 }, lastUsedAt: new Date() },
+            });
+
+            // Link message to hashtag
+            await prisma.messageHashtag.create({
+              data: { messageId: message.id, hashtagId: hashtag.id },
+            }).catch(() => {}); // Ignore duplicates
+          }
+        }
 
         // Scheduled messages: only send to the sender immediately, deliver to chat at scheduled time
         if (scheduledAt && scheduledAt.getTime() > Date.now()) {

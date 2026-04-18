@@ -83,7 +83,7 @@ model User {
 
 model Chat {
   id          String   @id @default(uuid())
-  type        String   @default("personal")
+  type        String   @default("personal") // personal, group, channel
   name        String?
   username    String?  @unique
   avatar      String?
@@ -104,24 +104,46 @@ model Chat {
   isE2E             Boolean   @default(false)
   e2eSessionKey     String? // Encrypted session key
 
+  // Group/Channel settings
+  slowModeInterval  Int?      @default(0) // Seconds between messages (0 = disabled)
+  welcomeMessage    String? // Welcome message for new members
+  rules             String? // Group/channel rules
+  subscribersCount  Int       @default(0) // For channels
+  
+  // Permissions
+  canMembersPost    Boolean   @default(true) // For channels: can members post or only admins
+  canMembersInvite  Boolean   @default(true) // Can members invite others
+
   members        ChatMember[]
   messages       Message[]
   pinnedMessages PinnedMessage[]
   pinnedByUsers  User[]          @relation("PinnedChannels")
   threads        Thread[]
   typingIndicators TypingIndicator[]
+  
+  @@index([type])
+  @@index([subscribersCount])
 }
 
 model ChatMember {
   id         String    @id @default(uuid())
   chatId     String
   userId     String
-  role       String    @default("member")
+  role       String    @default("member") // owner, admin, moderator, member, guest
   joinedAt   DateTime  @default(now())
   isMuted    Boolean   @default(false)
   isArchived Boolean   @default(false)
   isPinned   Boolean   @default(false)
   clearedAt  DateTime?
+  
+  // Permissions for this member
+  canPost    Boolean   @default(true)
+  canInvite  Boolean   @default(true)
+  canPin     Boolean   @default(false)
+  canDelete  Boolean   @default(false)
+  
+  // Slow mode tracking
+  lastMessageAt DateTime?
 
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -129,6 +151,7 @@ model ChatMember {
   @@unique([chatId, userId])
   @@index([userId, isPinned])
   @@index([userId, isArchived])
+  @@index([chatId, role])
 }
 
 model Message {
@@ -272,9 +295,20 @@ model Story {
   bgColor   String?
   createdAt DateTime @default(now())
   expiresAt DateTime
+  
+  // Highlights
+  isHighlight Boolean  @default(false)
+  highlightTitle String?
+  highlightCover String? // Cover image for highlight
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   views StoryView[]
+  reactions StoryReaction[]
+  replies StoryReply[]
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isHighlight])
 }
 
 model StoryView {
@@ -287,6 +321,36 @@ model StoryView {
   user  User  @relation(fields: [userId], references: [id])
 
   @@unique([storyId, userId])
+  @@index([storyId])
+  @@index([viewedAt])
+}
+
+// Story reactions (emoji)
+model StoryReaction {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  @@unique([storyId, userId])
+  @@index([storyId])
+}
+
+// Story replies (DM)
+model StoryReply {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  @@index([storyId])
+  @@index([userId])
 }
 
 model HiddenMessage {
@@ -531,4 +595,82 @@ model TypingIndicator {
   @@unique([chatId, userId])
   @@index([chatId])
   @@index([expiresAt])
+}
+
+// Sticker packs and stickers
+model StickerPack {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  creatorId   String
+  thumbnail   String? // Pack thumbnail
+  isPublic    Boolean  @default(true)
+  isAnimated  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  stickers Sticker[]
+  
+  @@index([creatorId])
+  @@index([isPublic])
+}
+
+model Sticker {
+  id          String   @id @default(uuid())
+  packId      String
+  emoji       String? // Associated emoji
+  fileUrl     String // Sticker image/animation URL
+  fileSize    Int
+  width       Int?
+  height      Int?
+  isAnimated  Boolean  @default(false)
+  order       Int     @default(0)
+  createdAt   DateTime @default(now())
+  
+  pack StickerPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  
+  @@index([packId])
+}
+
+// GIF library
+model Gif {
+  id          String   @id @default(uuid())
+  title       String?
+  url         String
+  thumbnail   String?
+  width       Int?
+  height      Int?
+  size        Int?
+  tags        String? // Comma-separated tags
+  searchCount Int      @default(0) // Track popularity
+  createdAt   DateTime @default(now())
+  
+  @@index([tags])
+  @@index([searchCount])
+}
+
+// Hashtags for search
+model Hashtag {
+  id          String   @id @default(uuid())
+  tag         String   @unique // Without # symbol
+  useCount    Int      @default(0)
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  messages MessageHashtag[]
+  
+  @@index([tag])
+  @@index([useCount])
+}
+
+model MessageHashtag {
+  id        String   @id @default(uuid())
+  messageId String
+  hashtagId String
+  createdAt DateTime @default(now())
+  
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, hashtagId])
+  @@index([hashtagId])
+  @@index([messageId])
 }
