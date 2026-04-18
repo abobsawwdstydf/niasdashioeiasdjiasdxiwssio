@@ -153,29 +153,34 @@ router.get('/check-phone', async (req, res) => {
   }
 });
 
-// Вход — телефон + пароль
+// Вход — телефон/username + пароль
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body;
 
     if (!phone || !password) {
-      res.status(400).json({ error: 'Телефон и пароль обязательны' });
+      res.status(400).json({ error: 'Логин/телефон и пароль обязательны' });
       return;
     }
 
+    // Определяем, что ввёл пользователь: телефон или username
+    const isPhone = phone.startsWith('+');
+    
     const user = await prisma.user.findFirst({
-      where: { phone },
+      where: isPhone 
+        ? { phone } 
+        : { username: phone.toLowerCase() },
       select: { ...USER_SELECT, password: true },
     });
 
     if (!user) {
-      res.status(400).json({ error: 'Неверный номер или пароль' });
+      res.status(400).json({ error: 'Неверный логин/номер или пароль' });
       return;
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      res.status(400).json({ error: 'Неверный номер или пароль' });
+      res.status(400).json({ error: 'Неверный логин/номер или пароль' });
       return;
     }
 
