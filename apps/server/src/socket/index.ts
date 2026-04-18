@@ -5,6 +5,8 @@ import { config } from '../config';
 import { SENDER_SELECT, deleteUploadedFile } from '../shared';
 // @ts-ignore - WebPush module is JavaScript
 import { sendCallNotification, sendMessageNotification, sendFriendRequestNotification } from '../lib/webPush';
+import { parseMarkdown } from '../lib/markdown';
+import { setupTypingIndicators } from '../lib/typingIndicators';
 
 interface AuthSocket extends Socket {
   userId?: string;
@@ -67,6 +69,9 @@ async function isChannelAdmin(chatId: string, userId: string): Promise<boolean> 
 export function setupSocket(io: Server) {
   // On startup, re-schedule any pending scheduled messages
   rescheduleMessages(io);
+  
+  // Setup typing indicators
+  setupTypingIndicators(io);
 
   io.use((socket: AuthSocket, next) => {
     const token = socket.handshake.auth.token;
@@ -157,6 +162,7 @@ export function setupSocket(io: Server) {
       type?: string;
       replyToId?: string;
       quote?: string;
+      quoteSelection?: string; // Selected part of quoted message
       forwardedFromId?: string;
       mediaUrl?: string;
       mediaType?: string;
@@ -168,6 +174,7 @@ export function setupSocket(io: Server) {
       media?: Array<{
         type: string;
         url: string;
+        fileId?: string;
         filename?: string;
         size?: number;
         duration?: number;
@@ -257,6 +264,9 @@ export function setupSocket(io: Server) {
           }
         }
 
+        // Parse markdown and extract mentions
+        const parsed = data.content ? parseMarkdown(data.content) : { html: '', plainText: '', mentions: [] };
+
         const message = await prisma.message.create({
           data: {
             chatId: data.chatId,
@@ -265,8 +275,18 @@ export function setupSocket(io: Server) {
             type: msgType,
             replyToId: data.replyToId || null,
             quote: data.quote || null,
+            quoteSelection: data.quoteSelection || null,
             forwardedFromId: validForwardedFromId,
             scheduledAt,
+            // Create mentions
+            mentions: parsed.mentions.length > 0 ? {
+              create: await Promise.all(
+                parsed.mentions.map(async (username) => {
+                  const user = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+                  return user ? { userId: user.id } : null;
+                })
+              ).then(results => results.filter(Boolean) as { userId: string }[])
+            } : undefined,
             // Создаём media: либо одно, либо несколько для альбома
             media: data.media && data.media.length > 1
               ? { create: data.media.map(m => {

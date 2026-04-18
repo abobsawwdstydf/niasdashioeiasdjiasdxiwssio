@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",
+    "@privacyresearch/libsignal-protocol-typescript": "^0.0.16",
     "axios": "^1.14.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

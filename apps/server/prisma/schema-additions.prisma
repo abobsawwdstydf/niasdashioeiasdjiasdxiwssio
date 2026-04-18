@@ -1,0 +1,52 @@
+// New models for Stage 1 features
+
+// User devices for multi-device sync
+model UserDevice {
+  id            String   @id @default(uuid())
+  userId        String
+  deviceId      String   @unique // Unique device identifier
+  deviceName    String // "Chrome on Windows", "iPhone 13"
+  deviceType    String // "web", "mobile", "desktop"
+  lastActive    DateTime @default(now())
+  createdAt     DateTime @default(now())
+  
+  // E2E keys for this device
+  identityKey   String
+  signedPreKey  String
+  preKeyId      Int
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([deviceId])
+}
+
+// Mentions in messages (@username)
+model Mention {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String // Mentioned user
+  createdAt DateTime @default(now())
+  
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId])
+  @@index([userId])
+}
+
+// Typing indicators
+model TypingIndicator {
+  id        String   @id @default(uuid())
+  chatId    String
+  userId    String
+  startedAt DateTime @default(now())
+  expiresAt DateTime // Auto-expire after 5 seconds
+  
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([chatId, userId])
+  @@index([chatId])
+  @@index([expiresAt])
+}

@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -25,7 +25,7 @@ model User {
   hideStoryViews   Boolean  @default(false)
   registrationIp   String?
   pushSubscription String? // Web Push subscription (JSON string)
-  pinnedChannelId  String? // Закреплённый канал
+  pinnedChannelId  String? // Р—Р°РєСЂРµРїР»С‘РЅРЅС‹Р№ РєР°РЅР°Р»
   notifyAll        Boolean  @default(true)
   notifyMessages   Boolean  @default(true)
   notifyCalls      Boolean  @default(true)
@@ -246,9 +246,6 @@ model ReadReceipt {
   user    User    @relation(fields: [userId], references: [id])
 
   @@unique([messageId, userId])
-  @@index([messageId])
-  @@index([userId])
-  @@index([readAt])
 }
 
 model PinnedMessage {
@@ -428,7 +425,7 @@ model VerificationCode {
   id        String   @id @default(uuid())
   phone     String? // Phone number being verified
   email     String? // Email being verified
-  userId    String? // For 2FA login — existing user
+  userId    String? // For 2FA login вЂ” existing user
   code      String // 6-digit verification code
   purpose   String // 'phone_register' | 'email_register' | 'login_2fa'
   method    String // 'telegram' | 'call' | 'email' | 'sms'
@@ -480,55 +477,4 @@ model LocalFileChunk {
   @@unique([localFileId, chunkIndex])
   @@index([fileId])
   @@index([localFileId])
-}
-
-// User devices for multi-device sync
-model UserDevice {
-  id            String   @id @default(uuid())
-  userId        String
-  deviceId      String   @unique // Unique device identifier
-  deviceName    String // "Chrome on Windows", "iPhone 13"
-  deviceType    String // "web", "mobile", "desktop"
-  lastActive    DateTime @default(now())
-  createdAt     DateTime @default(now())
-  
-  // E2E keys for this device
-  identityKey   String
-  signedPreKey  String
-  preKeyId      Int
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([deviceId])
-}
-
-// Mentions in messages (@username)
-model Mention {
-  id        String   @id @default(uuid())
-  messageId String
-  userId    String // Mentioned user
-  createdAt DateTime @default(now())
-  
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([messageId, userId])
-  @@index([userId])
-}
-
-// Typing indicators
-model TypingIndicator {
-  id        String   @id @default(uuid())
-  chatId    String
-  userId    String
-  startedAt DateTime @default(now())
-  expiresAt DateTime // Auto-expire after 5 seconds
-  
-  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([chatId, userId])
-  @@index([chatId])
-  @@index([expiresAt])
 }
