@@ -85,6 +85,12 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
 
       // Fix empty/wrong MIME type based on file extension
       let mimeType = file.mimetype;
+      
+      // Normalize MIME types with codecs (e.g., 'audio/ogg;codecs=opus' -> 'audio/ogg')
+      if (mimeType && mimeType.includes(';')) {
+        mimeType = mimeType.split(';')[0].trim();
+      }
+      
       if (!mimeType || mimeType === 'application/octet-stream') {
         const ext = originalName.split('.').pop()?.toLowerCase();
         const mimeMap: Record<string, string> = {
@@ -162,6 +168,15 @@ router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, r
     }
 
     // Return results with partial success info
+    if (uploadedFiles.length === 0 && failedFiles.length > 0) {
+      // All files failed to upload
+      res.status(500).json({ 
+        error: 'Не удалось загрузить файлы', 
+        failed: failedFiles 
+      });
+      return;
+    }
+
     const response: any = { files: uploadedFiles };
     if (failedFiles.length > 0) {
       response.failed = failedFiles;
