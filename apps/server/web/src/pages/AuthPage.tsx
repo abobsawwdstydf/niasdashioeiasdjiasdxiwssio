@@ -68,6 +68,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<'username' | 'phone'>('username');
 
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -118,13 +119,24 @@ export default function AuthPage() {
 
   const handleLogin = async () => {
     setError('');
-    if (!phone.trim()) { setError('Введите логин или номер телефона'); return; }
-    if (password.length < 6) { setError('Пароль минимум 6 символов'); return; }
-    setIsSubmitting(true);
-    try {
-      await login(phone, password);
-    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Ошибка'); }
-    finally { setIsSubmitting(false); }
+    
+    if (loginMethod === 'username') {
+      if (!username.trim()) { setError('Введите username'); return; }
+      if (password.length < 6) { setError('Пароль минимум 6 символов'); return; }
+      setIsSubmitting(true);
+      try {
+        await login(username, password);
+      } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Ошибка'); }
+      finally { setIsSubmitting(false); }
+    } else {
+      if (!/^\+\d{7,15}$/.test(phone)) { setError('Введите корректный номер телефона'); return; }
+      if (password.length < 6) { setError('Пароль минимум 6 символов'); return; }
+      setIsSubmitting(true);
+      try {
+        await login(phone, password);
+      } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Ошибка'); }
+      finally { setIsSubmitting(false); }
+    }
   };
 
   const handleRegister = async () => {
@@ -207,20 +219,52 @@ export default function AuthPage() {
           {/* ═══ ВХОД ═══ */}
           {isLogin && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5 flex items-center gap-2">
-                  <AtSignSvg /> Логин или телефон
-                </label>
-                <input 
-                  type="text" 
-                  value={phone} 
-                  onChange={(e) => setPhone(e.target.value)} 
-                  placeholder="username или +79991234567" 
-                  autoFocus
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-600 focus:border-nexo-500/50 focus:ring-1 focus:ring-nexo-500/25 transition-all" 
-                />
-                <p className="text-xs text-zinc-500 mt-1.5">Введите username или номер телефона</p>
+              {/* Переключатель метода входа */}
+              <div className="flex rounded-xl bg-white/5 p-1 mb-2">
+                <button onClick={() => setLoginMethod('username')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all ${
+                    loginMethod === 'username' ? 'bg-nexo-500/20 text-nexo-400' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}>
+                  По username
+                </button>
+                <button onClick={() => setLoginMethod('phone')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all ${
+                    loginMethod === 'phone' ? 'bg-nexo-500/20 text-nexo-400' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}>
+                  По телефону
+                </button>
               </div>
+
+              {loginMethod === 'username' ? (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5 flex items-center gap-2">
+                    <AtSignSvg /> Username
+                  </label>
+                  <input 
+                    type="text" 
+                    value={username} 
+                    onChange={(e) => setUsername(e.target.value)} 
+                    placeholder="Введите username" 
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-600 focus:border-nexo-500/50 focus:ring-1 focus:ring-nexo-500/25 transition-all" 
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5 flex items-center gap-2">
+                    <PhoneSvg /> Телефон
+                  </label>
+                  <input 
+                    type="tel" 
+                    value={phone} 
+                    onChange={formatPhoneInput} 
+                    placeholder="+79991234567" 
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-600 focus:border-nexo-500/50 focus:ring-1 focus:ring-nexo-500/25 transition-all" 
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-1.5 flex items-center gap-2"><LockSvg /> Пароль</label>
                 <div className="relative">
