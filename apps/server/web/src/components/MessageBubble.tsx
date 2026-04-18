@@ -25,6 +25,7 @@ import {
   MapPin,
   BarChart3,
   MessageSquare,
+  Forward,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -41,6 +42,7 @@ import Avatar from './Avatar';
 import YouTubePreview from './YouTubePreview';
 import LinkEmbedPreview from './LinkEmbedPreview';
 import CodeBlock from './CodeBlock';
+import ForwardModal from './ForwardModal';
 
 interface MessageBubbleProps {
   message: Message;
@@ -76,6 +78,7 @@ function MessageBubble({
   const [showContext, setShowContext] = useState(false);
   const [contextPos, setContextPos] = useState({ x: 0, y: 0 });
   const [deleteMenuMode, setDeleteMenuMode] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showVideoPlayer, setShowVideoPlayer] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -152,6 +155,11 @@ function MessageBubble({
     if (message.content) {
       navigator.clipboard.writeText(message.content);
     }
+    setShowContext(false);
+  };
+
+  const handleForward = () => {
+    setShowForwardModal(true);
     setShowContext(false);
   };
 
@@ -1256,6 +1264,14 @@ function MessageBubble({
               </button>
 
               <button
+                onClick={handleForward}
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+              >
+                <Forward size={16} />
+                Переслать
+              </button>
+
+              <button
                 onClick={() => {
                   setShowContext(false);
                   onStartSelectionMode?.(message.id);
@@ -1316,6 +1332,14 @@ function MessageBubble({
           <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
         )}
       </AnimatePresence>
+
+      {/* Forward Modal */}
+      {showForwardModal && (
+        <ForwardModal
+          messages={[message]}
+          onClose={() => setShowForwardModal(false)}
+        />
+      )}
     </>
   );
 }

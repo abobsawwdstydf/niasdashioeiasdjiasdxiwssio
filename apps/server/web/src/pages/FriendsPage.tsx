@@ -137,30 +137,50 @@ export default function FriendsPage({ onClose }: { onClose?: () => void }) {
       {/* Tabs */}
       <div className="px-4 py-2 flex-shrink-0">
         <div className="flex gap-1 p-1 rounded-2xl glass-subtle">
-          {[
-            { key: 'list' as FriendsTab, label: 'Друзья', count: friends.length },
-            { key: 'requests' as FriendsTab, label: 'Запросы', count: incomingRequests.length + outgoingRequests.length },
-            { key: 'search' as FriendsTab, label: 'Поиск' },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                activeTab === tab.key
-                  ? 'glass-tab-active text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {tab.label}
-              {tab.count !== undefined && tab.count > 0 && (
-                <span className={`min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
-                  activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-zinc-700 text-zinc-400'
-                }`}>
-                  {tab.count > 99 ? '99+' : tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+          <button
+            onClick={() => setActiveTab('list')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              activeTab === 'list'
+                ? 'glass-tab-active text-white'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            Друзья
+            {friends.length > 0 && (
+              <span className={`min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                activeTab === 'list' ? 'bg-white/20 text-white' : 'bg-zinc-700 text-zinc-400'
+              }`}>
+                {friends.length > 99 ? '99+' : friends.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              activeTab === 'requests'
+                ? 'glass-tab-active text-white'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            Запросы
+            {(incomingRequests.length + outgoingRequests.length) > 0 && (
+              <span className={`min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                activeTab === 'requests' ? 'bg-white/20 text-white' : 'bg-nexo-500 text-white'
+              }`}>
+                {(incomingRequests.length + outgoingRequests.length) > 99 ? '99+' : (incomingRequests.length + outgoingRequests.length)}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('search')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              activeTab === 'search'
+                ? 'glass-tab-active text-white'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            Поиск
+          </button>
         </div>
       </div>
 
@@ -198,7 +218,14 @@ export default function FriendsPage({ onClose }: { onClose?: () => void }) {
                       className="flex items-center gap-3 p-3 rounded-2xl glass-subtle group"
                     >
                       <div className="relative">
-                        <Avatar src={friend.avatar} name={friend.displayName || friend.username} size="md" />
+                        <Avatar 
+                          src={friend.avatar} 
+                          name={friend.displayName || friend.username} 
+                          size="md"
+                          isVerified={friend.isVerified}
+                          verifiedBadgeUrl={friend.verifiedBadgeUrl}
+                          verifiedBadgeType={friend.verifiedBadgeType}
+                        />
                         {friend.isOnline && (
                           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-[#0a0a0f]" />
                         )}
@@ -241,7 +268,14 @@ export default function FriendsPage({ onClose }: { onClose?: () => void }) {
                   <div className="space-y-1">
                     {incomingRequests.map(req => (
                       <div key={req.id} className="flex items-center gap-3 p-3 rounded-2xl glass-subtle">
-                        <Avatar src={req.sender?.avatar} name={req.sender?.displayName || req.sender?.username} size="md" />
+                        <Avatar 
+                          src={req.sender?.avatar} 
+                          name={req.sender?.displayName || req.sender?.username} 
+                          size="md"
+                          isVerified={req.sender?.isVerified}
+                          verifiedBadgeUrl={req.sender?.verifiedBadgeUrl}
+                          verifiedBadgeType={req.sender?.verifiedBadgeType}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">{req.sender?.displayName || req.sender?.username}</p>
                           <p className="text-xs text-zinc-500">@{req.sender?.username}</p>
@@ -340,7 +374,14 @@ export default function FriendsPage({ onClose }: { onClose?: () => void }) {
                 <div className="space-y-1">
                   {searchResults.map(u => (
                     <div key={u.id} className="flex items-center gap-3 p-3 rounded-2xl glass-subtle">
-                      <Avatar src={u.avatar} name={u.displayName || u.username} size="md" />
+                      <Avatar 
+                        src={u.avatar} 
+                        name={u.displayName || u.username} 
+                        size="md"
+                        isVerified={u.isVerified}
+                        verifiedBadgeUrl={u.verifiedBadgeUrl}
+                        verifiedBadgeType={u.verifiedBadgeType}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{u.displayName || u.username}</p>
                         <p className="text-xs text-zinc-500">@{u.username}</p>

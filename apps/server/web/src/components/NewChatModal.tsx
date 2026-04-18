@@ -239,7 +239,14 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                       className="w-full flex items-center gap-3 p-3 rounded-2xl glass-subtle hover:glass transition-all text-left group"
                     >
                       <div className="relative">
-                        <Avatar src={user.avatar} name={user.displayName || user.username} size="md" />
+                        <Avatar 
+                          src={user.avatar} 
+                          name={user.displayName || user.username} 
+                          size="md"
+                          isVerified={user.isVerified}
+                          verifiedBadgeUrl={user.verifiedBadgeUrl}
+                          verifiedBadgeType={user.verifiedBadgeType}
+                        />
                         {user.isOnline && (
                           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-surface-secondary" />
                         )}
@@ -361,7 +368,14 @@ export default function NewChatModal({ onClose }: NewChatModalProps) {
                         }`}
                       >
                         <div className="relative">
-                          <Avatar src={user.avatar} name={user.displayName || user.username} size="sm" />
+                          <Avatar 
+                            src={user.avatar} 
+                            name={user.displayName || user.username} 
+                            size="sm"
+                            isVerified={user.isVerified}
+                            verifiedBadgeUrl={user.verifiedBadgeUrl}
+                            verifiedBadgeType={user.verifiedBadgeType}
+                          />
                           {user.isOnline && (
                             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-surface-secondary" />
                           )}

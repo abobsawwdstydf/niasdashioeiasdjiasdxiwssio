@@ -63,6 +63,7 @@ model User {
   calleeCalls         CallLog[]        @relation("CalleeCalls")
   pinnedChannel       Chat?            @relation("PinnedChannels", fields: [pinnedChannelId], references: [id])
   uploadedFiles       TelegramFile[]
+  uploadedLocalFiles  LocalFile[]
   verifiedEntities    VerifiedEntity[] @relation("VerifiedBy")
   bansIssued          UserBan[]        @relation("BansIssued")
 }
@@ -165,9 +166,11 @@ model Media {
   width          Int?
   height         Int?
   telegramFileId String? // Reference to TelegramFile if stored in Telegram
+  localFileId    String? // Reference to LocalFile if stored locally
 
   message      Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
   telegramFile TelegramFile? @relation(fields: [telegramFileId], references: [id])
+  localFile    LocalFile?    @relation(fields: [localFileId], references: [id])
 }
 
 model Reaction {
@@ -398,4 +401,42 @@ model VerificationCode {
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
+}
+
+// Local file storage metadata
+model LocalFile {
+  id              String   @id @default(uuid())
+  fileId          String   @unique // Unique file identifier (local_*)
+  userId          String // Owner user ID
+  originalName    String // Original filename
+  mimeType        String // File MIME type
+  totalSize       Int // Total file size in bytes
+  storagePath     String // Path to file or first chunk
+  encryptionLevel Int      @default(0) // 0=none, 1=basic, 2=standard, 3=max
+  createdAt       DateTime @default(now())
+  lastAccessed    DateTime @default(now())
+  accessCount     Int      @default(0)
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks LocalFileChunk[]
+  media  Media[]
+
+  @@index([userId])
+  @@index([fileId])
+}
+
+model LocalFileChunk {
+  id          String   @id @default(uuid())
+  fileId      String // Reference to LocalFile.fileId
+  localFileId String // Foreign key to LocalFile
+  chunkIndex  Int // Chunk order (0-based)
+  path        String // File system path to chunk
+  size        Int // Chunk size in bytes
+  createdAt   DateTime @default(now())
+
+  localFile LocalFile @relation(fields: [localFileId], references: [id], onDelete: Cascade)
+
+  @@unique([localFileId, chunkIndex])
+  @@index([fileId])
+  @@index([localFileId])
 }

@@ -48,6 +48,22 @@ async function isChatMember(chatId: string, userId: string): Promise<boolean> {
   return !!member;
 }
 
+async function isChannelAdmin(chatId: string, userId: string): Promise<boolean> {
+  const chat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: { type: true },
+  });
+  
+  if (chat?.type !== 'channel') return false;
+  
+  const member = await prisma.chatMember.findUnique({
+    where: { chatId_userId: { chatId, userId } },
+    select: { role: true },
+  });
+  
+  return member?.role === 'admin';
+}
+
 export function setupSocket(io: Server) {
   // On startup, re-schedule any pending scheduled messages
   rescheduleMessages(io);
@@ -512,8 +528,19 @@ export function setupSocket(io: Server) {
         if (!checkRateLimit(userId)) return;
         if (!data.messageId || !data.content || data.content.length > 10000) return;
 
-        const message = await prisma.message.findUnique({ where: { id: data.messageId } });
-        if (!message || message.senderId !== userId) return;
+        const message = await prisma.message.findUnique({ 
+          where: { id: data.messageId },
+          include: { chat: { select: { type: true } } }
+        });
+        if (!message) return;
+
+        // Check permissions: only sender can edit, unless it's a channel (then only admins)
+        if (message.chat.type === 'channel') {
+          const isAdmin = await isChannelAdmin(message.chatId, userId);
+          if (!isAdmin) return;
+        } else {
+          if (message.senderId !== userId) return;
+        }
 
         const updated = await prisma.message.update({
           where: { id: data.messageId },
@@ -543,12 +570,23 @@ export function setupSocket(io: Server) {
 
         const message = await prisma.message.findUnique({
           where: { id: data.messageId },
-          include: { media: true },
+          include: { 
+            media: true,
+            chat: { select: { type: true } }
+          },
         });
         if (!message) return;
 
         // Проверяем членство в чате
         if (!(await isChatMember(message.chatId, userId))) return;
+
+        // Check permissions: only sender can delete, unless it's a channel (then only admins)
+        if (message.chat.type === 'channel') {
+          const isAdmin = await isChannelAdmin(message.chatId, userId);
+          if (!isAdmin) return;
+        } else {
+          if (message.senderId !== userId) return;
+        }
 
         // Delete media files from disk
         if (message.media && message.media.length > 0) {
@@ -583,8 +621,15 @@ export function setupSocket(io: Server) {
         // Проверяем членство в чате
         if (!(await isChatMember(data.chatId, userId))) return;
 
+        // Get chat type
+        const chat = await prisma.chat.findUnique({
+          where: { id: data.chatId },
+          select: { type: true },
+        });
+        if (!chat) return;
+
         if (data.deleteForAll) {
-          // Удалить у всех — любой участник чата может удалить любое сообщение
+          // Удалить у всех — проверяем права
           const messages = await prisma.message.findMany({
             where: {
               id: { in: data.messageIds },
@@ -597,6 +642,15 @@ export function setupSocket(io: Server) {
           const deletedIds: string[] = [];
 
           for (const message of messages) {
+            // For channels, only admins can delete any message
+            if (chat.type === 'channel') {
+              const isAdmin = await isChannelAdmin(data.chatId, userId);
+              if (!isAdmin) continue; // Skip this message
+            } else {
+              // For personal/group chats, only sender can delete their own messages
+              if (message.senderId !== userId) continue; // Skip this message
+            }
+
             // Удаляем медиа-файлы с диска
             if (message.media && message.media.length > 0) {
               for (const m of message.media) {

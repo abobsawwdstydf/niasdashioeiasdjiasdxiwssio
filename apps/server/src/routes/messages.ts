@@ -3,7 +3,7 @@ import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import { SENDER_SELECT, MESSAGE_INCLUDE, uploadFile } from '../shared';
-import { telegramStorage } from '../lib/telegramStorage';
+import { localStorage } from '../lib/localStorage';
 
 const router = Router();
 
@@ -43,10 +43,14 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
       take,
     });
 
-    // Convert tg:// URLs to downloadable API URLs for all media
+    // Convert local:// and tg:// URLs to downloadable API URLs for all media
     const transformMedia = (media: any[]) => media.map(m => ({
       ...m,
-      url: m.url?.startsWith('tg://') ? `/api/files/${m.url.replace('tg://', '')}/download` : m.url,
+      url: m.url?.startsWith('local://') 
+        ? `/api/files/${m.url.replace('local://', '')}/download`
+        : m.url?.startsWith('tg://') 
+        ? `/api/files/${m.url.replace('tg://', '')}/download` 
+        : m.url,
     }));
 
     const transformedMessages = messages.map(msg => ({
@@ -61,7 +65,7 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   }
 });
 
-// Загрузка файлов - ОТПРАВКА В TELEGRAM (не локально!)
+// Загрузка файлов - ЛОКАЛЬНОЕ ХРАНИЛИЩЕ
 // Limit increased to 1200 files to match client UI
 router.post('/upload', uploadFile.array('files', 1200), async (req: AuthRequest, res) => {
   try {
@@ -100,54 +104,53 @@ router.post('/upload', uploadFile.array('files', 1200), async (req: AuthRequest,
 
       let storedFile;
       try {
-        // Отправляем файл в Telegram каналы
-        storedFile = await telegramStorage.uploadFile(
+        // Сохраняем файл локально
+        storedFile = await localStorage.uploadFile(
           file.buffer,
           originalName,
           mimeType,
           req.userId!
         );
-        console.log(`[UPLOAD] Telegram OK: ${storedFile.fileId} (${mimeType})`);
-      } catch (telegramError: any) {
-        console.error(`[UPLOAD] Telegram error for ${originalName}: ${telegramError.message}`);
-        failedFiles.push({ name: originalName, error: telegramError.message });
+        console.log(`[UPLOAD] Local storage OK: ${storedFile.fileId} (${mimeType})`);
+      } catch (storageError: any) {
+        console.error(`[UPLOAD] Storage error for ${originalName}: ${storageError.message}`);
+        failedFiles.push({ name: originalName, error: storageError.message });
         continue; // Continue with next file instead of failing all
       }
 
       // Сохраняем метаданные в БД
       try {
-        const telegramFile = await prisma.telegramFile.create({
+        const localFile = await prisma.localFile.create({
           data: {
             fileId: storedFile.fileId,
             userId: req.userId!,
             originalName: storedFile.originalName,
             mimeType: storedFile.mimeType,
             totalSize: storedFile.totalSize,
+            storagePath: storedFile.storagePath,
             encryptionLevel: storedFile.encryptionLevel,
             chunks: {
               create: storedFile.chunks.map(chunk => ({
                 fileId: storedFile.fileId,
                 chunkIndex: chunk.chunkIndex,
-                channelId: chunk.channelId,
-                messageId: chunk.messageId,
-                botId: chunk.botId,
                 size: chunk.size,
+                path: chunk.path,
               }))
             }
           },
           include: { chunks: true }
         });
-        console.log(`[UPLOAD] БД OK: ${telegramFile.fileId}`);
+        console.log(`[UPLOAD] DB OK: ${localFile.fileId}`);
         uploadedFiles.push({
-          fileId: telegramFile.fileId,
-          filename: telegramFile.originalName,
-          size: telegramFile.totalSize,
-          mimetype: telegramFile.mimeType,
-          url: `/api/files/${telegramFile.fileId}/download`,
+          fileId: localFile.fileId,
+          filename: localFile.originalName,
+          size: localFile.totalSize,
+          mimetype: localFile.mimeType,
+          url: `/api/files/${localFile.fileId}/download`,
         });
       } catch (dbError: any) {
-        console.error(`[UPLOAD] БД error: ${dbError.message}`);
-        // Файл в Telegram есть, но не в БД — возвращаем fileId напрямую
+        console.error(`[UPLOAD] DB error: ${dbError.message}`);
+        // Файл сохранён локально, но не в БД — возвращаем fileId напрямую
         uploadedFiles.push({
           fileId: storedFile.fileId,
           filename: storedFile.originalName,

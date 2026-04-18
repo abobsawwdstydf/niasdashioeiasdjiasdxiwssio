@@ -14,16 +14,23 @@ router.get('/search', async (req: AuthRequest, res) => {
       return;
     }
 
+    const searchQuery = q.trim().toLowerCase();
+
     const users = await prisma.user.findMany({
       where: {
         OR: [
-          { username: { contains: q } },
-          { displayName: { contains: q } },
+          { username: { contains: searchQuery, mode: 'insensitive' } },
+          { displayName: { contains: searchQuery, mode: 'insensitive' } },
         ],
         NOT: { id: req.userId },
+        isBanned: false, // Exclude banned users from search
       },
       select: USER_SELECT,
       take: 20,
+      orderBy: [
+        { isVerified: 'desc' }, // Verified users first
+        { username: 'asc' },
+      ],
     });
 
     res.json(users);
@@ -42,12 +49,14 @@ router.get('/channels/search', async (req: AuthRequest, res) => {
       return;
     }
 
+    const searchQuery = q.trim().toLowerCase();
+
     const channels = await prisma.chat.findMany({
       where: {
         type: 'channel',
         OR: [
-          { username: { contains: q } },
-          { name: { contains: q } },
+          { username: { contains: searchQuery, mode: 'insensitive' } },
+          { name: { contains: searchQuery, mode: 'insensitive' } },
         ],
       },
       include: {
@@ -56,11 +65,53 @@ router.get('/channels/search', async (req: AuthRequest, res) => {
         },
       },
       take: 20,
+      orderBy: [
+        { isVerified: 'desc' }, // Verified channels first
+        { name: 'asc' },
+      ],
     });
 
     res.json(channels);
   } catch (error) {
     console.error('Search channels error:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Поиск групп
+router.get('/groups/search', async (req: AuthRequest, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || q.trim().length < 3) {
+      res.json([]);
+      return;
+    }
+
+    const searchQuery = q.trim().toLowerCase();
+
+    const groups = await prisma.chat.findMany({
+      where: {
+        type: 'group',
+        OR: [
+          { username: { contains: searchQuery, mode: 'insensitive' } },
+          { name: { contains: searchQuery, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        members: {
+          include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } },
+        },
+      },
+      take: 20,
+      orderBy: [
+        { isVerified: 'desc' }, // Verified groups first
+        { name: 'asc' },
+      ],
+    });
+
+    res.json(groups);
+  } catch (error) {
+    console.error('Search groups error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

@@ -702,9 +702,20 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
                           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Тип звонка</p>
                         </div>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (chat.type === 'personal' && otherMember) {
-                              onStartCall?.(otherMember.user, 'video');
+                              // Check friendship status before allowing call
+                              try {
+                                const friendStatus = await api.getFriendshipStatus(otherMember.user.id);
+                                if (friendStatus.status !== 'accepted') {
+                                  alert('Вы можете звонить только друзьям. Сначала добавьте пользователя в друзья.');
+                                  return;
+                                }
+                                onStartCall?.(otherMember.user, 'video');
+                              } catch (e) {
+                                console.error('Failed to check friendship status:', e);
+                                alert('Не удалось проверить статус дружбы');
+                              }
                             } else if (chat.type === 'group') {
                               onStartGroupCall?.(chat.id, chat.name || 'Group', 'video');
                             }
@@ -720,9 +731,20 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
                           </div>
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (chat.type === 'personal' && otherMember) {
-                              onStartCall?.(otherMember.user, 'voice');
+                              // Check friendship status before allowing call
+                              try {
+                                const friendStatus = await api.getFriendshipStatus(otherMember.user.id);
+                                if (friendStatus.status !== 'accepted') {
+                                  alert('Вы можете звонить только друзьям. Сначала добавьте пользователя в друзья.');
+                                  return;
+                                }
+                                onStartCall?.(otherMember.user, 'voice');
+                              } catch (e) {
+                                console.error('Failed to check friendship status:', e);
+                                alert('Не удалось проверить статус дружбы');
+                              }
                             } else if (chat.type === 'group') {
                               onStartGroupCall?.(chat.id, chat.name || 'Group', 'voice');
                             }

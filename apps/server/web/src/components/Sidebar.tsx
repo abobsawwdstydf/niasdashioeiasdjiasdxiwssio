@@ -636,7 +636,10 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
         {showNewChat && <NewChatModal onClose={() => setShowNewChat(false)} />}
       </AnimatePresence>
       <AnimatePresence>
-        {showProfile && <UserProfile userId={user!.id} onClose={() => setShowProfile(false)} isSelf />}
+        {showProfile && <UserProfile userId={user!.id} onClose={() => {
+          setShowProfile(false);
+          setActiveTab('chats');
+        }} isSelf />}
       </AnimatePresence>
       <SideMenu
         isOpen={showSideMenu}
