@@ -10,8 +10,15 @@ export function normalizeMediaUrl(url: string | null | undefined): string {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
+  
+  // Преобразуем старые пути /uploads/files/ в новые /api/files/
+  let path = url.startsWith('/') ? url : `/${url}`;
+  if (path.startsWith('/uploads/files/')) {
+    const fileId = path.replace('/uploads/files/', '');
+    path = `/api/files/${fileId}/download`;
+  }
+  
   // Относительный путь — добавляем API_URL или оставляем как есть (same origin)
   const base = API_URL ? API_URL.replace(/\/$/, '') : '';
-  const path = url.startsWith('/') ? url : `/${url}`;
   return `${base}${path}`;
 }
