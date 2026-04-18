@@ -42,6 +42,11 @@ model User {
   verifiedBadgeType String? // 'default' | 'image' | 'video' | 'gif' | 'url'
   verifiedAt        DateTime?
 
+  // User tag (admin-assigned)
+  tagText  String? // Tag label e.g. "Staff", "VIP", "Developer"
+  tagColor String? // Hex color e.g. "#ff6b6b" or preset name
+  tagStyle String? // 'solid' | 'outline' | 'gradient' | 'glow'
+
   // Ban system
   isBanned     Boolean   @default(false)
   banReason    String?

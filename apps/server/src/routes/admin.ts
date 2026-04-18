@@ -223,7 +223,7 @@ router.get('/status/redis', authenticateAdmin, async (req, res) => {
 router.get('/users', authenticateAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, displayName: true, isOnline: true, isVerified: true, isBanned: true, createdAt: true, avatar: true },
+      select: { id: true, username: true, displayName: true, isOnline: true, isVerified: true, isBanned: true, createdAt: true, avatar: true, tagText: true, tagColor: true, tagStyle: true },
       orderBy: { createdAt: 'desc' },
       take: 200
     });
@@ -370,6 +370,54 @@ router.delete('/ban/:id', authenticateAdmin, async (req, res) => {
     await prisma.userBan.updateMany({ where: { userId: req.params.id, isActive: true }, data: { isActive: false, liftedAt: new Date(), liftedBy: 'admin' } });
     res.json({ success: true });
   } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
+});
+
+// ─── User Tags ────────────────────────────────────────────────────────
+
+// Set user tag
+router.post('/tag', authenticateAdmin, async (req, res) => {
+  try {
+    const { userId, tagText, tagColor, tagStyle } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId обязателен' });
+    
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        tagText: tagText || null,
+        tagColor: tagColor || null,
+        tagStyle: tagStyle || null,
+      }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка установки тега' });
+  }
+});
+
+// Remove user tag
+router.delete('/tag/:userId', authenticateAdmin, async (req, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.params.userId },
+      data: { tagText: null, tagColor: null, tagStyle: null }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка удаления тега' });
+  }
+});
+
+// Get all users with tags
+router.get('/tags', authenticateAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { tagText: { not: null } },
+      select: { id: true, username: true, displayName: true, avatar: true, tagText: true, tagColor: true, tagStyle: true }
+    });
+    res.json(users);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Ошибка' });
+  }
 });
 
 // Storage config

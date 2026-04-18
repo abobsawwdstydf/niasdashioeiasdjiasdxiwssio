@@ -29,18 +29,22 @@ const onlineDotSize = {
   xl: 'w-4 h-4 border-2',
 } as const;
 
+// Badge container size (slightly larger for glow effect)
 const verifiedBadgeSize = {
-  xs: 'w-3 h-3 -bottom-0.5 -right-0.5',
-  sm: 'w-3.5 h-3.5 -bottom-0.5 -right-0.5',
-  md: 'w-4 h-4 -bottom-0.5 -right-0.5',
-  lg: 'w-5 h-5 -bottom-0.5 -right-0.5',
-  xl: 'w-6 h-6 -bottom-0.5 -right-0.5',
+  xs: { cls: 'w-3.5 h-3.5', bottom: '-1px', right: '-1px', checkSize: 8 },
+  sm: { cls: 'w-4 h-4', bottom: '-1px', right: '-1px', checkSize: 10 },
+  md: { cls: 'w-5 h-5', bottom: '-1px', right: '-1px', checkSize: 12 },
+  lg: { cls: 'w-6 h-6', bottom: '-2px', right: '-2px', checkSize: 14 },
+  xl: { cls: 'w-8 h-8', bottom: '-2px', right: '-2px', checkSize: 18 },
 } as const;
 
 function AvatarInner({ src, name, size = 'md', className = '', online, isVerified, verifiedBadgeUrl, verifiedBadgeType }: AvatarProps) {
   const sizeClass = sizeClasses[size];
   const initials = getInitials(name || '?');
   const gradientClass = generateAvatarColor(name || '');
+  const badge = verifiedBadgeSize[size];
+
+  const hasCustomBadge = isVerified && verifiedBadgeUrl && verifiedBadgeType !== 'default';
 
   return (
     <div className={`relative shrink-0 ${className}`}>
@@ -59,23 +63,54 @@ function AvatarInner({ src, name, size = 'md', className = '', online, isVerifie
             {initials}
           </div>
         )}
+
         {/* Verified Badge */}
         {isVerified && (
-          <div className={`absolute ${verifiedBadgeSize[size]} rounded-full bg-blue-500 flex items-center justify-center shadow-lg`} style={{ zIndex: 10 }}>
-            {verifiedBadgeUrl && verifiedBadgeType !== 'default' ? (
-              <img src={verifiedBadgeUrl} alt="verified" className="w-full h-full rounded-full object-cover" />
+          <div
+            className={`absolute ${badge.cls} rounded-full flex items-center justify-center overflow-hidden`}
+            style={{
+              bottom: badge.bottom,
+              right: badge.right,
+              zIndex: 10,
+              // Glow ring for default checkmark
+              boxShadow: hasCustomBadge
+                ? '0 0 0 1.5px rgba(0,0,0,0.6)'
+                : '0 0 0 1.5px rgba(0,0,0,0.6), 0 0 6px rgba(59,130,246,0.7)',
+              background: hasCustomBadge ? 'transparent' : undefined,
+            }}
+          >
+            {hasCustomBadge ? (
+              <img
+                src={verifiedBadgeUrl}
+                alt="verified"
+                className="w-full h-full rounded-full object-cover"
+                style={{ boxShadow: '0 0 0 1.5px rgba(0,0,0,0.6)' }}
+              />
             ) : (
-              <Check size={size === 'xs' ? 8 : size === 'sm' ? 10 : size === 'md' ? 12 : size === 'lg' ? 14 : 16} className="text-white" strokeWidth={3} />
+              <div
+                className="w-full h-full rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                }}
+              >
+                <Check
+                  size={badge.checkSize}
+                  className="text-white"
+                  strokeWidth={3.5}
+                />
+              </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Online dot */}
       {online !== undefined && (
         <div
-          className={`absolute bottom-0 right-0 ${onlineDotSize[size]} rounded-full border-surface ${
-            online ? 'bg-emerald-500' : 'bg-zinc-500'
+          className={`absolute bottom-0 right-0 ${onlineDotSize[size]} rounded-full border-[2px] border-[#0a0a0f] ${
+            online ? 'bg-emerald-500' : 'bg-zinc-600'
           }`}
-          style={isVerified ? { zIndex: 11 } : {}}
+          style={{ zIndex: isVerified ? 11 : 5 }}
         />
       )}
     </div>

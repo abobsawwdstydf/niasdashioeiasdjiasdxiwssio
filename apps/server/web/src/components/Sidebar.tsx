@@ -10,6 +10,7 @@ import {
   Sparkles,
   Settings,
   User,
+  Check,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -17,6 +18,7 @@ import { useLang } from '../lib/i18n';
 import { api } from '../lib/api';
 import { normalizeMediaUrl } from '../lib/mediaUrl';
 import Avatar from './Avatar';
+import UserTag from './UserTag';
 import { StoryGroup, Chat } from '../lib/types';
 import ChatListItem from './ChatListItem';
 import NewChatModal from './NewChatModal';
@@ -450,15 +452,35 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                                 whileTap={{ scale: 0.99 }}
                                 className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-white/5 transition-colors"
                               >
-                                {u.avatar ? (
-                                  <img src={u.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                                    {(u.displayName || u.username || '?')[0].toUpperCase()}
-                                  </div>
-                                )}
+                                <Avatar
+                                  src={u.avatar}
+                                  name={u.displayName || u.username}
+                                  size="md"
+                                  isVerified={u.isVerified}
+                                  verifiedBadgeUrl={u.verifiedBadgeUrl}
+                                  verifiedBadgeType={u.verifiedBadgeType}
+                                />
                                 <div className="flex-1 text-left min-w-0">
-                                  <p className="text-sm font-medium text-white truncate">{u.displayName || u.username}</p>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">{u.displayName || u.username}</p>
+                                    {u.isVerified && (
+                                      <span className="flex-shrink-0 inline-flex items-center justify-center">
+                                        {u.verifiedBadgeUrl && u.verifiedBadgeType !== 'default' ? (
+                                          <img src={u.verifiedBadgeUrl} alt="verified" className="w-3.5 h-3.5 rounded-full object-cover" />
+                                        ) : (
+                                          <span
+                                            className="w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                                            style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', boxShadow: '0 0 4px rgba(99,102,241,0.5)' }}
+                                          >
+                                            <Check size={8} className="text-white" strokeWidth={3.5} />
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
+                                    {u.tagText && (
+                                      <UserTag text={u.tagText} color={u.tagColor} style={u.tagStyle} size="xs" />
+                                    )}
+                                  </div>
                                   <p className="text-xs text-zinc-500">@{u.username}</p>
                                 </div>
                                 <MessageSquare size={14} className="text-zinc-600" />
@@ -482,15 +504,32 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                                 whileTap={{ scale: 0.99 }}
                                 className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-white/5 transition-colors"
                               >
-                                {channel.avatar ? (
-                                  <img src={channel.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm font-bold">
-                                    {(channel.name || channel.username || '?')[0].toUpperCase()}
-                                  </div>
-                                )}
+                                <Avatar
+                                  src={channel.avatar}
+                                  name={channel.name || channel.username || '?'}
+                                  size="md"
+                                  isVerified={channel.isVerified}
+                                  verifiedBadgeUrl={channel.verifiedBadgeUrl}
+                                  verifiedBadgeType={channel.verifiedBadgeType}
+                                />
                                 <div className="flex-1 text-left min-w-0">
-                                  <p className="text-sm font-medium text-white truncate">{channel.name}</p>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">{channel.name}</p>
+                                    {channel.isVerified && (
+                                      <span className="flex-shrink-0 inline-flex items-center justify-center">
+                                        {channel.verifiedBadgeUrl && channel.verifiedBadgeType !== 'default' ? (
+                                          <img src={channel.verifiedBadgeUrl} alt="verified" className="w-3.5 h-3.5 rounded-full object-cover" />
+                                        ) : (
+                                          <span
+                                            className="w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                                            style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', boxShadow: '0 0 4px rgba(99,102,241,0.5)' }}
+                                          >
+                                            <Check size={8} className="text-white" strokeWidth={3.5} />
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-zinc-500">@{channel.username}</p>
                                 </div>
                                 <MessageSquare size={14} className="text-zinc-600" />

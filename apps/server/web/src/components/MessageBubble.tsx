@@ -103,6 +103,23 @@ function MessageBubble({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Helper for user tag styles
+  const getTagStyle = (color?: string | null, style?: string | null): React.CSSProperties => {
+    const c = color || '#6366f1';
+    const s = style || 'solid';
+    const hexToRgb = (hex: string) => {
+      const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return r ? `${parseInt(r[1], 16)}, ${parseInt(r[2], 16)}, ${parseInt(r[3], 16)}` : '99, 102, 241';
+    };
+    const rgb = hexToRgb(c);
+    switch (s) {
+      case 'outline': return { background: 'transparent', border: `1px solid ${c}`, color: c };
+      case 'gradient': return { background: `linear-gradient(135deg, ${c}, ${c}aa)`, color: '#fff', border: 'none' };
+      case 'glow': return { background: `rgba(${rgb}, 0.2)`, border: `1px solid rgba(${rgb}, 0.5)`, color: c, boxShadow: `0 0 6px rgba(${rgb}, 0.4)` };
+      default: return { background: c, color: '#fff', border: 'none' };
+    }
+  };
+
   // Check if content is too long and needs collapsing
   useEffect(() => {
     if (contentRef.current) {
@@ -572,12 +589,44 @@ function MessageBubble({
         <div className={`max-w-[65%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
           {/* Name (only for others, only on first message with avatar) */}
           {!isMine && showAvatar && (
-            <button
-              className="text-xs font-medium text-nexo-400 ml-3 mb-0.5 hover:underline"
-              onClick={() => onViewProfile?.(message.senderId)}
-            >
-              {senderName}
-            </button>
+            <div className="flex items-center gap-1.5 ml-3 mb-0.5">
+              <button
+                className="text-xs font-medium text-nexo-400 hover:underline flex items-center gap-1"
+                onClick={() => onViewProfile?.(message.senderId)}
+              >
+                {senderName}
+                {/* Verified badge inline next to name */}
+                {!isChannel && message.sender?.isVerified && (
+                  <span className="inline-flex items-center justify-center flex-shrink-0">
+                    {message.sender.verifiedBadgeUrl && message.sender.verifiedBadgeType !== 'default' ? (
+                      <img
+                        src={message.sender.verifiedBadgeUrl}
+                        alt="verified"
+                        className="w-3 h-3 rounded-full object-cover"
+                        title="Верифицирован"
+                      />
+                    ) : (
+                      <span
+                        className="w-3 h-3 rounded-full flex items-center justify-center"
+                        style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', boxShadow: '0 0 4px rgba(99,102,241,0.5)' }}
+                        title="Верифицирован"
+                      >
+                        <Check size={7} className="text-white" strokeWidth={3.5} />
+                      </span>
+                    )}
+                  </span>
+                )}
+              </button>
+              {/* User tag */}
+              {!isChannel && message.sender?.tagText && (
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-md font-bold tracking-wide uppercase select-none flex-shrink-0"
+                  style={getTagStyle(message.sender.tagColor, message.sender.tagStyle)}
+                >
+                  {message.sender.tagText}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Reply */}

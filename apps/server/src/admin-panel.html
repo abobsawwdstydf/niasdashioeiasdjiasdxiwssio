@@ -135,6 +135,7 @@
         <div class="tab active" onclick="switchTab('dashboard')">📊 Дашборд</div>
         <div class="tab" onclick="switchTab('users')">👥 Пользователи</div>
         <div class="tab" onclick="switchTab('verification')">✅ Верификация</div>
+        <div class="tab" onclick="switchTab('tags')">🏷️ Теги</div>
         <div class="tab" onclick="switchTab('sessions')">🔑 Сессии</div>
         <div class="tab" onclick="switchTab('devices')">📱 Устройства</div>
         <div class="tab" onclick="switchTab('storage')">💾 Хранилище</div>
@@ -220,6 +221,83 @@
           </div>
         </div>
       </div>
+      <!-- Tags Tab -->
+      <div id="tab-tags" class="tab-content">
+        <div class="section">
+          <div class="section-title"><span>🏷️ Управление тегами пользователей</span></div>
+          <p style="color:var(--text-secondary);margin-bottom:20px;">Выдавайте пользователям цветные теги — они отображаются рядом с именем в чатах, профиле и поиске.</p>
+
+          <!-- Assign tag form -->
+          <div class="section" style="border-color:rgba(139,92,246,0.3);margin-bottom:20px;">
+            <div class="section-title"><span>➕ Выдать тег</span></div>
+            <div class="flex-row" style="margin-bottom:15px;">
+              <input type="text" id="tagSearchUser" placeholder="🔍 Поиск пользователя..." oninput="searchTagUser()" style="flex:1;margin:0;">
+            </div>
+            <div id="tagUserResults" style="margin-bottom:15px;max-height:200px;overflow-y:auto;"></div>
+            <div id="tagSelectedUser" style="display:none;padding:12px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:12px;margin-bottom:15px;">
+              <span id="tagSelectedUserName" style="font-weight:600;"></span>
+              <button onclick="clearTagUser()" style="width:auto;padding:4px 10px;margin:0 0 0 10px;font-size:0.75rem;background:rgba(255,0,68,0.2);border:1px solid rgba(255,0,68,0.4);color:#ff4466;border-radius:8px;">✕</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
+              <div>
+                <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Текст тега</label>
+                <input type="text" id="tagText" placeholder="VIP, Staff, Dev..." style="margin:0;" maxlength="20">
+              </div>
+              <div>
+                <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Стиль</label>
+                <select id="tagStyle" style="margin:0;" onchange="updateTagPreview()">
+                  <option value="solid">Solid (заливка)</option>
+                  <option value="outline">Outline (контур)</option>
+                  <option value="gradient">Gradient (градиент)</option>
+                  <option value="glow">Glow (свечение)</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-bottom:15px;">
+              <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Цвет тега</label>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <input type="color" id="tagColor" value="#6366f1" oninput="updateTagPreview()" style="width:50px;height:40px;padding:2px;margin:0;cursor:pointer;">
+                <!-- Preset colors -->
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button onclick="setTagColor('#6366f1')" style="width:28px;height:28px;border-radius:8px;background:#6366f1;border:none;cursor:pointer;margin:0;" title="Фиолетовый"></button>
+                  <button onclick="setTagColor('#3b82f6')" style="width:28px;height:28px;border-radius:8px;background:#3b82f6;border:none;cursor:pointer;margin:0;" title="Синий"></button>
+                  <button onclick="setTagColor('#10b981')" style="width:28px;height:28px;border-radius:8px;background:#10b981;border:none;cursor:pointer;margin:0;" title="Зелёный"></button>
+                  <button onclick="setTagColor('#f59e0b')" style="width:28px;height:28px;border-radius:8px;background:#f59e0b;border:none;cursor:pointer;margin:0;" title="Жёлтый"></button>
+                  <button onclick="setTagColor('#ef4444')" style="width:28px;height:28px;border-radius:8px;background:#ef4444;border:none;cursor:pointer;margin:0;" title="Красный"></button>
+                  <button onclick="setTagColor('#ec4899')" style="width:28px;height:28px;border-radius:8px;background:#ec4899;border:none;cursor:pointer;margin:0;" title="Розовый"></button>
+                  <button onclick="setTagColor('#f97316')" style="width:28px;height:28px;border-radius:8px;background:#f97316;border:none;cursor:pointer;margin:0;" title="Оранжевый"></button>
+                  <button onclick="setTagColor('#06b6d4')" style="width:28px;height:28px;border-radius:8px;background:#06b6d4;border:none;cursor:pointer;margin:0;" title="Голубой"></button>
+                  <button onclick="setTagColor('#8b5cf6')" style="width:28px;height:28px;border-radius:8px;background:#8b5cf6;border:none;cursor:pointer;margin:0;" title="Пурпурный"></button>
+                  <button onclick="setTagColor('#ffffff')" style="width:28px;height:28px;border-radius:8px;background:#ffffff;border:1px solid rgba(255,255,255,0.3);cursor:pointer;margin:0;" title="Белый"></button>
+                </div>
+              </div>
+            </div>
+            <!-- Preview -->
+            <div style="margin-bottom:20px;">
+              <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Предпросмотр</label>
+              <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(0,0,0,0.3);border-radius:12px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:0.9rem;">U</div>
+                <span style="font-weight:600;color:white;">Имя пользователя</span>
+                <span id="tagPreviewBadge" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:#6366f1;color:white;">TAG</span>
+              </div>
+            </div>
+            <div class="flex-row">
+              <button class="btn-success" onclick="assignTag()">🏷️ Выдать тег</button>
+            </div>
+          </div>
+
+          <!-- Tagged users list -->
+          <div class="section-title" style="margin-top:20px;"><span>📋 Пользователи с тегами</span></div>
+          <input type="text" class="search-box" id="taggedSearch" placeholder="🔍 Поиск..." oninput="filterTagged()">
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Пользователь</th><th>Username</th><th>Тег</th><th>Цвет</th><th>Стиль</th><th>Действия</th></tr></thead>
+              <tbody id="taggedTable"><tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Загрузка...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Sessions Tab -->
       <div id="tab-sessions" class="tab-content">
         <div class="section">
@@ -338,7 +416,60 @@
       </div>
     </div>
   </div>
-  <!-- Ban Modal -->
+  <!-- Tag Modal (edit existing tag) -->
+  <div id="tagModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="tagModalTitle">Редактировать тег</h3>
+        <button class="modal-close" onclick="closeTagModal()">&times;</button>
+      </div>
+      <div>
+        <p id="tagModalUserName" style="margin-bottom:15px;font-weight:600;color:var(--neon-blue);"></p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
+          <div>
+            <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Текст тега</label>
+            <input type="text" id="editTagText" placeholder="VIP, Staff..." style="margin:0;" maxlength="20">
+          </div>
+          <div>
+            <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Стиль</label>
+            <select id="editTagStyle" style="margin:0;" onchange="updateEditTagPreview()">
+              <option value="solid">Solid</option>
+              <option value="outline">Outline</option>
+              <option value="gradient">Gradient</option>
+              <option value="glow">Glow</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:15px;">
+          <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Цвет</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="color" id="editTagColor" value="#6366f1" oninput="updateEditTagPreview()" style="width:50px;height:40px;padding:2px;margin:0;cursor:pointer;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button onclick="setEditTagColor('#6366f1')" style="width:28px;height:28px;border-radius:8px;background:#6366f1;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#3b82f6')" style="width:28px;height:28px;border-radius:8px;background:#3b82f6;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#10b981')" style="width:28px;height:28px;border-radius:8px;background:#10b981;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#f59e0b')" style="width:28px;height:28px;border-radius:8px;background:#f59e0b;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#ef4444')" style="width:28px;height:28px;border-radius:8px;background:#ef4444;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#ec4899')" style="width:28px;height:28px;border-radius:8px;background:#ec4899;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#f97316')" style="width:28px;height:28px;border-radius:8px;background:#f97316;border:none;cursor:pointer;margin:0;"></button>
+              <button onclick="setEditTagColor('#06b6d4')" style="width:28px;height:28px;border-radius:8px;background:#06b6d4;border:none;cursor:pointer;margin:0;"></button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="color:var(--text-secondary);font-size:0.85rem;display:block;margin-bottom:8px;">Предпросмотр</label>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(0,0,0,0.3);border-radius:12px;">
+            <span style="font-weight:600;color:white;" id="editTagPreviewName">Пользователь</span>
+            <span id="editTagPreviewBadge" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:#6366f1;color:white;">TAG</span>
+          </div>
+        </div>
+        <div class="flex-row">
+          <button class="btn-success" onclick="saveEditTag()">💾 Сохранить</button>
+          <button class="btn-danger" onclick="removeTagById()">🗑️ Удалить тег</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="banModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -413,6 +544,7 @@
       if (tab === 'verification') loadVerified();
       if (tab === 'sessions') loadSessions();
       if (tab === 'devices') loadDevices();
+      if (tab === 'tags') loadTaggedUsers();
     }
 
     async function loadAll() {
@@ -494,11 +626,12 @@
           <td><div class="user-cell"><div class="user-avatar">${(u.displayName || u.username)[0].toUpperCase()}</div><span>${u.displayName || u.username}</span></div></td>
           <td>@${u.username}</td>
           <td>${u.isOnline ? '🟢 Онлайн' : (u.isBanned ? '🚫 Забанен' : '⚫ Офлайн')}</td>
-          <td>${u.isVerified ? '<span class="verified-badge"><span class="default-badge">✓</span></span>' : '—'}</td>
+          <td>${u.isVerified ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);box-shadow:0 0 8px rgba(99,102,241,0.5);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '—'}</td>
           <td>${new Date(u.createdAt).toLocaleDateString('ru-RU')}</td>
           <td>
-            <button class="btn-check btn-small" onclick="openVerifyModal('user','${u.id}','${u.displayName || u.username}','${u.avatar || ''}')">✅</button>
-            <button class="btn-danger btn-small" onclick="openBanModal('${u.id}','${u.displayName || u.username}',${u.isBanned})">${u.isBanned ? 'Разбан' : 'Бан'}</button>
+            <button class="btn-check btn-small" onclick="openVerifyModal('user','${u.id}','${(u.displayName || u.username).replace(/'/g,"\\'")}','${u.avatar || ''}')">✅ Верифицировать</button>
+            <button class="btn-primary btn-small" onclick="openTagModal('${u.id}','${(u.displayName || u.username).replace(/'/g,"\\'")}','${(u.tagText||'').replace(/'/g,"\\'")}','${u.tagColor||'#6366f1'}','${u.tagStyle||'solid'}')">🏷️ Тег</button>
+            <button class="btn-danger btn-small" onclick="openBanModal('${u.id}','${(u.displayName || u.username).replace(/'/g,"\\'")}',${u.isBanned})">${u.isBanned ? 'Разбан' : 'Бан'}</button>
             <button class="btn-warning btn-small" onclick="deleteUser('${u.id}')">🗑️</button>
           </td>
         </tr>
@@ -805,6 +938,202 @@
 
     if (token) showPanel();
     setInterval(() => { if (token) { loadStats(); checkPostgres(); checkRedis(); } }, 30000);
+
+    // ─── Tags ─────────────────────────────────────────────────────────────
+    let allTaggedUsers = [];
+    let tagSelectedUserId = null;
+    let tagSelectedUserName = '';
+    let currentTagUser = null;
+    let tagSearchTimeout = null;
+
+    function getTagStyle(color, style) {
+      const c = color || '#6366f1';
+      const s = style || 'solid';
+      const hexToRgb = (hex) => {
+        const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return r ? `${parseInt(r[1],16)}, ${parseInt(r[2],16)}, ${parseInt(r[3],16)}` : '99,102,241';
+      };
+      const rgb = hexToRgb(c);
+      switch(s) {
+        case 'outline': return `background:transparent;border:1.5px solid ${c};color:${c};`;
+        case 'gradient': return `background:linear-gradient(135deg,${c},${c}aa);color:#fff;border:none;`;
+        case 'glow': return `background:rgba(${rgb},0.2);border:1.5px solid rgba(${rgb},0.6);color:${c};box-shadow:0 0 10px rgba(${rgb},0.5);`;
+        default: return `background:${c};color:#fff;border:none;`;
+      }
+    }
+
+    function updateTagPreview() {
+      const text = document.getElementById('tagText').value || 'TAG';
+      const color = document.getElementById('tagColor').value;
+      const style = document.getElementById('tagStyle').value;
+      const badge = document.getElementById('tagPreviewBadge');
+      badge.textContent = text;
+      badge.style.cssText = `font-size:0.7rem;padding:3px 8px;border-radius:8px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;${getTagStyle(color, style)}`;
+    }
+
+    function setTagColor(color) {
+      document.getElementById('tagColor').value = color;
+      updateTagPreview();
+    }
+
+    function updateEditTagPreview() {
+      const text = document.getElementById('editTagText').value || 'TAG';
+      const color = document.getElementById('editTagColor').value;
+      const style = document.getElementById('editTagStyle').value;
+      const badge = document.getElementById('editTagPreviewBadge');
+      badge.textContent = text;
+      badge.style.cssText = `font-size:0.7rem;padding:3px 8px;border-radius:8px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;${getTagStyle(color, style)}`;
+    }
+
+    function setEditTagColor(color) {
+      document.getElementById('editTagColor').value = color;
+      updateEditTagPreview();
+    }
+
+    function searchTagUser() {
+      clearTimeout(tagSearchTimeout);
+      const q = document.getElementById('tagSearchUser').value.trim();
+      if (q.length < 2) { document.getElementById('tagUserResults').innerHTML = ''; return; }
+      tagSearchTimeout = setTimeout(async () => {
+        try {
+          const users = await fetch('/api/users/search?q=' + encodeURIComponent(q), { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.json());
+          const results = document.getElementById('tagUserResults');
+          if (!Array.isArray(users) || !users.length) { results.innerHTML = '<p style="color:var(--text-secondary);font-size:0.85rem;">Не найдено</p>'; return; }
+          results.innerHTML = users.slice(0, 8).map(u => `
+            <div onclick="selectTagUser('${u.id}','${(u.displayName || u.username).replace(/'/g,"\\'")}','${(u.username || '').replace(/'/g,"\\'")}','${(u.tagText||'').replace(/'/g,"\\'")}','${u.tagColor||'#6366f1'}','${u.tagStyle||'solid'}')"
+              style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;transition:background 0.2s;"
+              onmouseover="this.style.background='rgba(99,102,241,0.15)'" onmouseout="this.style.background='transparent'">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:0.8rem;flex-shrink:0;">${(u.displayName||u.username||'?')[0].toUpperCase()}</div>
+              <div>
+                <div style="font-weight:600;color:white;">${u.displayName || u.username}</div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);">@${u.username}</div>
+              </div>
+              ${u.tagText ? `<span style="margin-left:auto;font-size:0.65rem;padding:2px 6px;border-radius:6px;font-weight:700;text-transform:uppercase;${getTagStyle(u.tagColor,u.tagStyle)}">${u.tagText}</span>` : ''}
+            </div>
+          `).join('');
+        } catch { document.getElementById('tagUserResults').innerHTML = '<p style="color:var(--neon-red);">Ошибка поиска</p>'; }
+      }, 300);
+    }
+
+    function selectTagUser(id, name, username, existingTag, existingColor, existingStyle) {
+      tagSelectedUserId = id;
+      tagSelectedUserName = name;
+      document.getElementById('tagUserResults').innerHTML = '';
+      document.getElementById('tagSearchUser').value = '';
+      document.getElementById('tagSelectedUser').style.display = 'block';
+      document.getElementById('tagSelectedUserName').textContent = name + ' (@' + username + ')';
+      // Pre-fill if user already has a tag
+      if (existingTag) {
+        document.getElementById('tagText').value = existingTag;
+        document.getElementById('tagColor').value = existingColor || '#6366f1';
+        document.getElementById('tagStyle').value = existingStyle || 'solid';
+      }
+      updateTagPreview();
+    }
+
+    function clearTagUser() {
+      tagSelectedUserId = null;
+      tagSelectedUserName = '';
+      document.getElementById('tagSelectedUser').style.display = 'none';
+      document.getElementById('tagText').value = '';
+      document.getElementById('tagColor').value = '#6366f1';
+      document.getElementById('tagStyle').value = 'solid';
+      updateTagPreview();
+    }
+
+    async function assignTag() {
+      if (!tagSelectedUserId) { notify('Выберите пользователя', 'error'); return; }
+      const tagText = document.getElementById('tagText').value.trim();
+      if (!tagText) { notify('Введите текст тега', 'error'); return; }
+      const tagColor = document.getElementById('tagColor').value;
+      const tagStyle = document.getElementById('tagStyle').value;
+      try {
+        const data = await api('/tag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: tagSelectedUserId, tagText, tagColor, tagStyle }) });
+        if (data.success) {
+          notify('Тег выдан: ' + tagText);
+          clearTagUser();
+          loadTaggedUsers();
+        } else notify(data.error, 'error');
+      } catch { notify('Ошибка', 'error'); }
+    }
+
+    async function loadTaggedUsers() {
+      try {
+        const data = await api('/tags');
+        allTaggedUsers = Array.isArray(data) ? data : [];
+        renderTaggedUsers(allTaggedUsers);
+      } catch { allTaggedUsers = []; renderTaggedUsers([]); }
+    }
+
+    function renderTaggedUsers(users) {
+      const tbody = document.getElementById('taggedTable');
+      if (!Array.isArray(users) || !users.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Нет пользователей с тегами</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td><div class="user-cell"><div class="user-avatar">${(u.displayName||u.username||'?')[0].toUpperCase()}</div><span>${u.displayName||u.username}</span></div></td>
+          <td>@${u.username}</td>
+          <td><span style="font-size:0.75rem;padding:3px 8px;border-radius:8px;font-weight:700;text-transform:uppercase;${getTagStyle(u.tagColor,u.tagStyle)}">${u.tagText}</span></td>
+          <td><div style="display:flex;align-items:center;gap:8px;"><div style="width:20px;height:20px;border-radius:6px;background:${u.tagColor||'#6366f1'};border:1px solid rgba(255,255,255,0.2);"></div><code style="font-size:0.8rem;">${u.tagColor||'#6366f1'}</code></div></td>
+          <td style="text-transform:capitalize;">${u.tagStyle||'solid'}</td>
+          <td>
+            <button class="btn-check btn-small" onclick="openTagModal('${u.id}','${(u.displayName||u.username).replace(/'/g,"\\'")}','${(u.tagText||'').replace(/'/g,"\\'")}','${u.tagColor||'#6366f1'}','${u.tagStyle||'solid'}')">✏️ Изменить</button>
+            <button class="btn-danger btn-small" onclick="removeTag('${u.id}')">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterTagged() {
+      const q = document.getElementById('taggedSearch').value.toLowerCase();
+      renderTaggedUsers(allTaggedUsers.filter(u => (u.username||'').toLowerCase().includes(q) || (u.displayName||'').toLowerCase().includes(q) || (u.tagText||'').toLowerCase().includes(q)));
+    }
+
+    function openTagModal(userId, name, tagText, tagColor, tagStyle) {
+      currentTagUser = { id: userId, name };
+      document.getElementById('tagModalTitle').textContent = 'Тег: ' + name;
+      document.getElementById('tagModalUserName').textContent = name;
+      document.getElementById('editTagPreviewName').textContent = name;
+      document.getElementById('editTagText').value = tagText || '';
+      document.getElementById('editTagColor').value = tagColor || '#6366f1';
+      document.getElementById('editTagStyle').value = tagStyle || 'solid';
+      updateEditTagPreview();
+      document.getElementById('tagModal').classList.add('active');
+    }
+
+    function closeTagModal() { document.getElementById('tagModal').classList.remove('active'); }
+
+    async function saveEditTag() {
+      if (!currentTagUser) return;
+      const tagText = document.getElementById('editTagText').value.trim();
+      if (!tagText) { notify('Введите текст тега', 'error'); return; }
+      const tagColor = document.getElementById('editTagColor').value;
+      const tagStyle = document.getElementById('editTagStyle').value;
+      try {
+        const data = await api('/tag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: currentTagUser.id, tagText, tagColor, tagStyle }) });
+        if (data.success) { notify('Тег обновлён'); closeTagModal(); loadTaggedUsers(); }
+        else notify(data.error, 'error');
+      } catch { notify('Ошибка', 'error'); }
+    }
+
+    async function removeTagById() {
+      if (!currentTagUser) return;
+      if (!confirm('Удалить тег у ' + currentTagUser.name + '?')) return;
+      try {
+        await api('/tag/' + currentTagUser.id, { method: 'DELETE' });
+        notify('Тег удалён'); closeTagModal(); loadTaggedUsers();
+      } catch { notify('Ошибка', 'error'); }
+    }
+
+    async function removeTag(userId) {
+      if (!confirm('Удалить тег?')) return;
+      try {
+        await api('/tag/' + userId, { method: 'DELETE' });
+        notify('Тег удалён'); loadTaggedUsers();
+      } catch { notify('Ошибка', 'error'); }
+    }
   </script>
 </body>
 </html>

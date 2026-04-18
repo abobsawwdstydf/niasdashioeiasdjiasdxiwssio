@@ -8,6 +8,9 @@ export interface UserBasic {
   isVerified?: boolean;
   verifiedBadgeUrl?: string | null;
   verifiedBadgeType?: string | null;
+  tagText?: string | null;
+  tagColor?: string | null;
+  tagStyle?: string | null;
 }
 
 export interface UserPresence extends UserBasic {
@@ -16,6 +19,9 @@ export interface UserPresence extends UserBasic {
   isVerified?: boolean;
   verifiedBadgeUrl?: string | null;
   verifiedBadgeType?: string | null;
+  tagText?: string | null;
+  tagColor?: string | null;
+  tagStyle?: string | null;
 }
 
 export interface Channel {
@@ -44,6 +50,10 @@ export interface User extends UserPresence {
   verifiedBadgeUrl?: string | null;
   verifiedBadgeType?: string | null;
   verifiedAt?: string | null;
+  // Tag
+  tagText?: string | null;
+  tagColor?: string | null;
+  tagStyle?: string | null;
 }
 
 // ─── Chat types ────────────────────────────────────────────────────────
@@ -86,6 +96,9 @@ export interface MessageSender {
   isVerified?: boolean;
   verifiedBadgeUrl?: string | null;
   verifiedBadgeType?: string | null;
+  tagText?: string | null;
+  tagColor?: string | null;
+  tagStyle?: string | null;
 }
 
 export interface Message {
@@ -208,6 +221,9 @@ export interface FriendWithId extends UserPresence {
   isVerified?: boolean;
   verifiedBadgeUrl?: string | null;
   verifiedBadgeType?: string | null;
+  tagText?: string | null;
+  tagColor?: string | null;
+  tagStyle?: string | null;
 }
 
 export interface CallLog {

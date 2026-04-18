@@ -29,6 +29,15 @@ export const USER_SELECT = {
   notifyMessages: true,
   notifyCalls: true,
   notifyFriends: true,
+  // Verification
+  isVerified: true,
+  verifiedBadgeUrl: true,
+  verifiedBadgeType: true,
+  verifiedAt: true,
+  // Tag
+  tagText: true,
+  tagColor: true,
+  tagStyle: true,
   pinnedChannel: {
     select: {
       id: true,
@@ -54,6 +63,9 @@ export const SENDER_SELECT = {
   isVerified: true,
   verifiedBadgeUrl: true,
   verifiedBadgeType: true,
+  tagText: true,
+  tagColor: true,
+  tagStyle: true,
 } as const;
 
 /** Full message include for API responses */

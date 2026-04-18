@@ -334,6 +334,27 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                 <h3 className="text-[28px] font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 tracking-tight text-center px-4">
                   {profile.displayName || profile.username}
                 </h3>
+                {/* Verified badge next to name */}
+                {profile.isVerified && (
+                  <span className="flex-shrink-0 inline-flex items-center justify-center">
+                    {profile.verifiedBadgeUrl && profile.verifiedBadgeType !== 'default' ? (
+                      <img
+                        src={profile.verifiedBadgeUrl}
+                        alt="verified"
+                        className="w-7 h-7 rounded-full object-cover ring-2 ring-blue-500/40 shadow-lg shadow-blue-500/20"
+                        title="Верифицирован"
+                      />
+                    ) : (
+                      <span
+                        className="w-7 h-7 rounded-full flex items-center justify-center shadow-lg"
+                        style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', boxShadow: '0 0 12px rgba(99,102,241,0.6)' }}
+                        title="Верифицирован"
+                      >
+                        <Check size={14} className="text-white" strokeWidth={3.5} />
+                      </span>
+                    )}
+                  </span>
+                )}
                 {isSelf && (
                   <button
                     onClick={() => setIsEditingProfile(true)}
@@ -343,6 +364,32 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                   </button>
                 )}
               </div>
+
+              {/* User tag */}
+              {profile.tagText && (
+                <div className="mt-2">
+                  <span
+                    className="inline-flex items-center text-xs px-3 py-1 rounded-xl font-bold tracking-wide uppercase select-none"
+                    style={(() => {
+                      const c = profile.tagColor || '#6366f1';
+                      const s = profile.tagStyle || 'solid';
+                      const hexToRgb = (hex: string) => {
+                        const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                        return r ? `${parseInt(r[1], 16)}, ${parseInt(r[2], 16)}, ${parseInt(r[3], 16)}` : '99, 102, 241';
+                      };
+                      const rgb = hexToRgb(c);
+                      switch (s) {
+                        case 'outline': return { background: 'transparent', border: `1.5px solid ${c}`, color: c };
+                        case 'gradient': return { background: `linear-gradient(135deg, ${c}, ${c}aa)`, color: '#fff', border: 'none', boxShadow: `0 2px 12px rgba(${rgb}, 0.3)` };
+                        case 'glow': return { background: `rgba(${rgb}, 0.15)`, border: `1.5px solid rgba(${rgb}, 0.6)`, color: c, boxShadow: `0 0 12px rgba(${rgb}, 0.5), inset 0 0 8px rgba(${rgb}, 0.1)` };
+                        default: return { background: c, color: '#fff', border: 'none', boxShadow: `0 2px 8px rgba(${rgb}, 0.4)` };
+                      }
+                    })()}
+                  >
+                    {profile.tagText}
+                  </span>
+                </div>
+              )}
 
               {/* Username */}
               <div className="flex items-center gap-2 mt-2.5 bg-nexo-500/10 hover:bg-nexo-500/20 transition-colors px-4 py-2 rounded-full border border-nexo-500/20 backdrop-blur-sm">
@@ -468,32 +515,33 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
               {profile.isVerified && (
                 <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-xl border border-blue-500/20 rounded-2xl p-4 transition-all hover:from-blue-500/20 hover:to-purple-500/20 hover:border-blue-500/30 group">
                   <div className="flex items-center gap-3">
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                       {profile.verifiedBadgeUrl && profile.verifiedBadgeType !== 'default' ? (
                         <img
                           src={profile.verifiedBadgeUrl}
                           alt="verified"
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/30"
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-500/40 shadow-lg shadow-blue-500/20"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/20">
-                          <Check size={20} className="text-white" strokeWidth={3} />
+                        <div
+                          className="w-12 h-12 rounded-full flex items-center justify-center ring-2 ring-blue-500/30 shadow-lg"
+                          style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', boxShadow: '0 0 20px rgba(99,102,241,0.4)' }}
+                        >
+                          <Check size={24} className="text-white" strokeWidth={3} />
                         </div>
                       )}
+                      {/* Glow pulse */}
+                      <div className="absolute inset-0 rounded-full animate-ping opacity-20"
+                        style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-blue-300 flex items-center gap-2">
+                      <p className="text-sm font-bold text-blue-300 flex items-center gap-1.5">
                         Верифицированный аккаунт
-                        {profile.verifiedBadgeUrl && profile.verifiedBadgeType !== 'default' && (
-                          <img
-                            src={profile.verifiedBadgeUrl}
-                            alt="verified"
-                            className="w-4 h-4 rounded-full object-cover"
-                          />
-                        )}
                       </p>
-                      <p className="text-xs text-zinc-400">
-                        {profile.verifiedAt ? `Верифицирован ${new Date(profile.verifiedAt).toLocaleDateString('ru-RU')}` : 'Аккаунт верифицирован'}
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {profile.verifiedAt
+                          ? `Верифицирован ${new Date(profile.verifiedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                          : 'Аккаунт верифицирован'}
                       </p>
                     </div>
                   </div>

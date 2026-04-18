@@ -14,6 +14,12 @@ const CHAT_USER_SELECT = {
   avatar: true,
   isOnline: true,
   lastSeen: true,
+  isVerified: true,
+  verifiedBadgeUrl: true,
+  verifiedBadgeType: true,
+  tagText: true,
+  tagColor: true,
+  tagStyle: true,
 };
 
 // Получить все чаты пользователя

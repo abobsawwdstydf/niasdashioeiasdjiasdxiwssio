@@ -9,6 +9,7 @@ import { stripMarkdown } from '../lib/utils';
 import { api } from '../lib/api';
 import ConfirmModal from './ConfirmModal';
 import Avatar from './Avatar';
+import UserTag from './UserTag';
 import type { Chat } from '../lib/types';
 
 interface ChatListItemProps {
@@ -45,6 +46,9 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
       : chat.avatar;
 
   const isOnline = chat.type === 'personal' && otherMember?.user.isOnline;
+
+  // Tag for personal chats (from the other user)
+  const otherUserTag = chat.type === 'personal' ? otherMember?.user : null;
 
   // Check if someone is typing in this chat
   const typingInChat = typingUsers.filter((t) => t.chatId === chat.id && t.userId !== user?.id);
@@ -157,6 +161,36 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
             <div className="flex items-center gap-1.5 min-w-0">
               {isPinned && <Pin size={12} className="text-nexo-400 flex-shrink-0 rotate-45" />}
               <span className="text-sm font-medium text-white truncate">{chatName}</span>
+              {/* Verified badge inline for channels/groups */}
+              {chat.isVerified && (
+                <span className="flex-shrink-0 inline-flex items-center justify-center">
+                  {chat.verifiedBadgeUrl && chat.verifiedBadgeType !== 'default' ? (
+                    <img
+                      src={chat.verifiedBadgeUrl}
+                      alt="verified"
+                      className="w-3.5 h-3.5 rounded-full object-cover"
+                      title="Верифицирован"
+                    />
+                  ) : (
+                    <span
+                      className="w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', boxShadow: '0 0 4px rgba(99,102,241,0.5)' }}
+                      title="Верифицирован"
+                    >
+                      <Check size={8} className="text-white" strokeWidth={3.5} />
+                    </span>
+                  )}
+                </span>
+              )}
+              {/* User tag for personal chats */}
+              {otherUserTag?.tagText && (
+                <UserTag
+                  text={otherUserTag.tagText}
+                  color={otherUserTag.tagColor}
+                  style={otherUserTag.tagStyle}
+                  size="xs"
+                />
+              )}
             </div>
             {timeStr && <span className="text-xs text-zinc-500 flex-shrink-0 ml-2">{timeStr}</span>}
           </div>

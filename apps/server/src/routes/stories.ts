@@ -5,6 +5,20 @@ import { deleteUploadedFile } from '../shared';
 
 const router = Router();
 
+// Compact user select for stories (includes verification and tag)
+const STORY_USER_SELECT = {
+  id: true,
+  username: true,
+  displayName: true,
+  avatar: true,
+  isVerified: true,
+  verifiedBadgeUrl: true,
+  verifiedBadgeType: true,
+  tagText: true,
+  tagColor: true,
+  tagStyle: true,
+} as const;
+
 // Get all active stories (grouped by user)
 router.get('/', async (req: AuthRequest, res) => {
   try {
@@ -33,7 +47,7 @@ router.get('/', async (req: AuthRequest, res) => {
       },
       include: {
         user: {
-          select: { id: true, username: true, displayName: true, avatar: true },
+          select: STORY_USER_SELECT,
         },
         views: {
           select: { userId: true },
@@ -135,7 +149,7 @@ router.post('/', async (req: AuthRequest, res) => {
       },
       include: {
         user: {
-          select: { id: true, username: true, displayName: true, avatar: true },
+          select: STORY_USER_SELECT,
         },
         views: true,
       },
@@ -208,7 +222,7 @@ router.get('/:storyId/viewers', async (req: AuthRequest, res) => {
       },
       include: {
         user: {
-          select: { id: true, username: true, displayName: true, avatar: true },
+          select: STORY_USER_SELECT,
         },
       },
       orderBy: { viewedAt: 'desc' },
@@ -452,7 +466,7 @@ router.get('/highlights/:userId', async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
-          select: { id: true, username: true, displayName: true, avatar: true },
+          select: STORY_USER_SELECT,
         },
       },
     });
