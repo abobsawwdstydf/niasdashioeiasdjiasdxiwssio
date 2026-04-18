@@ -5,11 +5,17 @@ export interface UserBasic {
   username: string;
   displayName: string;
   avatar: string | null;
+  isVerified?: boolean;
+  verifiedBadgeUrl?: string | null;
+  verifiedBadgeType?: string | null;
 }
 
 export interface UserPresence extends UserBasic {
   isOnline: boolean;
   lastSeen: string;
+  isVerified?: boolean;
+  verifiedBadgeUrl?: string | null;
+  verifiedBadgeType?: string | null;
 }
 
 export interface Channel {
@@ -197,9 +203,11 @@ export interface FriendshipStatus {
   direction?: 'incoming' | 'outgoing';
 }
 
-export interface FriendWithId {
-  id: string;
-  friend: UserBasic;
+export interface FriendWithId extends UserPresence {
+  friendshipId: string;
+  isVerified?: boolean;
+  verifiedBadgeUrl?: string | null;
+  verifiedBadgeType?: string | null;
 }
 
 export interface CallLog {
@@ -213,10 +221,6 @@ export interface CallLog {
   createdAt: string;
   caller: UserBasic;
   callee: UserBasic | null;
-}
-
-export interface FriendWithId extends UserPresence {
-  friendshipId: string;
 }
 
 // ─── Utility types ─────────────────────────────────────────────────────
