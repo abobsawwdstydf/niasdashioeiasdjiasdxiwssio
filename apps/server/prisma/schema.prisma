@@ -32,9 +32,9 @@ model User {
   notifyFriends    Boolean  @default(true)
 
   // 2FA login verification
-  twoFASecret      String? // For TOTP-based 2FA (future)
-  twoFAEnabled     Boolean  @default(false)
-  twoFAMethod      String? // 'telegram' | 'email' | 'call'
+  twoFASecret  String? // For TOTP-based 2FA (future)
+  twoFAEnabled Boolean @default(false)
+  twoFAMethod  String? // 'telegram' | 'email' | 'call'
 
   // Verification & badges
   isVerified        Boolean   @default(false)
@@ -50,33 +50,33 @@ model User {
   bannedBy     String? // Admin user ID
 
   // E2E Encryption (Signal Protocol)
-  identityKey       String? // Public identity key
-  signedPreKey      String? // Signed pre-key
-  signedPreKeyId    Int?
-  signedPreKeySig   String? // Signature
-  oneTimePreKeys    String? // JSON array of one-time pre-keys
-  
+  identityKey     String? // Public identity key
+  signedPreKey    String? // Signed pre-key
+  signedPreKeyId  Int?
+  signedPreKeySig String? // Signature
+  oneTimePreKeys  String? // JSON array of one-time pre-keys
+
   // Device sync
-  devices           UserDevice[]
-  syncKey           String? // Master sync key (encrypted)
+  devices UserDevice[]
+  syncKey String? // Master sync key (encrypted)
 
   messages            Message[]
   chatMembers         ChatMember[]
   reactions           Reaction[]
   pollVotes           PollVote[]
   readReceipts        ReadReceipt[]
-  forwardedMessages   Message[]        @relation("ForwardedFrom")
+  forwardedMessages   Message[]         @relation("ForwardedFrom")
   stories             Story[]
   storyViews          StoryView[]
-  friendshipsSent     Friendship[]     @relation("FriendshipsSent")
-  friendshipsReceived Friendship[]     @relation("FriendshipsReceived")
-  callerCalls         CallLog[]        @relation("CallerCalls")
-  calleeCalls         CallLog[]        @relation("CalleeCalls")
-  pinnedChannel       Chat?            @relation("PinnedChannels", fields: [pinnedChannelId], references: [id])
+  friendshipsSent     Friendship[]      @relation("FriendshipsSent")
+  friendshipsReceived Friendship[]      @relation("FriendshipsReceived")
+  callerCalls         CallLog[]         @relation("CallerCalls")
+  calleeCalls         CallLog[]         @relation("CalleeCalls")
+  pinnedChannel       Chat?             @relation("PinnedChannels", fields: [pinnedChannelId], references: [id])
   uploadedFiles       TelegramFile[]
   uploadedLocalFiles  LocalFile[]
-  verifiedEntities    VerifiedEntity[] @relation("VerifiedBy")
-  bansIssued          UserBan[]        @relation("BansIssued")
+  verifiedEntities    VerifiedEntity[]  @relation("VerifiedBy")
+  bansIssued          UserBan[]         @relation("BansIssued")
   mentions            Mention[]
   typingIndicators    TypingIndicator[]
 }
@@ -97,30 +97,44 @@ model Chat {
   verifiedAt        DateTime?
 
   // Secret chat with password
-  isSecret          Boolean   @default(false)
-  secretPassword    String? // Hashed password for secret chat
-  
+  isSecret       Boolean @default(false)
+  secretPassword String? // Hashed password for secret chat
+
   // E2E Encryption
-  isE2E             Boolean   @default(false)
-  e2eSessionKey     String? // Encrypted session key
+  isE2E         Boolean @default(false)
+  e2eSessionKey String? // Encrypted session key
 
   // Group/Channel settings
-  slowModeInterval  Int?      @default(0) // Seconds between messages (0 = disabled)
-  welcomeMessage    String? // Welcome message for new members
-  rules             String? // Group/channel rules
-  subscribersCount  Int       @default(0) // For channels
-  
-  // Permissions
-  canMembersPost    Boolean   @default(true) // For channels: can members post or only admins
-  canMembersInvite  Boolean   @default(true) // Can members invite others
+  slowModeInterval Int?    @default(0) // Seconds between messages (0 = disabled)
+  welcomeMessage   String? // Welcome message for new members
+  rules            String? // Group/channel rules
+  subscribersCount Int     @default(0) // For channels
 
-  members        ChatMember[]
-  messages       Message[]
-  pinnedMessages PinnedMessage[]
-  pinnedByUsers  User[]          @relation("PinnedChannels")
-  threads        Thread[]
+  // Permissions
+  canMembersPost   Boolean @default(true) // For channels: can members post or only admins
+  canMembersInvite Boolean @default(true) // Can members invite others
+
+  // Webhooks for channels (Stage 3)
+  webhookUrl    String? // Webhook URL for channel events
+  webhookSecret String? // Secret for webhook verification
+  webhookEvents String? // JSON array of enabled events: ["message", "member_join", "member_leave"]
+
+  // Channel customization (Stage 3)
+  customIcon       String? // Custom channel icon
+  customColor      String? // Custom channel color
+  customBackground String? // Custom channel background
+
+  members          ChatMember[]
+  messages         Message[]
+  pinnedMessages   PinnedMessage[]
+  pinnedByUsers    User[]            @relation("PinnedChannels")
+  threads          Thread[]
   typingIndicators TypingIndicator[]
-  
+  webhooks         Webhook[]
+  autoResponders   AutoResponder[]
+  chatFolders      ChatFolder[]      @relation("FolderChats")
+  chatTags         ChatTag[]
+
   @@index([type])
   @@index([subscribersCount])
 }
@@ -135,13 +149,13 @@ model ChatMember {
   isArchived Boolean   @default(false)
   isPinned   Boolean   @default(false)
   clearedAt  DateTime?
-  
+
   // Permissions for this member
-  canPost    Boolean   @default(true)
-  canInvite  Boolean   @default(true)
-  canPin     Boolean   @default(false)
-  canDelete  Boolean   @default(false)
-  
+  canPost   Boolean @default(true)
+  canInvite Boolean @default(true)
+  canPin    Boolean @default(false)
+  canDelete Boolean @default(false)
+
   // Slow mode tracking
   lastMessageAt DateTime?
 
@@ -170,15 +184,23 @@ model Message {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   editedAt        DateTime? // When message was edited
-  
+
   // E2E Encryption
-  isEncrypted     Boolean   @default(false)
+  isEncrypted      Boolean @default(false)
   encryptedContent String? // Encrypted message content
-  senderKeyId     String? // Key ID used for encryption
+  senderKeyId      String? // Key ID used for encryption
 
   // Thread support
   threadId String?
   thread   Thread? @relation("ThreadMessages", fields: [threadId], references: [id], onDelete: SetNull)
+
+  // Self-destructing messages (Stage 3)
+  selfDestructTimer Int? // Seconds until message self-destructs (null = no timer)
+  selfDestructAt    DateTime? // When message will be deleted
+
+  // Privacy settings (Stage 3)
+  canForward    Boolean @default(true) // Can this message be forwarded
+  canScreenshot Boolean @default(true) // Can screenshot be taken (for secret chats)
 
   chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender        User      @relation(fields: [senderId], references: [id])
@@ -246,14 +268,14 @@ model Reaction {
 }
 
 model PollVote {
-  id           String   @id @default(uuid())
-  messageId    String
-  userId       String
-  optionIndex  Int // Which option was voted (0-based)
-  votedAt      DateTime @default(now())
+  id          String   @id @default(uuid())
+  messageId   String
+  userId      String
+  optionIndex Int // Which option was voted (0-based)
+  votedAt     DateTime @default(now())
 
-  message Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, optionIndex])
   @@index([messageId])
@@ -295,17 +317,17 @@ model Story {
   bgColor   String?
   createdAt DateTime @default(now())
   expiresAt DateTime
-  
+
   // Highlights
-  isHighlight Boolean  @default(false)
+  isHighlight    Boolean @default(false)
   highlightTitle String?
   highlightCover String? // Cover image for highlight
 
-  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  views StoryView[]
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views     StoryView[]
   reactions StoryReaction[]
-  replies StoryReply[]
-  
+  replies   StoryReply[]
+
   @@index([userId])
   @@index([expiresAt])
   @@index([isHighlight])
@@ -332,9 +354,9 @@ model StoryReaction {
   userId    String
   emoji     String
   createdAt DateTime @default(now())
-  
+
   story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  
+
   @@unique([storyId, userId])
   @@index([storyId])
 }
@@ -346,9 +368,9 @@ model StoryReply {
   userId    String
   content   String
   createdAt DateTime @default(now())
-  
+
   story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  
+
   @@index([storyId])
   @@index([userId])
 }
@@ -548,21 +570,21 @@ model LocalFileChunk {
 
 // User devices for multi-device sync
 model UserDevice {
-  id            String   @id @default(uuid())
-  userId        String
-  deviceId      String   @unique // Unique device identifier
-  deviceName    String // "Chrome on Windows", "iPhone 13"
-  deviceType    String // "web", "mobile", "desktop"
-  lastActive    DateTime @default(now())
-  createdAt     DateTime @default(now())
-  
+  id         String   @id @default(uuid())
+  userId     String
+  deviceId   String   @unique // Unique device identifier
+  deviceName String // "Chrome on Windows", "iPhone 13"
+  deviceType String // "web", "mobile", "desktop"
+  lastActive DateTime @default(now())
+  createdAt  DateTime @default(now())
+
   // E2E keys for this device
-  identityKey   String
-  signedPreKey  String
-  preKeyId      Int
-  
+  identityKey  String
+  signedPreKey String
+  preKeyId     Int
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
   @@index([deviceId])
 }
@@ -573,10 +595,10 @@ model Mention {
   messageId String
   userId    String // Mentioned user
   createdAt DateTime @default(now())
-  
+
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([messageId, userId])
   @@index([userId])
 }
@@ -588,10 +610,10 @@ model TypingIndicator {
   userId    String
   startedAt DateTime @default(now())
   expiresAt DateTime // Auto-expire after 5 seconds
-  
+
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([chatId, userId])
   @@index([chatId])
   @@index([expiresAt])
@@ -607,27 +629,27 @@ model StickerPack {
   isPublic    Boolean  @default(true)
   isAnimated  Boolean  @default(false)
   createdAt   DateTime @default(now())
-  
+
   stickers Sticker[]
-  
+
   @@index([creatorId])
   @@index([isPublic])
 }
 
 model Sticker {
-  id          String   @id @default(uuid())
-  packId      String
-  emoji       String? // Associated emoji
-  fileUrl     String // Sticker image/animation URL
-  fileSize    Int
-  width       Int?
-  height      Int?
-  isAnimated  Boolean  @default(false)
-  order       Int     @default(0)
-  createdAt   DateTime @default(now())
-  
+  id         String   @id @default(uuid())
+  packId     String
+  emoji      String? // Associated emoji
+  fileUrl    String // Sticker image/animation URL
+  fileSize   Int
+  width      Int?
+  height     Int?
+  isAnimated Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
   pack StickerPack @relation(fields: [packId], references: [id], onDelete: Cascade)
-  
+
   @@index([packId])
 }
 
@@ -643,21 +665,21 @@ model Gif {
   tags        String? // Comma-separated tags
   searchCount Int      @default(0) // Track popularity
   createdAt   DateTime @default(now())
-  
+
   @@index([tags])
   @@index([searchCount])
 }
 
 // Hashtags for search
 model Hashtag {
-  id          String   @id @default(uuid())
-  tag         String   @unique // Without # symbol
-  useCount    Int      @default(0)
-  lastUsedAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
-  
+  id         String   @id @default(uuid())
+  tag        String   @unique // Without # symbol
+  useCount   Int      @default(0)
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
   messages MessageHashtag[]
-  
+
   @@index([tag])
   @@index([useCount])
 }
@@ -667,10 +689,140 @@ model MessageHashtag {
   messageId String
   hashtagId String
   createdAt DateTime @default(now())
-  
+
   hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
-  
+
   @@unique([messageId, hashtagId])
   @@index([hashtagId])
   @@index([messageId])
+}
+
+// Stage 3: Webhooks for channels
+model Webhook {
+  id              String    @id @default(uuid())
+  chatId          String
+  url             String
+  secret          String? // Secret for webhook verification
+  events          String    @default("[]") // JSON array of enabled events
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  lastTriggeredAt DateTime?
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+}
+
+// Stage 3: Auto-responders for offline mode
+model AutoResponder {
+  id          String   @id @default(uuid())
+  chatId      String
+  userId      String
+  trigger     String // Keyword or pattern to trigger response
+  response    String // Auto-response message
+  isActive    Boolean  @default(true)
+  onlyOffline Boolean  @default(true) // Only respond when user is offline
+  createdAt   DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+  @@index([userId])
+}
+
+// Stage 3: Chat folders
+model ChatFolder {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  icon      String? // Emoji or icon
+  color     String? // Folder color
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  chats Chat[] @relation("FolderChats")
+
+  @@index([userId])
+}
+
+// Stage 3: Chat tags
+model ChatTag {
+  id        String   @id @default(uuid())
+  chatId    String
+  userId    String
+  tag       String
+  color     String? // Tag color
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId, tag])
+  @@index([userId])
+}
+
+// Stage 3: User privacy settings
+model UserPrivacySettings {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  hideOnline       Boolean  @default(false)
+  hideTyping       Boolean  @default(false)
+  hideReadReceipts Boolean  @default(false)
+  allowForwarding  Boolean  @default(true)
+  allowScreenshots Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Stage 3: Chat customization
+model ChatCustomization {
+  id               String   @id @default(uuid())
+  chatId           String   @unique
+  userId           String
+  customColor      String? // Custom chat color
+  customBackground String? // Custom background image URL
+  customSound      String? // Custom notification sound
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Stage 3: Priority contacts
+model PriorityContact {
+  id        String   @id @default(uuid())
+  userId    String
+  contactId String
+  priority  Int      @default(0) // Higher = more priority
+  createdAt DateTime @default(now())
+
+  @@unique([userId, contactId])
+  @@index([userId])
+}
+
+// Stage 3: Quick replies
+model QuickReply {
+  id        String   @id @default(uuid())
+  userId    String
+  shortcut  String // Shortcut text (e.g., "/hello")
+  message   String // Full message to send
+  createdAt DateTime @default(now())
+
+  @@unique([userId, shortcut])
+  @@index([userId])
+}
+
+// Stage 3: Chat statistics
+model ChatStatistics {
+  id           String   @id @default(uuid())
+  chatId       String
+  userId       String
+  messageCount Int      @default(0)
+  mediaCount   Int      @default(0)
+  lastActive   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@unique([chatId, userId])
+  @@index([userId])
 }

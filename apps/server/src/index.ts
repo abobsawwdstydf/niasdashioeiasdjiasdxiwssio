@@ -31,6 +31,7 @@ import { setupSocket } from './socket';
 import { authenticateToken, AuthRequest } from './middleware/auth';
 import { decryptFileToBuffer, isEncryptionEnabled } from './encrypt';
 import { UPLOADS_ROOT } from './shared';
+import { startSelfDestructCleanup } from './lib/selfDestructCleanup';
 
 // Disable all console logs for performance
 if (process.env.NODE_ENV === 'production') {
@@ -96,6 +97,17 @@ app.use('/api/secret-chats', apiLimiter, authenticateToken, require('./routes/se
 app.use('/api/stickers', apiLimiter, authenticateToken, require('./routes/stickers').default);
 app.use('/api/search', apiLimiter, authenticateToken, require('./routes/search').default);
 app.use('/api/media', apiLimiter, authenticateToken, require('./routes/media').default);
+app.use('/api/webhooks', apiLimiter, authenticateToken, require('./routes/webhooks').default);
+app.use('/api/auto-responders', apiLimiter, authenticateToken, require('./routes/autoResponders').default);
+app.use('/api/ocr', apiLimiter, authenticateToken, require('./routes/ocr').default);
+app.use('/api/speech-to-text', apiLimiter, authenticateToken, require('./routes/speechToText').default);
+app.use('/api/self-destruct', apiLimiter, authenticateToken, require('./routes/selfDestruct').default);
+app.use('/api/privacy', apiLimiter, authenticateToken, require('./routes/privacy').default);
+app.use('/api/customization', apiLimiter, authenticateToken, require('./routes/customization').default);
+app.use('/api/folders', apiLimiter, authenticateToken, require('./routes/folders').default);
+app.use('/api/tags', apiLimiter, authenticateToken, require('./routes/tags').default);
+app.use('/api/quick-replies', apiLimiter, authenticateToken, require('./routes/quickReplies').default);
+app.use('/api/utilities', apiLimiter, authenticateToken, require('./routes/utilities').default);
 app.use('/api/admin', adminRoutes);
 
 // Проверка здоровья
@@ -306,6 +318,9 @@ async function cleanupExpiredStories() {
 
 cleanupExpiredStories();
 setInterval(cleanupExpiredStories, 10 * 60 * 1000);
+
+// Start self-destruct message cleanup
+startSelfDestructCleanup();
 
 // Start server
 server.listen(config.port, '0.0.0.0', () => {

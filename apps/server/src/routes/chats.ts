@@ -469,6 +469,11 @@ router.put('/:id', async (req: AuthRequest, res) => {
     if (rules !== undefined) updateData.rules = rules;
     if (canMembersPost !== undefined) updateData.canMembersPost = canMembersPost;
     if (canMembersInvite !== undefined) updateData.canMembersInvite = canMembersInvite;
+    
+    // Stage 3: Channel customization
+    if (req.body.customIcon !== undefined) updateData.customIcon = req.body.customIcon;
+    if (req.body.customColor !== undefined) updateData.customColor = req.body.customColor;
+    if (req.body.customBackground !== undefined) updateData.customBackground = req.body.customBackground;
 
     const chat = await prisma.chat.update({
       where: { id: chatId },
