@@ -50,6 +50,11 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
   // Tag for personal chats (from the other user)
   const otherUserTag = chat.type === 'personal' ? otherMember?.user : null;
 
+  // Verification: for personal chats use other user's verification, for groups/channels use chat's verification
+  const isVerified = chat.type === 'personal' ? otherMember?.user.isVerified : chat.isVerified;
+  const verifiedBadgeUrl = chat.type === 'personal' ? otherMember?.user.verifiedBadgeUrl : chat.verifiedBadgeUrl;
+  const verifiedBadgeType = chat.type === 'personal' ? otherMember?.user.verifiedBadgeType : chat.verifiedBadgeType;
+
   // Check if someone is typing in this chat
   const typingInChat = typingUsers.filter((t) => t.chatId === chat.id && t.userId !== user?.id);
   const isTyping = typingInChat.length > 0;
@@ -148,9 +153,9 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
               name={chatName} 
               size="lg" 
               online={isOnline ? true : undefined}
-              isVerified={chat.isVerified}
-              verifiedBadgeUrl={chat.verifiedBadgeUrl}
-              verifiedBadgeType={chat.verifiedBadgeType}
+              isVerified={isVerified}
+              verifiedBadgeUrl={verifiedBadgeUrl}
+              verifiedBadgeType={verifiedBadgeType}
             />
           )}
         </div>
@@ -161,12 +166,12 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
             <div className="flex items-center gap-1.5 min-w-0">
               {isPinned && <Pin size={12} className="text-nexo-400 flex-shrink-0 rotate-45" />}
               <span className="text-sm font-medium text-white truncate">{chatName}</span>
-              {/* Verified badge inline for channels/groups */}
-              {chat.isVerified && (
+              {/* Verified badge inline - показывается для всех верифицированных чатов */}
+              {isVerified && (
                 <span className="flex-shrink-0 inline-flex items-center justify-center">
-                  {chat.verifiedBadgeUrl && chat.verifiedBadgeType !== 'default' ? (
+                  {verifiedBadgeUrl && verifiedBadgeType !== 'default' ? (
                     <img
-                      src={chat.verifiedBadgeUrl}
+                      src={verifiedBadgeUrl}
                       alt="verified"
                       className="w-3.5 h-3.5 rounded-full object-cover"
                       title="Верифицирован"

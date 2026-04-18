@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, Loader2, X, ArrowLeft } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2, X, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../lib/api';
 import CodeBlock from '../components/CodeBlock';
@@ -24,6 +24,37 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  /** Загрузка истории из localStorage при монтировании */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('nexo_ai_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMessages(parsed);
+      }
+    } catch (e) {
+      console.error('Failed to load AI history:', e);
+    }
+  }, []);
+
+  /** Сохранение истории в localStorage при изменении */
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        // Сохраняем только последние 50 сообщений чтобы не переполнить localStorage
+        const toSave = messages.slice(-50).map(m => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }));
+        localStorage.setItem('nexo_ai_history', JSON.stringify(toSave));
+      } catch (e) {
+        console.error('Failed to save AI history:', e);
+      }
+    }
+  }, [messages]);
 
   /** Определяем мобильное устройство */
   useEffect(() => {
@@ -94,6 +125,14 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
       }
     }
   }, [isRecording]);
+
+  /** Очистка истории */
+  const clearHistory = useCallback(() => {
+    if (confirm('Очистить всю историю чата с AI?')) {
+      setMessages([]);
+      localStorage.removeItem('nexo_ai_history');
+    }
+  }, []);
 
   /** Отправка сообщения со стримингом */
   const sendMessage = useCallback(async () => {
@@ -282,6 +321,17 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
             <p className="text-[10px] text-zinc-500">Умный ассистент</p>
           </div>
         </div>
+
+        {/* Очистить историю */}
+        {messages.length > 0 && (
+          <button
+            onClick={clearHistory}
+            className="glass-btn w-9 h-9 rounded-xl text-zinc-400 hover:text-red-400 transition-colors"
+            title="Очистить историю"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
 
         {/* Закрыть (ПК) */}
         {!isMobile && onClose && (
