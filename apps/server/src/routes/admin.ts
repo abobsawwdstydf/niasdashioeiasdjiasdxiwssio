@@ -480,4 +480,145 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// ============= BEAVERS MANAGEMENT =============
+
+// Добавить бобров пользователю
+router.post('/beavers/add', authenticateAdmin, async (req, res) => {
+  try {
+    const { username, amount, description } = req.body;
+
+    if (!username || !amount || amount <= 0) {
+      return res.status(400).json({ error: 'Неверные параметры' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() },
+      select: { id: true, beavers: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Выполняем транзакцию
+    const [updatedUser, transaction] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          beavers: user.beavers + amount,
+          totalEarned: { increment: amount },
+        },
+      }),
+      prisma.transaction.create({
+        data: {
+          userId: user.id,
+          amount,
+          type: 'admin_add',
+          description: description || 'Добавлено админом',
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        username: username,
+        beavers: updatedUser.beavers,
+      },
+      transaction,
+    });
+  } catch (error) {
+    console.error('Add beavers error:', error);
+    res.status(500).json({ error: 'Ошибка добавления бобров' });
+  }
+});
+
+// Списать бобров у пользователя
+router.post('/beavers/remove', authenticateAdmin, async (req, res) => {
+  try {
+    const { username, amount, description } = req.body;
+
+    if (!username || !amount || amount <= 0) {
+      return res.status(400).json({ error: 'Неверные параметры' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() },
+      select: { id: true, beavers: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    if (user.beavers < amount) {
+      return res.status(400).json({
+        error: 'Недостаточно бобров',
+        current: user.beavers,
+        required: amount,
+      });
+    }
+
+    // Выполняем транзакцию
+    const [updatedUser, transaction] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          beavers: user.beavers - amount,
+          totalSpent: { increment: amount },
+        },
+      }),
+      prisma.transaction.create({
+        data: {
+          userId: user.id,
+          amount: -amount,
+          type: 'admin_remove',
+          description: description || 'Списано админом',
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        username: username,
+        beavers: updatedUser.beavers,
+      },
+      transaction,
+    });
+  } catch (error) {
+    console.error('Remove beavers error:', error);
+    res.status(500).json({ error: 'Ошибка списания бобров' });
+  }
+});
+
+// Проверить баланс пользователя
+router.get('/beavers/balance/:username', authenticateAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() },
+      select: {
+        id: true,
+        username: true,
+        beavers: true,
+        totalSpent: true,
+        totalEarned: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Check balance error:', error);
+    res.status(500).json({ error: 'Ошибка проверки баланса' });
+  }
+});
+
 export default router;

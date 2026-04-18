@@ -54,6 +54,54 @@ export interface User extends UserPresence {
   tagText?: string | null;
   tagColor?: string | null;
   tagStyle?: string | null;
+  // Premium
+  isPremium?: boolean;
+  premiumUntil?: string | null;
+  premiumType?: string | null;
+  beavers?: number;
+  totalSpent?: number;
+  totalEarned?: number;
+}
+
+// ─── Premium types ─────────────────────────────────────────────────────
+
+export interface PremiumStatus {
+  isPremium: boolean;
+  premiumUntil: string | null;
+  premiumType: string | null;
+  beavers: number;
+}
+
+export interface PremiumPrices {
+  '1month': number;
+  '3months': number;
+  '6months': number;
+  '12months': number;
+}
+
+export interface PremiumPurchase {
+  id: string;
+  userId: string;
+  months: number;
+  beavers: number;
+  purchasedAt: string;
+  expiresAt: string;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'purchase' | 'admin_add' | 'admin_remove' | 'premium' | 'gift' | 'refund';
+  description: string | null;
+  relatedId: string | null;
+  createdAt: string;
+}
+
+export interface Balance {
+  beavers: number;
+  totalSpent: number;
+  totalEarned: number;
 }
 
 // ─── Chat types ────────────────────────────────────────────────────────

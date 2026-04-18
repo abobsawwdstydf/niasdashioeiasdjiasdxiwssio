@@ -225,6 +225,7 @@ app.use('/api/folders', apiLimiter, authenticateToken, require('./routes/folders
 app.use('/api/tags', apiLimiter, authenticateToken, require('./routes/tags').default);
 app.use('/api/quick-replies', apiLimiter, authenticateToken, require('./routes/quickReplies').default);
 app.use('/api/utilities', apiLimiter, authenticateToken, require('./routes/utilities').default);
+app.use('/api/premium', apiLimiter, authenticateToken, require('./routes/premium').default);
 app.use('/api/admin', adminRoutes);
 
 // Проверка здоровья

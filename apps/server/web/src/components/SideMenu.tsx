@@ -34,6 +34,7 @@ import {
   Minimize2,
   Maximize2,
   Monitor,
+  Crown,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -46,9 +47,10 @@ import { useUIThemeStore } from '../stores/uiThemeStore';
 import DatePicker from './DatePicker';
 import DevicesTab from './DevicesTab';
 import LegalPage from './LegalPage';
+import PremiumPage from '../pages/PremiumPage';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
 
-type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends';
+type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends' | 'premium';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -281,6 +283,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     { icon: User, label: t('myProfile'), onClick: () => changeView('profile') },
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
     { divider: true },
+    { icon: Crown, label: 'Premium', onClick: () => changeView('premium'), highlight: true },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
     { divider: true },
     { icon: Info, label: t('aboutApp'), subtitle: 'Nexo Messenger v1.3', onClick: () => changeView('about') },
@@ -337,17 +340,30 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
         {menuItems.map((item, i) => {
           if ('divider' in item) return <div key={i} className="my-2 mx-3 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />;
           const Icon = item.icon!;
+          const isHighlight = 'highlight' in item && item.highlight;
           return (
             <button
               key={i}
               onClick={item.onClick}
-              className="group w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left transition-all duration-300 hover:bg-white/[0.06] active:scale-[0.98] backdrop-blur-sm border border-transparent hover:border-white/[0.06]"
+              className={`group w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left transition-all duration-300 active:scale-[0.98] backdrop-blur-sm border ${
+                isHighlight
+                  ? 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/20 hover:border-yellow-500/30 hover:from-yellow-500/15 hover:to-orange-500/15'
+                  : 'border-transparent hover:bg-white/[0.06] hover:border-white/[0.06]'
+              }`}
             >
-              <div className="w-9 h-9 rounded-xl bg-white/[0.06] group-hover:bg-white/[0.1] flex items-center justify-center transition-all duration-300 border border-white/[0.04] group-hover:border-white/[0.08]">
-                <Icon size={17} className="text-zinc-400 group-hover:text-zinc-200 transition-all duration-300" />
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 border ${
+                isHighlight
+                  ? 'bg-yellow-500/20 border-yellow-500/30 group-hover:bg-yellow-500/30'
+                  : 'bg-white/[0.06] group-hover:bg-white/[0.1] border-white/[0.04] group-hover:border-white/[0.08]'
+              }`}>
+                <Icon size={17} className={`transition-all duration-300 ${
+                  isHighlight ? 'text-yellow-400' : 'text-zinc-400 group-hover:text-zinc-200'
+                }`} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13.5px] font-medium text-zinc-300 group-hover:text-white transition-all duration-300">{item.label}</p>
+                <p className={`text-[13.5px] font-medium transition-all duration-300 ${
+                  isHighlight ? 'text-yellow-400 group-hover:text-yellow-300' : 'text-zinc-300 group-hover:text-white'
+                }`}>{item.label}</p>
                 {item.subtitle && <p className="text-[10px] text-zinc-600 mt-0.5">{item.subtitle}</p>}
               </div>
               {'badge' in item && item.badge ? (
@@ -355,7 +371,9 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
                   {item.badge}
                 </span>
               ) : (
-                <ChevronRight size={14} className="text-zinc-700 group-hover:text-zinc-500 transition-colors flex-shrink-0" />
+                <ChevronRight size={14} className={`transition-colors flex-shrink-0 ${
+                  isHighlight ? 'text-yellow-600 group-hover:text-yellow-500' : 'text-zinc-700 group-hover:text-zinc-500'
+                }`} />
               )}
             </button>
           );
@@ -938,6 +956,11 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
               {view === 'settings' && renderSettings()}
               {view === 'friends' && renderFriends()}
               {view === 'about' && renderAbout()}
+              {view === 'premium' && (
+                <div className="h-full">
+                  <PremiumPage onClose={() => changeView('main')} />
+                </div>
+              )}
             </AnimatePresence>
           </motion.div>
         </>

@@ -136,6 +136,7 @@
         <div class="tab" onclick="switchTab('users')">👥 Пользователи</div>
         <div class="tab" onclick="switchTab('verification')">✅ Верификация</div>
         <div class="tab" onclick="switchTab('tags')">🏷️ Теги</div>
+        <div class="tab" onclick="switchTab('beavers')">🦫 Бобры</div>
         <div class="tab" onclick="switchTab('sessions')">🔑 Сессии</div>
         <div class="tab" onclick="switchTab('devices')">📱 Устройства</div>
         <div class="tab" onclick="switchTab('storage')">💾 Хранилище</div>
@@ -294,6 +295,49 @@
               <thead><tr><th>Пользователь</th><th>Username</th><th>Тег</th><th>Цвет</th><th>Стиль</th><th>Действия</th></tr></thead>
               <tbody id="taggedTable"><tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Загрузка...</td></tr></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Beavers Tab -->
+      <div id="tab-beavers" class="tab-content">
+        <div class="section">
+          <div class="section-title"><span>🦫 Управление балансом бобров</span></div>
+          <p style="color:var(--text-secondary);margin-bottom:20px;">Добавляйте или списывайте бобры пользователям. 1 бобр = 1 рубль.</p>
+          
+          <!-- Add beavers form -->
+          <div style="background:var(--bg-input);padding:20px;border-radius:12px;margin-bottom:20px;">
+            <h4 style="margin-bottom:15px;color:var(--neon-green);">➕ Добавить бобров</h4>
+            <div class="flex-row" style="margin-bottom:10px;">
+              <input type="text" id="beaversUsername" placeholder="Username пользователя" />
+              <input type="number" id="beaversAmount" placeholder="Количество бобров" min="1" />
+            </div>
+            <input type="text" id="beaversDescription" placeholder="Описание (необязательно)" style="margin-bottom:10px;" />
+            <button class="btn-success" onclick="addBeavers()">➕ Добавить бобров</button>
+          </div>
+
+          <!-- Remove beavers form -->
+          <div style="background:var(--bg-input);padding:20px;border-radius:12px;margin-bottom:20px;">
+            <h4 style="margin-bottom:15px;color:var(--neon-red);">➖ Списать бобров</h4>
+            <div class="flex-row" style="margin-bottom:10px;">
+              <input type="text" id="removeBeaversUsername" placeholder="Username пользователя" />
+              <input type="number" id="removeBeaversAmount" placeholder="Количество бобров" min="1" />
+            </div>
+            <input type="text" id="removeBeaversDescription" placeholder="Описание (необязательно)" style="margin-bottom:10px;" />
+            <button class="btn-danger" onclick="removeBeavers()">➖ Списать бобров</button>
+          </div>
+
+          <!-- Check balance -->
+          <div style="background:var(--bg-input);padding:20px;border-radius:12px;">
+            <h4 style="margin-bottom:15px;color:var(--neon-blue);">💰 Проверить баланс</h4>
+            <div class="flex-row">
+              <input type="text" id="checkBalanceUsername" placeholder="Username пользователя" />
+              <button class="btn-primary" onclick="checkBalance()">🔍 Проверить</button>
+            </div>
+            <div id="balanceResult" style="margin-top:15px;padding:15px;border-radius:8px;background:rgba(0,243,255,0.1);display:none;">
+              <div style="font-size:1.2rem;font-weight:bold;color:var(--neon-green);margin-bottom:5px;" id="balanceAmount"></div>
+              <div style="font-size:0.9rem;color:var(--text-secondary);" id="balanceStats"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1133,6 +1177,71 @@
         await api('/tag/' + userId, { method: 'DELETE' });
         notify('Тег удалён'); loadTaggedUsers();
       } catch { notify('Ошибка', 'error'); }
+    }
+
+    // ============= BEAVERS MANAGEMENT =============
+    
+    async function addBeavers() {
+      const username = document.getElementById('beaversUsername').value.trim();
+      const amount = parseInt(document.getElementById('beaversAmount').value);
+      const description = document.getElementById('beaversDescription').value.trim();
+
+      if (!username) { notify('Введите username', 'error'); return; }
+      if (!amount || amount <= 0) { notify('Введите корректное количество', 'error'); return; }
+
+      try {
+        await api('/beavers/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, amount, description: description || `Добавлено админом` })
+        });
+        notify(`✅ Добавлено ${amount} 🦫 пользователю @${username}`, 'success');
+        document.getElementById('beaversUsername').value = '';
+        document.getElementById('beaversAmount').value = '';
+        document.getElementById('beaversDescription').value = '';
+      } catch (err) {
+        notify('Ошибка добавления бобров', 'error');
+      }
+    }
+
+    async function removeBeavers() {
+      const username = document.getElementById('removeBeaversUsername').value.trim();
+      const amount = parseInt(document.getElementById('removeBeaversAmount').value);
+      const description = document.getElementById('removeBeaversDescription').value.trim();
+
+      if (!username) { notify('Введите username', 'error'); return; }
+      if (!amount || amount <= 0) { notify('Введите корректное количество', 'error'); return; }
+
+      try {
+        await api('/beavers/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, amount, description: description || `Списано админом` })
+        });
+        notify(`✅ Списано ${amount} 🦫 у пользователя @${username}`, 'success');
+        document.getElementById('removeBeaversUsername').value = '';
+        document.getElementById('removeBeaversAmount').value = '';
+        document.getElementById('removeBeaversDescription').value = '';
+      } catch (err) {
+        notify('Ошибка списания бобров', 'error');
+      }
+    }
+
+    async function checkBalance() {
+      const username = document.getElementById('checkBalanceUsername').value.trim();
+      
+      if (!username) { notify('Введите username', 'error'); return; }
+
+      try {
+        const data = await api(`/beavers/balance/${username}`);
+        
+        document.getElementById('balanceAmount').textContent = `${data.beavers} 🦫`;
+        document.getElementById('balanceStats').textContent = `Потрачено: ${data.totalSpent} 🦫 | Заработано: ${data.totalEarned} 🦫`;
+        document.getElementById('balanceResult').style.display = 'block';
+      } catch (err) {
+        notify('Пользователь не найден', 'error');
+        document.getElementById('balanceResult').style.display = 'none';
+      }
     }
   </script>
 </body>

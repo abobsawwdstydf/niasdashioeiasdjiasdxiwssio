@@ -552,4 +552,58 @@ router.post('/devices/terminate-all', async (req: AuthRequest, res) => {
   }
 });
 
+// ============= БАЛАНС БОБРОВ =============
+
+// Получить баланс бобров
+router.get('/balance', async (req: AuthRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: {
+        beavers: true,
+        totalSpent: true,
+        totalEarned: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'Пользователь не найден' });
+      return;
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Get balance error:', error);
+    res.status(500).json({ error: 'Ошибка получения баланса' });
+  }
+});
+
+// Получить историю транзакций
+router.get('/transactions', async (req: AuthRequest, res) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+
+    const transactions = await prisma.transaction.findMany({
+      where: { userId: req.userId },
+      orderBy: { createdAt: 'desc' },
+      take: Number(limit),
+      skip: Number(offset),
+    });
+
+    const total = await prisma.transaction.count({
+      where: { userId: req.userId },
+    });
+
+    res.json({
+      transactions,
+      total,
+      limit: Number(limit),
+      offset: Number(offset),
+    });
+  } catch (error) {
+    console.error('Get transactions error:', error);
+    res.status(500).json({ error: 'Ошибка получения транзакций' });
+  }
+});
+
 export default router;
