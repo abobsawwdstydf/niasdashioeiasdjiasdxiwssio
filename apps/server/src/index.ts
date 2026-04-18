@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import mime from 'mime-types';
-import { config, TELEGRAM_BOTS, TELEGRAM_AUTH_BOT } from './config';
+import { config } from './config';
 import { prisma } from './db';
 import authRoutes from './routes/auth';
 
@@ -258,42 +258,6 @@ app.get('/api/files/:fileId/download', async (req, res) => {
         res.setHeader('Cache-Control', 'public, max-age=31536000');
         res.end(fileBuffer);
       }
-      return;
-    }
-
-    // Fallback to old Telegram storage for backward compatibility
-    if (fileId.startsWith('tg_')) {
-      const telegramStorage = await import('./lib/telegramStorage').then(m => m.telegramStorage);
-      const telegramFile = await prisma.telegramFile.findUnique({
-        where: { fileId },
-        include: { chunks: { orderBy: { chunkIndex: 'asc' } } }
-      });
-
-      if (!telegramFile) {
-        console.warn(`[FILES] Telegram file ${fileId} not found`);
-        res.status(404).json({ error: 'Файл не найден' });
-        return;
-      }
-
-      let fileBuffer: Buffer;
-      try {
-        fileBuffer = await telegramStorage.downloadFile(telegramFile.fileId, telegramFile.chunks);
-      } catch (downloadError: any) {
-        console.error(`[FILES] Telegram download error:`, downloadError.message);
-        res.status(503).json({ error: 'Файл временно недоступен' });
-        return;
-      }
-
-      const isInline = telegramFile.mimeType.startsWith('image/') ||
-                       telegramFile.mimeType.startsWith('video/') ||
-                       telegramFile.mimeType.startsWith('audio/');
-
-      res.setHeader('Content-Type', telegramFile.mimeType);
-      res.setHeader('Content-Length', fileBuffer.length);
-      res.setHeader('Content-Disposition', isInline 
-        ? `inline; filename="${encodeURIComponent(telegramFile.originalName)}"`
-        : `attachment; filename="${encodeURIComponent(telegramFile.originalName)}"`);
-      res.end(fileBuffer);
       return;
     }
 

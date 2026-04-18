@@ -1,5 +1,5 @@
 import { createClient } from 'redis';
-import { REDIS_INSTANCES } from './telegram';
+import { REDIS_INSTANCES } from '../config';
 
 interface RedisClientWrapper {
   client: ReturnType<typeof createClient>;

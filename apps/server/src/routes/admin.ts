@@ -239,7 +239,6 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
     // Delete all related data first to avoid foreign key constraints
     await prisma.$transaction([
       // Delete uploaded files
-      prisma.telegramFile.deleteMany({ where: { userId } }),
       prisma.localFile.deleteMany({ where: { userId } }),
       // Delete story views
       prisma.storyView.deleteMany({ where: { userId } }),
@@ -377,8 +376,8 @@ router.delete('/ban/:id', authenticateAdmin, async (req, res) => {
 router.post('/config/storage', authenticateAdmin, async (req, res) => {
   try {
     const { mode } = req.body;
-    if (mode === 'local' || mode === 'telegram') {
-      res.json({ success: true, message: `Режим хранилища: ${mode === 'local' ? 'Локальный' : 'Telegram'}` });
+    if (mode === 'local') {
+      res.json({ success: true, message: `Режим хранилища: Локальный` });
     } else { res.status(400).json({ error: 'Неверный режим' }); }
   } catch { res.status(500).json({ error: 'Ошибка' }); }
 });

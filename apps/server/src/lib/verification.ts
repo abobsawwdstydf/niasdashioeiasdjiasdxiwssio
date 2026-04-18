@@ -1,5 +1,4 @@
 import { prisma } from '../db';
-import { TELEGRAM_BOTS } from '../config';
 
 /**
  * Генерирует 6-значный код верификации
@@ -9,7 +8,7 @@ export function generateCode(): string {
 }
 
 /**
- * Генерирует уникальный токен для Telegram-ссылки
+ * Генерирует уникальный токен для ссылки
  */
 export function generateToken(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 16);
@@ -23,7 +22,7 @@ export async function createVerification(data: {
   email?: string;
   userId?: string;
   purpose: 'phone_register' | 'email_register' | 'login_2fa';
-  method: 'telegram' | 'call' | 'email' | 'sms';
+  method: 'email' | 'sms';
 }): Promise<{ code: string; token: string }> {
   const code = generateCode();
   const token = generateToken();
@@ -82,49 +81,12 @@ export async function verifyCode(data: {
 }
 
 /**
- * Находит токен верификации Telegram
+ * Находит токен верификации
  */
-export async function findTelegramToken(token: string) {
+export async function findVerificationToken(token: string) {
   return prisma.verificationCode.findFirst({
     where: { token, used: false, expiresAt: { gt: new Date() } },
   });
-}
-
-/**
- * Отправляет сообщение через Telegram Bot API (fetch, без зависимостей)
- */
-async function sendTelegramMessage(botToken: string, chatId: number | string, text: string): Promise<void> {
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: 'Markdown',
-    }),
-  });
-
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({})) as { description?: string };
-    throw new Error(`Telegram API error: ${errorBody.description || res.statusText}`);
-  }
-}
-
-/**
- * Отправляет код через Telegram-бота
- */
-export async function sendTelegramCode(chatId: number | string, code: string, purpose: string): Promise<void> {
-  const botToken = TELEGRAM_BOTS[0].token; // Первый бот для верификации
-  const messengerName = 'Nexo';
-
-  const messages: Record<string, string> = {
-    phone_register: `🎉 Добро пожаловать в ${messengerName}!\n\n🔐 Ваш код подтверждения: *${code}*\n\n⏱ Код действует 5 минут.`,
-    email_register: `📧 Подтверждение email в ${messengerName}\n\n🔐 Ваш код: *${code}*\n\n⏱ Код действует 5 минут.`,
-    login_2fa: `🔑 Код входа в ${messengerName}\n\n🔐 Ваш код: *${code}*\n\n⏱ Код действует 5 минут.\n\nЕсли вы не пытались войти — смените пароль!`,
-  };
-
-  await sendTelegramMessage(botToken, chatId, messages[purpose] || `🔐 Ваш код: *${code}*\n\n⏱ Код действует 5 минут.`);
 }
 
 /**

@@ -1,5 +1,12 @@
 import crypto from 'crypto';
-import { ENCRYPTION_LEVELS } from './telegram';
+
+// Encryption levels
+export const ENCRYPTION_LEVELS = {
+  NONE: 0,
+  BASIC: 1,
+  STANDARD: 2,
+  MAX: 3,
+};
 
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits

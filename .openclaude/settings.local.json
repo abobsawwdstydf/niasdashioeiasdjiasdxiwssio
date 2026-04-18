@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(npm run:*)",
+      "Bash(find 'E:/бэк нексо/Nexo MSG GITHUB 18 АПРЕЛЯ/apps/server/web/src/components' -name *.tsx -type f)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

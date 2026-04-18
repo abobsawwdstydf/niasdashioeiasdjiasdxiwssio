@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../lib/api';
-import { requestPushPermission } from '../lib/webPush';
 import { Eye, EyeOff, UserPlus, LogIn, Camera, Check } from 'lucide-react';
 
 function PhoneSvg() {
@@ -124,7 +123,6 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
       await login(phone, password);
-      requestPushPermission();
     } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Ошибка'); }
     finally { setIsSubmitting(false); }
   };
@@ -146,7 +144,6 @@ export default function AuthPage() {
         birthday: birthday || undefined,
         avatar: avatarFile || undefined,
       });
-      requestPushPermission();
     } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Ошибка'); }
     finally { setIsSubmitting(false); }
   };

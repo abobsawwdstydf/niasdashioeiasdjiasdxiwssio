@@ -268,29 +268,26 @@ export function setupSocket(io: Server) {
             forwardedFromId: validForwardedFromId,
             scheduledAt,
             // Создаём media: либо одно, либо несколько для альбома
-            // Convert tg:// URLs to downloadable API URLs
             media: data.media && data.media.length > 1
               ? { create: data.media.map(m => {
-                  const fileId = m.url?.startsWith('tg://') ? m.url.replace('tg://', '') : m.fileId;
+                  const fileId = m.fileId || m.url;
                   return {
                     type: m.type,
                     url: fileId ? `/api/files/${fileId}/download` : m.url,
                     filename: m.filename,
                     size: m.size,
                     duration: m.duration,
-                    telegramFileId: fileId || null,
+                    localFileId: fileId || null,
                   };
                 }) }
               : data.mediaUrl
                 ? { create: {
                     type: data.mediaType || 'file',
-                    url: data.mediaUrl.startsWith('tg://') 
-                      ? `/api/files/${data.mediaUrl.replace('tg://', '')}/download`
-                      : data.mediaUrl,
+                    url: data.mediaUrl,
                     filename: data.fileName,
                     size: data.fileSize,
                     duration: data.duration,
-                    telegramFileId: data.mediaUrl.startsWith('tg://') ? data.mediaUrl.replace('tg://', '') : null,
+                    localFileId: null,
                   }}
                 : undefined,
           },
