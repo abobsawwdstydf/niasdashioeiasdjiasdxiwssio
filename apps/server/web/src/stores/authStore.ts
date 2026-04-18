@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       } catch (err) {
         lastError = err;
-        if (err instanceof Error && (err.message.includes('401') || err.message.includes('403'))) {
+        if (err instanceof Error && err.message.includes('401')) {
           localStorage.removeItem('nexo_token');
           api.setToken(null);
           set({ token: null, user: null, isLoading: false });

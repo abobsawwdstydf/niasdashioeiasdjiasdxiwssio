@@ -20,7 +20,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
     req.userId = decoded.userId;
     next();
   } catch {
-    res.status(403).json({ error: 'Недействительный токен' });
+    res.status(401).json({ error: 'Недействительный токен' });
     return;
   }
 }

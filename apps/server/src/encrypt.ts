@@ -81,6 +81,46 @@ export function decryptText(ciphertext: string): string {
 // ─── File encryption ─────────────────────────────────────────────────
 
 /**
+ * Encrypt a Buffer (for in-memory file encryption).
+ * Returns: [IV 12B][AuthTag 16B][ciphertext...]
+ */
+export function encryptBuffer(plainBuffer: Buffer): Buffer {
+  if (!encryptionKey) return plainBuffer;
+
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, encryptionKey, iv);
+  const encrypted = Buffer.concat([cipher.update(plainBuffer), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  // Write: IV + AuthTag + Ciphertext
+  return Buffer.concat([iv, authTag, encrypted]);
+}
+
+/**
+ * Decrypt a Buffer (for in-memory file decryption).
+ * Expects format: [IV 12B][AuthTag 16B][ciphertext...]
+ */
+export function decryptBuffer(encryptedBuffer: Buffer): Buffer {
+  if (!encryptionKey) return encryptedBuffer;
+
+  try {
+    if (encryptedBuffer.length < FILE_HEADER_LENGTH) return encryptedBuffer;
+
+    const iv = encryptedBuffer.subarray(0, IV_LENGTH);
+    const authTag = encryptedBuffer.subarray(IV_LENGTH, FILE_HEADER_LENGTH);
+    const ciphertext = encryptedBuffer.subarray(FILE_HEADER_LENGTH);
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, encryptionKey, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return decrypted;
+  } catch (error) {
+    console.error('Buffer decryption failed:', error);
+    return encryptedBuffer; // Return original if decryption fails
+  }
+}
+
+/**
  * Encrypt a file in-place on disk.
  * Replaces the original file with: [IV 12B][AuthTag 16B][ciphertext...]
  */
@@ -88,14 +128,8 @@ export function encryptFileInPlace(filePath: string): void {
   if (!encryptionKey) return;
 
   const plainData = fs.readFileSync(filePath);
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, encryptionKey, iv);
-  const encrypted = Buffer.concat([cipher.update(plainData), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-
-  // Write: IV + AuthTag + Ciphertext
-  const output = Buffer.concat([iv, authTag, encrypted]);
-  fs.writeFileSync(filePath, output);
+  const encryptedData = encryptBuffer(plainData);
+  fs.writeFileSync(filePath, encryptedData);
 }
 
 /**

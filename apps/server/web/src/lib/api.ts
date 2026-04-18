@@ -42,8 +42,9 @@ class ApiClient {
     clearTimeout(timer);
 
     if (!response.ok) {
-      // 403 = токен недействителен — автоматически выходим
-      if (response.status === 403) {
+      // 401 = токен недействителен — автоматически выходим
+      // 403 = нет доступа (но токен валидный) — НЕ выходим
+      if (response.status === 401) {
         localStorage.removeItem('nexo_token');
         this.token = null;
         window.location.href = '/';
