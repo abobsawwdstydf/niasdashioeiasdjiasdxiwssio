@@ -3,7 +3,7 @@ import { prisma } from '../db';
 import crypto from 'crypto';
 
 const router = express.Router();
-const ADMIN_PASSWORD = 'b2323vgn7v672n7823478t92BRGMV7tv83';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'change-me-in-production';
 
 // In-memory session store
 interface AdminSession {
@@ -238,10 +238,9 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
     
     // Delete all related data first to avoid foreign key constraints
     await prisma.$transaction([
-      // Delete auth sessions
-      prisma.authSession.deleteMany({ where: { userId } }),
       // Delete uploaded files
       prisma.telegramFile.deleteMany({ where: { userId } }),
+      prisma.localFile.deleteMany({ where: { userId } }),
       // Delete story views
       prisma.storyView.deleteMany({ where: { userId } }),
       // Delete stories
@@ -254,6 +253,12 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
       prisma.readReceipt.deleteMany({ where: { userId } }),
       // Delete reactions
       prisma.reaction.deleteMany({ where: { userId } }),
+      // Delete poll votes
+      prisma.pollVote.deleteMany({ where: { userId } }),
+      // Delete message views
+      prisma.messageView.deleteMany({ where: { userId } }),
+      // Delete hidden messages
+      prisma.hiddenMessage.deleteMany({ where: { userId } }),
       // Delete pinned messages
       prisma.pinnedMessage.deleteMany({ where: { chat: { members: { some: { userId } } } } }),
       // Delete chat memberships (cascade will delete messages)

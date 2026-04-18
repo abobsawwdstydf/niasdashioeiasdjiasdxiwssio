@@ -15,43 +15,27 @@ if (process.env.ENCRYPTION_KEY) {
 // Telegram bots configuration
 // Telegram auth bot
 export const TELEGRAM_AUTH_BOT = {
-  token: process.env.TELEGRAM_BOT_TOKEN || '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg',
+  token: process.env.TELEGRAM_BOT_TOKEN || '',
   username: process.env.TELEGRAM_BOT_USERNAME || 'nexo_auth_bot',
 };
 
-export const TELEGRAM_BOTS = [
-  { id: 'bot1', token: '8661523111:AAHc7stzcAhW6COBNwiyrHMHZsOvOvYfXTg' },
-  { id: 'bot2', token: '8674460757:AAFm7WVkDx4ISkx22toTQyrQUeGQfLdF8QM' },
-  { id: 'bot3', token: '8733182475:AAFBitv4g4LVRuvGnssyqHQpttBydeAda9Y' },
-  { id: 'bot4', token: '8774720953:AAGvExABKj4Z-DYfKdqF-OMEdoeySeOeOoY' },
-  { id: 'bot5', token: '8141008503:AAEaCM1RrN2ppbZmUzhpW4EeLUgT1qQ2QS0' },
-  { id: 'bot6', token: '8687986079:AAGPYjnq4gdXCkf2wT81f0l2tQalKCIIyds' },
-  { id: 'bot7', token: '8758985233:AAF7QfRApnccaByBYa1qjGs7u-erQ47OZcQ' },
-  { id: 'bot8', token: '8554202189:AAGN0wLfcgkqK3KJ9XOJFl40rp2kjkIcm1Y' },
-  { id: 'bot9', token: '8748554768:AAEnJcHklmilbjih9glo3GITnQXSx4YmM_8' },
-  { id: 'bot10', token: '8744960493:AAHB5bn3VxlZWKJjCr70yLYJnVTyXp2zHIs' },
-  { id: 'bot11', token: '8734408678:AAH7eTD97tepfwqdYKieNOoxsGZaEdPYWhI' },
-  { id: 'bot12', token: '8141208214:AAFOOel84oRN3Uj8rEOWI_6H3LaAa6Z76Q0' },
-  { id: 'bot13', token: '8758209438:AAEnaXcJ7ke88fjjHNPwQVTt_u9LYrSzPFk' },
-  { id: 'bot14', token: '8680953724:AAFbz6yKdLC0ANkwTbLsZ0GSN78zVbTWUb8' },
-  { id: 'bot15', token: '8743205528:AAF2V2Z8UU5A3aJiSd5JveswVen_immyp9E' },
-];
+// Parse bot tokens from environment variable (comma-separated)
+const botTokensEnv = process.env.TELEGRAM_BOT_TOKENS || '';
+export const TELEGRAM_BOTS = botTokensEnv
+  ? botTokensEnv.split(',').map((token, i) => ({ id: `bot${i + 1}`, token: token.trim() }))
+  : [];
 
-// Telegram storage channels
-export const TELEGRAM_CHANNELS = [
-  { id: 'ch1', chatId: '-1003850596987' },
-  { id: 'ch2', chatId: '-1003878106202' },
-  { id: 'ch3', chatId: '-1003868880877' },
-  { id: 'ch4', chatId: '-1003738083520' },
-];
+// Telegram storage channels (comma-separated chat IDs)
+const channelsEnv = process.env.TELEGRAM_CHANNELS || '';
+export const TELEGRAM_CHANNELS = channelsEnv
+  ? channelsEnv.split(',').map((chatId, i) => ({ id: `ch${i + 1}`, chatId: chatId.trim() }))
+  : [];
 
-// Redis instances
-export const REDIS_INSTANCES = [
-  { id: 'redis1', url: 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339' },
-  { id: 'redis2', url: 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550' },
-  { id: 'redis3', url: 'redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158' },
-  { id: 'redis4', url: 'redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102' },
-];
+// Redis instances (comma-separated URLs)
+const redisUrlsEnv = process.env.REDIS_URLS || '';
+export const REDIS_INSTANCES = redisUrlsEnv
+  ? redisUrlsEnv.split(',').map((url, i) => ({ id: `redis${i + 1}`, url: url.trim() }))
+  : [];
 
 // Chunk size for Telegram uploads (19MB)
 export const TELEGRAM_CHUNK_SIZE = 19 * 1024 * 1024;
@@ -61,7 +45,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'nexo-dev-fallback-not-for-production',
   corsOrigins: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
-    : ['http://localhost:6023', 'http://localhost:3000', 'http://192.168.0.136:6023', true],
+    : ['http://localhost:6023', 'http://localhost:3000', 'http://192.168.0.136:6023'],
   uploadsDir: 'uploads',
   minPasswordLength: 6,
   maxRegistrationsPerIp: Number(process.env.MAX_REGISTRATIONS_PER_IP) || 10,
@@ -71,11 +55,11 @@ export const config = {
     .split(',').map(s => s.trim()).filter(Boolean),
   // Storage mode: 'local' or 'telegram'
   storageMode: (process.env.STORAGE_MODE || 'telegram') as 'local' | 'telegram',
-  // Database URL - Neon PostgreSQL (с fallback на вторую базу)
-  databaseUrl: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_mHu8QNo4czxK@ep-divine-smoke-aintwcj6-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  // Database URL - Neon PostgreSQL
+  databaseUrl: process.env.DATABASE_URL || '',
   databaseUrlBackup: process.env.DATABASE_URL_BACKUP || '',
   // Redis - primary instance
-  redisUrl: process.env.REDIS_URL || 'redis://default:MGch5HFdB5uSNjyqgLQs20qyg02CmJMx@redis-10339.c11.us-east-1-3.ec2.cloud.redislabs.com:10339',
+  redisUrl: process.env.REDIS_URL || '',
   // Redis - secondary instance (for sessions/cache)
-  redisSessionUrl: process.env.REDIS_SESSION_URL || 'redis://default:XD4qOpGD62LlT6xtCjB7DJyJzZuuBLVq@redis-17550.c266.us-east-1-3.ec2.cloud.redislabs.com:17550',
+  redisSessionUrl: process.env.REDIS_SESSION_URL || '',
 };

@@ -85,6 +85,32 @@ export function setupSocket(io: Server) {
     const userId = socket.userId!;
     console.log(`Пользователь подключился: ${userId}`);
 
+    // Check if user is banned
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isBanned: true, banExpiresAt: true },
+      });
+
+      if (user?.isBanned) {
+        // Check if ban has expired
+        if (user.banExpiresAt && user.banExpiresAt < new Date()) {
+          // Unban user automatically
+          await prisma.user.update({
+            where: { id: userId },
+            data: { isBanned: false, banReason: null, banExpiresAt: null, bannedAt: null, bannedBy: null },
+          });
+        } else {
+          // User is still banned, disconnect
+          socket.emit('banned', { message: 'Ваш аккаунт заблокирован' });
+          socket.disconnect(true);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Socket: failed to check ban status:', e);
+    }
+
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
     }

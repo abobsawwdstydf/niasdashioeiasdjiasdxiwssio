@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
@@ -50,6 +51,12 @@ const io = new Server(server, {
 // Trust first proxy (Nginx) so req.ip returns real client IP from X-Forwarded-For
 app.set('trust proxy', 1);
 
+// Security headers with helmet
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now to avoid breaking the app
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(cors({ origin: config.corsOrigins }));
 app.use(express.json({ limit: '10mb' }));
 
@@ -59,7 +66,7 @@ app.use(express.json({ limit: '10mb' }));
 // Rate limiting for auth endpoints (prevent brute-force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // max 100 attempts per window for development
+  max: 10, // max 10 attempts per window (reduced from 100)
   message: { error: 'Слишком много попыток, попробуйте позже' },
   standardHeaders: true,
   legacyHeaders: false,

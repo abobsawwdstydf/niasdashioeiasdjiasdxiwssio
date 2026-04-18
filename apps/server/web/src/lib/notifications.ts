@@ -17,8 +17,9 @@ export async function registerNotificationServiceWorker(): Promise<ServiceWorker
     // Unregister old service workers to avoid conflicts
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) {
-      if (registration.active?.scriptURL.includes('firebase')) {
-        console.log('[Push] Unregistering old Firebase service worker');
+      const scriptURL = registration.active?.scriptURL || '';
+      if (scriptURL.includes('firebase') || scriptURL.includes('web-push-sw')) {
+        console.log('[Push] Unregistering old service worker:', scriptURL);
         await registration.unregister();
       }
     }
@@ -30,11 +31,24 @@ export async function registerNotificationServiceWorker(): Promise<ServiceWorker
 
     console.log('[Push] Service Worker registered:', registration.scope);
 
-    // Wait for service worker to be ready
+    // Wait for service worker to be active
+    await navigator.serviceWorker.ready;
+
+    // Additional wait if installing
     if (registration.installing) {
       await new Promise<void>((resolve) => {
-        registration.installing!.addEventListener('statechange', (e) => {
-          if ((e.target as ServiceWorker).state === 'activated') resolve();
+        const sw = registration.installing!;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'activated') resolve();
+        });
+      });
+    } else if (registration.waiting) {
+      // If there's a waiting worker, activate it
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      await new Promise<void>((resolve) => {
+        const sw = registration.waiting!;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'activated') resolve();
         });
       });
     }
@@ -76,6 +90,43 @@ export async function subscribeToNotifications(): Promise<PushSubscription | nul
     const registration = await registerNotificationServiceWorker();
     if (!registration) {
       console.warn('[Push] Service worker not available');
+      return null;
+    }
+
+    // Ensure service worker is active before subscribing
+    if (!registration.active) {
+      console.warn('[Push] Service worker not active yet, waiting...');
+      // Wait for service worker to become active
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Service worker activation timeout'));
+        }, 10000); // 10 second timeout
+
+        if (registration.installing) {
+          registration.installing.addEventListener('statechange', function checkState() {
+            if (this.state === 'activated') {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+        } else if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          registration.waiting.addEventListener('statechange', function checkState() {
+            if (this.state === 'activated') {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+        } else {
+          clearTimeout(timeout);
+          reject(new Error('No service worker available'));
+        }
+      });
+    }
+
+    // Double check that service worker is now active
+    if (!registration.active) {
+      console.error('[Push] Service worker still not active after waiting');
       return null;
     }
 

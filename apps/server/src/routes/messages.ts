@@ -66,8 +66,8 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 });
 
 // Загрузка файлов - ЛОКАЛЬНОЕ ХРАНИЛИЩЕ
-// Limit increased to 1200 files to match client UI
-router.post('/upload', uploadFile.array('files', 1200), async (req: AuthRequest, res) => {
+// Limit reduced to 20 files for security and performance
+router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, res) => {
   try {
     const files = req.files as Express.Multer.File[];
     console.log(`[UPLOAD] Received ${files?.length || 0} files from user ${req.userId}`);

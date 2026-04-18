@@ -105,6 +105,8 @@ model ChatMember {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([chatId, userId])
+  @@index([userId, isPinned])
+  @@index([userId, isArchived])
 }
 
 model Message {
@@ -140,6 +142,10 @@ model Message {
   hiddenBy      HiddenMessage[]
   views         MessageView[]
   threadOrigins Thread[]        @relation("ThreadOrigin")
+
+  @@index([chatId, createdAt])
+  @@index([senderId, chatId])
+  @@index([scheduledAt])
 }
 
 model MessageView {
@@ -273,6 +279,8 @@ model Friendship {
   friend User @relation("FriendshipsReceived", fields: [friendId], references: [id], onDelete: Cascade)
 
   @@unique([userId, friendId])
+  @@index([userId, status])
+  @@index([friendId, status])
 }
 
 model CallLog {
