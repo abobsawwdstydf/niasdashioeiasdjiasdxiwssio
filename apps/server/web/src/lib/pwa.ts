@@ -16,10 +16,10 @@ export function registerServiceWorker() {
       onOfflineReady() {
         console.log('[PWA] App ready to work offline');
       },
-      onRegistered(registration) {
+      onRegistered(registration: any) {
         console.log('[PWA] Service Worker registered:', registration);
       },
-      onRegisterError(error) {
+      onRegisterError(error: any) {
         console.error('[PWA] Service Worker registration failed:', error);
       }
     });
