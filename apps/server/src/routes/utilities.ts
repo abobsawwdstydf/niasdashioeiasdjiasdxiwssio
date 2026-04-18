@@ -152,20 +152,84 @@ router.get('/export/chat/:chatId', async (req: AuthRequest, res) => {
   }
 });
 
-// Document preview stub
+// Document preview - returns file info and download URL
 router.get('/preview/:fileId', async (req: AuthRequest, res) => {
   try {
     const { fileId } = req.params;
 
-    // TODO: Implement document preview using libraries like pdf.js, mammoth, etc.
+    // Get file metadata from database
+    const localFile = await prisma.localFile.findUnique({
+      where: { fileId },
+      include: { chunks: true }
+    });
+
+    if (!localFile) {
+      res.status(404).json({ error: 'Файл не найден' });
+      return;
+    }
+
+    // Check if user has access to this file
+    if (localFile.userId !== req.userId) {
+      // Check if file is shared in a chat the user has access to
+      const media = await prisma.media.findFirst({
+        where: { 
+          localFileId: fileId,
+          message: {
+            chat: {
+              members: {
+                some: { userId: req.userId }
+              }
+            }
+          }
+        }
+      });
+
+      if (!media) {
+        res.status(403).json({ error: 'Нет доступа к файлу' });
+        return;
+      }
+    }
+
+    // Return file metadata for preview
     res.json({
-      success: false,
-      message: 'Предпросмотр документов в разработке'
+      success: true,
+      file: {
+        fileId: localFile.fileId,
+        name: localFile.originalName,
+        mimeType: localFile.mimeType,
+        size: localFile.totalSize,
+        downloadUrl: `/api/files/${localFile.fileId}/download`,
+        canPreview: isPreviewable(localFile.mimeType),
+        type: getFileType(localFile.mimeType)
+      }
     });
   } catch (error) {
     console.error('Error previewing document:', error);
     res.status(500).json({ error: 'Ошибка предпросмотра документа' });
   }
 });
+
+// Helper function to check if file type is previewable
+function isPreviewable(mimeType: string): boolean {
+  const previewableTypes = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+    'video/mp4', 'video/webm', 'video/ogg',
+    'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm',
+    'application/pdf',
+    'text/plain', 'text/html', 'text/css', 'text/javascript',
+    'application/json'
+  ];
+  return previewableTypes.includes(mimeType);
+}
+
+// Helper function to get file type category
+function getFileType(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  if (mimeType === 'application/pdf') return 'pdf';
+  if (mimeType.startsWith('text/')) return 'text';
+  return 'document';
+}
 
 export default router;

@@ -1,6 +1,8 @@
 import express from 'express';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
+import FormData from 'form-data';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -18,7 +20,7 @@ const upload = multer({
   }
 });
 
-// Speech-to-text endpoint
+// Speech-to-text endpoint with OpenAI Whisper
 router.post('/transcribe', upload.single('audio'), async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
@@ -26,31 +28,73 @@ router.post('/transcribe', upload.single('audio'), async (req: AuthRequest, res)
     }
 
     const { language = 'ru' } = req.body;
+    const openaiKey = process.env.OPENAI_API_KEY;
 
-    // TODO: Integrate with speech recognition service (Google Speech-to-Text, OpenAI Whisper, etc.)
-    // For now, return a stub response
-    const transcribedText = 'Speech-to-text функция в разработке. Транскрипция будет здесь.';
+    if (!openaiKey) {
+      console.warn('OPENAI_API_KEY not configured, speech-to-text disabled');
+      return res.status(503).json({ 
+        error: 'Speech-to-text временно недоступен',
+        text: '[Транскрипция недоступна - API ключ не настроен]'
+      });
+    }
 
-    res.json({
-      success: true,
-      text: transcribedText,
-      language,
-      duration: 0,
-      confidence: 0.95
-    });
+    try {
+      // Prepare form data for OpenAI Whisper API
+      const formData = new FormData();
+      formData.append('file', req.file.buffer, {
+        filename: 'audio.webm',
+        contentType: req.file.mimetype,
+      });
+      formData.append('model', 'whisper-1');
+      if (language) {
+        formData.append('language', language);
+      }
+
+      // Call OpenAI Whisper API
+      const response = await axios.post(
+        'https://api.openai.com/v1/audio/transcriptions',
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            'Authorization': `Bearer ${openaiKey}`,
+          },
+          timeout: 60000, // 60 seconds
+        }
+      );
+
+      const transcribedText = response.data.text || '';
+
+      res.json({
+        success: true,
+        text: transcribedText,
+        language: response.data.language || language,
+        duration: response.data.duration || 0,
+      });
+    } catch (apiError: any) {
+      console.error('OpenAI Whisper API error:', apiError.response?.data || apiError.message);
+      
+      // Return graceful fallback
+      res.json({
+        success: false,
+        error: 'Не удалось распознать речь',
+        text: '[Ошибка транскрипции]'
+      });
+    }
   } catch (error) {
     console.error('Speech-to-text error:', error);
     res.status(500).json({ error: 'Ошибка транскрипции аудио' });
   }
 });
 
-// Real-time speech recognition (WebSocket would be better for this)
+// Real-time speech recognition (not supported by Whisper API, requires streaming service)
 router.post('/transcribe-stream', async (req: AuthRequest, res) => {
   try {
-    // TODO: Implement streaming speech recognition
+    // Streaming speech-to-text requires WebSocket and streaming API (Google Speech-to-Text, Azure, etc.)
+    // OpenAI Whisper doesn't support streaming, so we return a helpful message
     res.json({
-      success: true,
-      message: 'Streaming speech-to-text в разработке'
+      success: false,
+      message: 'Потоковая транскрипция требует WebSocket соединения. Используйте /transcribe для файлов.'
     });
   } catch (error) {
     console.error('Streaming speech-to-text error:', error);
