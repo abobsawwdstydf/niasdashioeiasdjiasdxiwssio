@@ -7,7 +7,7 @@ const router = express.Router();
 // Get all quick replies for user
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const quickReplies = await prisma.quickReply.findMany({
       where: { userId },
@@ -25,7 +25,7 @@ router.get('/', async (req: AuthRequest, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   try {
     const { shortcut, message } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!shortcut || !message) {
       return res.status(400).json({ error: 'Шорткат и сообщение обязательны' });
@@ -63,9 +63,9 @@ router.post('/', async (req: AuthRequest, res) => {
 // Update quick reply
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { shortcut, message } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const quickReply = await prisma.quickReply.findUnique({
       where: { id }
@@ -93,8 +93,8 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // Delete quick reply
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user!.userId;
+    const id = String(req.params.id);
+    const userId = req.userId!;
 
     const quickReply = await prisma.quickReply.findUnique({
       where: { id }
@@ -118,7 +118,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 // Get priority contacts
 router.get('/priority-contacts', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const contacts = await prisma.priorityContact.findMany({
       where: { userId },
@@ -136,7 +136,7 @@ router.get('/priority-contacts', async (req: AuthRequest, res) => {
 router.post('/priority-contacts', async (req: AuthRequest, res) => {
   try {
     const { contactId, priority } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!contactId) {
       return res.status(400).json({ error: 'ID контакта обязателен' });
@@ -169,8 +169,8 @@ router.post('/priority-contacts', async (req: AuthRequest, res) => {
 // Remove priority contact
 router.delete('/priority-contacts/:contactId', async (req: AuthRequest, res) => {
   try {
-    const { contactId } = req.params;
-    const userId = req.user!.userId;
+    const contactId = String(req.params.contactId);
+    const userId = req.userId!;
 
     await prisma.priorityContact.delete({
       where: {

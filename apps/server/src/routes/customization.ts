@@ -7,8 +7,8 @@ const router = express.Router();
 // Get chat customization
 router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
 
     let customization = await prisma.chatCustomization.findFirst({
       where: { chatId, userId }
@@ -36,9 +36,9 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 // Update chat customization
 router.put('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
+    const chatId = String(req.params.chatId);
     const { customColor, customBackground, customSound } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const customization = await prisma.chatCustomization.upsert({
       where: { chatId },
@@ -66,8 +66,8 @@ router.put('/chat/:chatId', async (req: AuthRequest, res) => {
 // Delete chat customization (reset to default)
 router.delete('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
 
     await prisma.chatCustomization.deleteMany({
       where: { chatId, userId }

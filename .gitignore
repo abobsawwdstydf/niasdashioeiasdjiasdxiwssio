@@ -57,6 +57,5 @@ pppdison/
 telega/
 
 # Sensitive files (NEVER commit these)
-**/config.ts
-!apps/server/src/config.example.ts
-.env.render 
+# **/config.ts  -- config.ts is needed for build, secrets are in env vars
+.env.render

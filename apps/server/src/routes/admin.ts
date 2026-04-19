@@ -99,7 +99,7 @@ router.get('/sessions', authenticateAdmin, (req, res) => {
 
 // Logout from specific session
 router.delete('/sessions/:token', authenticateAdmin, (req, res) => {
-  const { token } = req.params;
+  const token = String(req.params.token);
   if (sessions.delete(token)) {
     res.json({ success: true, message: 'Сессия завершена' });
   } else {
@@ -234,7 +234,7 @@ router.get('/users', authenticateAdmin, async (req, res) => {
 // Delete user
 router.delete('/users/:id', authenticateAdmin, async (req, res) => {
   try {
-    const userId = req.params.id;
+    const userId = String(req.params.id);
     
     // Delete all related data first to avoid foreign key constraints
     await prisma.$transaction([
@@ -276,22 +276,24 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
 // Get all verified entities
 router.get('/verified', authenticateAdmin, async (req, res) => {
   try {
-    const entities = await prisma.verifiedEntity.findMany({
-      include: { chat: { include: { members: { include: { user: true } } } } }
-    });
-    const result = entities.map(e => {
+    const entities = await prisma.verifiedEntity.findMany();
+    const result = await Promise.all(entities.map(async e => {
       let name = '', members = 0, owner = '', avatar = '';
-      if (e.entityType === 'user') {
-        // Handled separately
-      } else if (e.chat) {
-        name = e.chat.name || e.chat.username || '';
-        members = e.chat.members.length;
-        const admin = e.chat.members.find(m => m.role === 'admin');
-        owner = admin?.user?.displayName || admin?.user?.username || '';
-        avatar = e.chat.avatar || '';
+      if (e.entityType !== 'user') {
+        const chat = await prisma.chat.findUnique({
+          where: { id: e.entityId },
+          include: { members: { include: { user: true } } }
+        });
+        if (chat) {
+          name = chat.name || chat.username || '';
+          members = chat.members.length;
+          const admin = chat.members.find(m => m.role === 'admin');
+          owner = admin?.user?.displayName || admin?.user?.username || '';
+          avatar = chat.avatar || '';
+        }
       }
       return { ...e, name, members, owner, avatar };
-    });
+    }));
     // Add users
     const verifiedUsers = await prisma.user.findMany({
       where: { isVerified: true },
@@ -337,7 +339,8 @@ router.post('/verify', authenticateAdmin, async (req, res) => {
 // Remove verification
 router.delete('/verify/:type/:id', authenticateAdmin, async (req, res) => {
   try {
-    const { type, id } = req.params;
+    const type = String(req.params.type);
+    const id = String(req.params.id);
     if (type === 'user') {
       await prisma.user.update({ where: { id }, data: { isVerified: false, verifiedBadgeUrl: null, verifiedBadgeType: null, verifiedAt: null } });
     } else {
@@ -366,8 +369,9 @@ router.post('/ban', authenticateAdmin, async (req, res) => {
 // Unban user
 router.delete('/ban/:id', authenticateAdmin, async (req, res) => {
   try {
-    await prisma.user.update({ where: { id: req.params.id }, data: { isBanned: false, banReason: null, banExpiresAt: null, bannedAt: null, bannedBy: null } });
-    await prisma.userBan.updateMany({ where: { userId: req.params.id, isActive: true }, data: { isActive: false, liftedAt: new Date(), liftedBy: 'admin' } });
+    const id = String(req.params.id);
+    await prisma.user.update({ where: { id }, data: { isBanned: false, banReason: null, banExpiresAt: null, bannedAt: null, bannedBy: null } });
+    await prisma.userBan.updateMany({ where: { userId: id, isActive: true }, data: { isActive: false, liftedAt: new Date(), liftedBy: 'admin' } });
     res.json({ success: true });
   } catch (error: any) { res.status(500).json({ error: error?.message || 'Ошибка' }); }
 });
@@ -397,8 +401,9 @@ router.post('/tag', authenticateAdmin, async (req, res) => {
 // Remove user tag
 router.delete('/tag/:userId', authenticateAdmin, async (req, res) => {
   try {
+    const userId = String(req.params.userId);
     await prisma.user.update({
-      where: { id: req.params.userId },
+      where: { id: userId },
       data: { tagText: null, tagColor: null, tagStyle: null }
     });
     res.json({ success: true });
@@ -597,7 +602,7 @@ router.post('/beavers/remove', authenticateAdmin, async (req, res) => {
 // Проверить баланс пользователя
 router.get('/beavers/balance/:username', authenticateAdmin, async (req, res) => {
   try {
-    const { username } = req.params;
+    const username = String(req.params.username);
 
     const user = await prisma.user.findUnique({
       where: { username: username.toLowerCase() },

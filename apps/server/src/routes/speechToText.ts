@@ -19,7 +19,7 @@ const upload = multer({
 });
 
 // Speech-to-text endpoint - disabled (requires external service)
-router.post('/transcribe', upload.single('audio'), async (req: AuthRequest, res) => {
+router.post('/transcribe', upload.single('audio') as any, async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Аудио файл обязателен' });

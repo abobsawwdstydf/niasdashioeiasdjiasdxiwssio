@@ -63,7 +63,7 @@ router.get('/packs/my', async (req: AuthRequest, res) => {
  */
 router.get('/packs/:packId/stickers', async (_req: AuthRequest, res) => {
   try {
-    const { packId } = _req.params;
+    const packId = String(_req.params.packId);
 
     const stickers = await prisma.sticker.findMany({
       where: { packId },
@@ -109,10 +109,10 @@ router.post('/packs', async (req: AuthRequest, res) => {
 /**
  * Add sticker to pack
  */
-router.post('/packs/:packId/stickers', upload.single('sticker'), async (req: AuthRequest, res) => {
+router.post('/packs/:packId/stickers', upload.single('sticker') as any, async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
-    const { packId } = req.params;
+    const packId = String(req.params.packId);
     const { emoji, fileUrl, width, height, isAnimated } = req.body;
 
     // Verify pack ownership
@@ -162,7 +162,7 @@ router.post('/packs/:packId/stickers', upload.single('sticker'), async (req: Aut
 router.delete('/packs/:packId', async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
-    const { packId } = req.params;
+    const packId = String(req.params.packId);
 
     const pack = await prisma.stickerPack.findUnique({
       where: { id: packId }

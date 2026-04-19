@@ -97,7 +97,7 @@ router.get('/global', async (req: AuthRequest, res) => {
  */
 router.get('/hashtag/:tag', async (req: AuthRequest, res) => {
   try {
-    const { tag } = req.params;
+    const tag = String(req.params.tag);
     const { limit = 50, offset = 0 } = req.query;
     const userId = req.userId!;
 

@@ -26,7 +26,7 @@ const upload = multer({
 /**
  * Photo editor - apply filters and effects
  */
-router.post('/edit-photo', upload.single('photo'), async (req: AuthRequest, res) => {
+router.post('/edit-photo', upload.single('photo') as any, async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
     const file = req.file;
@@ -124,7 +124,7 @@ router.post('/edit-photo', upload.single('photo'), async (req: AuthRequest, res)
 /**
  * Add sticker to photo
  */
-router.post('/add-sticker', upload.single('photo'), async (req: AuthRequest, res) => {
+router.post('/add-sticker', upload.single('photo') as any, async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
     const file = req.file;
@@ -166,7 +166,7 @@ router.post('/add-sticker', upload.single('photo'), async (req: AuthRequest, res
 /**
  * Create thumbnail
  */
-router.post('/thumbnail', upload.single('photo'), async (req: AuthRequest, res) => {
+router.post('/thumbnail', upload.single('photo') as any, async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
     const file = req.file;

@@ -45,14 +45,14 @@ export function encryptFile(buffer: Buffer, level: number = ENCRYPTION_LEVELS.ST
   
   const authTag = cipher.getAuthTag();
 
-  // For MAX encryption, apply second layer with ChaCha20
+  // For MAX encryption, apply second layer with AES-128
   if (level === ENCRYPTION_LEVELS.MAX) {
-    const chachaKey = crypto.scryptSync(MASTER_KEY, 'chacha20-salt', 32);
-    const chachaIv = crypto.randomBytes(12);
-    const chachaCipher = crypto.createCipheriv('chacha20', chachaKey, chachaIv);
-    encrypted = Buffer.concat([chachaCipher.update(encrypted), chachaCipher.final()]);
+    const secondKey = crypto.scryptSync(MASTER_KEY, 'second-layer-salt', 16);
+    const secondIv = crypto.randomBytes(16);
+    const secondCipher = crypto.createCipheriv('aes-128-cbc', secondKey, secondIv);
+    encrypted = Buffer.concat([secondIv, secondCipher.update(encrypted), secondCipher.final()]);
     return {
-      data: Buffer.concat([chachaIv, encrypted]),
+      data: encrypted,
       iv: iv.toString('hex'),
       authTag: authTag.toString('hex'),
       level,
@@ -77,14 +77,14 @@ export function decryptFile(encrypted: EncryptedData): DecryptedData {
 
   let dataToDecrypt = encrypted.data;
   
-  // For MAX encryption, remove ChaCha20 layer first
+  // For MAX encryption, remove second AES layer first
   if (encrypted.level === ENCRYPTION_LEVELS.MAX) {
-    const chachaIv = encrypted.data.slice(0, 12);
-    dataToDecrypt = encrypted.data.slice(12);
+    const secondIv = encrypted.data.slice(0, 16);
+    dataToDecrypt = encrypted.data.slice(16);
     
-    const chachaKey = crypto.scryptSync(MASTER_KEY, 'chacha20-salt', 32);
-    const chachaDecipher = crypto.createDecipheriv('chacha20', chachaKey, chachaIv);
-    dataToDecrypt = Buffer.concat([chachaDecipher.update(dataToDecrypt), chachaDecipher.final()]);
+    const secondKey = crypto.scryptSync(MASTER_KEY, 'second-layer-salt', 16);
+    const secondDecipher = crypto.createDecipheriv('aes-128-cbc', secondKey, secondIv);
+    dataToDecrypt = Buffer.concat([secondDecipher.update(dataToDecrypt), secondDecipher.final()]);
   }
 
   const iv = Buffer.from(encrypted.iv, 'hex');
@@ -102,7 +102,6 @@ export function decryptFile(encrypted: EncryptedData): DecryptedData {
   };
 }
 
-export { ENCRYPTION_LEVELS };
 
 /**
  * Generate file encryption key for user-specific encryption

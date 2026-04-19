@@ -2,6 +2,7 @@ node_modules
 npm-debug.log
 .git
 .gitignore
+.github
 *.md
 .env
 .env.local
@@ -15,6 +16,14 @@ Thumbs.db
 apps/server/prisma/*.db
 apps/server/prisma/*.db-journal
 apps/server/uploads
+apps/server/storage
+apps/server/web/dist
+apps/server/web/node_modules
 *.tgz
 pppdison
 telega
+build
+playwright-report
+test-results
+*.bat
+*.vbs

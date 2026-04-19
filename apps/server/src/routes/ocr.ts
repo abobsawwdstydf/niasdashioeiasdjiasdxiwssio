@@ -19,7 +19,7 @@ const upload = multer({
 });
 
 // OCR endpoint - disabled (requires external service)
-router.post('/extract', upload.single('image'), async (req: AuthRequest, res) => {
+router.post('/extract', upload.single('image') as any, async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Изображение обязательно' });

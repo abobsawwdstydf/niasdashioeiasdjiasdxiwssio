@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
-import { SENDER_SELECT, MESSAGE_INCLUDE, uploadFile } from '../shared';
+import { SENDER_SELECT, MESSAGE_INCLUDE, uploadFile, deleteUploadedFile } from '../shared';
 import { localStorage } from '../lib/localStorage';
 
 const router = Router();
@@ -71,7 +71,7 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 
 // Загрузка файлов - ЛОКАЛЬНОЕ ХРАНИЛИЩЕ
 // Limit reduced to 20 files for security and performance
-router.post('/upload', uploadFile.array('files', 20), async (req: AuthRequest, res) => {
+router.post('/upload', uploadFile.array('files', 20) as any, async (req: AuthRequest, res) => {
   try {
     const files = req.files as Express.Multer.File[];
     console.log(`[UPLOAD] Received ${files?.length || 0} files from user ${req.userId}`);

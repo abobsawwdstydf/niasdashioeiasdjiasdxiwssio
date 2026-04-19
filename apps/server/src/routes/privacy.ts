@@ -7,7 +7,7 @@ const router = express.Router();
 // Get user privacy settings
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     let settings = await prisma.userPrivacySettings.findUnique({
       where: { userId }
@@ -37,7 +37,7 @@ router.get('/', async (req: AuthRequest, res) => {
 // Update privacy settings
 router.put('/', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
     const { hideOnline, hideTyping, hideReadReceipts, allowForwarding, allowScreenshots } = req.body;
 
     const settings = await prisma.userPrivacySettings.upsert({

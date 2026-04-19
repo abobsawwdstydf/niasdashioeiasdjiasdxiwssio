@@ -40,7 +40,8 @@ const loginLimiter = rateLimit({
 });
 
 // Регистрация — заполнил → аккаунт создан → сразу токен
-router.post('/register', registerLimiter, upload.single('avatar'), async (req: Request, res) => {
+// @ts-ignore
+router.post('/register', registerLimiter, upload.single('avatar') as any, async (req: Request, res) => {
   try {
     const { username, displayName, phone, password, bio, birthday } = req.body;
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -154,6 +155,7 @@ router.get('/check-phone', async (req, res) => {
 });
 
 // Вход — телефон/username + пароль
+// @ts-ignore
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { phone, password } = req.body;

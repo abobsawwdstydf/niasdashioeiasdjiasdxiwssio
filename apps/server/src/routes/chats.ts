@@ -353,7 +353,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 // Получить канал по username (для вступления по ссылке)
 router.get('/join/:username', async (req: AuthRequest, res) => {
   try {
-    const { username } = req.params;
+    const username = String(req.params.username);
     
     const channel = await prisma.chat.findFirst({
       where: {
@@ -404,7 +404,7 @@ router.get('/join/:username', async (req: AuthRequest, res) => {
 // Вступить в канал по username (POST запрос для совместимости)
 router.post('/join/:username', async (req: AuthRequest, res) => {
   try {
-    const { username } = req.params;
+    const username = String(req.params.username);
     
     const channel = await prisma.chat.findFirst({
       where: {
@@ -505,7 +505,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
 });
 
 // Загрузить аватар группы (только админ)
-router.post('/:id/avatar', uploadGroupAvatar.single('avatar'), encryptUploadedFile, async (req: AuthRequest, res) => {
+router.post('/:id/avatar', uploadGroupAvatar.single('avatar') as any, encryptUploadedFile as any, async (req: AuthRequest, res) => {
   try {
     const chatId = String(req.params.id);
 

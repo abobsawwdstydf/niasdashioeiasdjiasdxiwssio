@@ -3,7 +3,7 @@ import { REDIS_INSTANCES } from '../config';
 
 interface RedisClientWrapper {
   client: ReturnType<typeof createClient>;
-  id: number;
+  id: string;
   available: boolean;
 }
 
@@ -54,13 +54,13 @@ class RedisCache {
 
   async set(key: string, value: Buffer, ttlSeconds: number = 3600): Promise<void> {
     const wrapper = this.getPrimaryClient();
-    await wrapper.client.setEx(key, ttlSeconds, value);
+    await wrapper.client.setEx(key, ttlSeconds, value.toString('base64'));
   }
 
   async get(key: string): Promise<Buffer | null> {
     const wrapper = this.getPrimaryClient();
     const data = await wrapper.client.get(key);
-    return data ? Buffer.from(data) : null;
+    return data ? Buffer.from(data, 'base64') : null;
   }
 
   async del(key: string): Promise<void> {

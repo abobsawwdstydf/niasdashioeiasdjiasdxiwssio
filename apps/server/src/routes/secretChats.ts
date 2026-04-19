@@ -1,16 +1,15 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db';
 import bcrypt from 'bcryptjs';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Create secret chat
 router.post('/create', authenticateToken, async (req, res) => {
   try {
     const { userId, password, selfDestructTimer } = req.body;
-    const currentUserId = (req as any).user.userId;
+    const currentUserId = (req as AuthRequest).userId!;
 
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
@@ -113,7 +112,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
 router.post('/message/self-destruct', authenticateToken, async (req, res) => {
   try {
     const { messageId, timer } = req.body;
-    const currentUserId = (req as any).user.userId;
+    const currentUserId = (req as AuthRequest).userId!;
 
     if (!messageId || !timer) {
       return res.status(400).json({ error: 'Message ID and timer are required' });
@@ -155,8 +154,8 @@ router.post('/message/self-destruct', authenticateToken, async (req, res) => {
 // Delete secret chat
 router.delete('/:chatId', authenticateToken, async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const currentUserId = (req as any).user.userId;
+    const chatId = String(req.params.chatId);
+    const currentUserId = (req as AuthRequest).userId!;
 
     // Verify user is member of chat
     const member = await prisma.chatMember.findFirst({
@@ -190,8 +189,8 @@ router.delete('/:chatId', authenticateToken, async (req, res) => {
 // Get secret chat settings
 router.get('/:chatId/settings', authenticateToken, async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const currentUserId = (req as any).user.userId;
+    const chatId = String(req.params.chatId);
+    const currentUserId = (req as AuthRequest).userId!;
 
     // Verify user is member of chat
     const member = await prisma.chatMember.findFirst({
@@ -233,8 +232,8 @@ router.get('/:chatId/settings', authenticateToken, async (req, res) => {
 // Report screenshot attempt
 router.post('/:chatId/screenshot', authenticateToken, async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const currentUserId = (req as any).user.userId;
+    const chatId = String(req.params.chatId);
+    const currentUserId = (req as AuthRequest).userId!;
 
     // Verify chat is secret
     const chat = await prisma.chat.findUnique({

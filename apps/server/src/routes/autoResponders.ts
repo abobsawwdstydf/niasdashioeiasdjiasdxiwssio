@@ -7,8 +7,8 @@ const router = express.Router();
 // Get all auto-responders for a chat
 router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
 
     // Check if user is member of the chat
     const member = await prisma.chatMember.findFirst({
@@ -34,9 +34,9 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 // Create auto-responder
 router.post('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
+    const chatId = String(req.params.chatId);
     const { trigger, response, onlyOffline } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!trigger || !response) {
       return res.status(400).json({ error: 'Триггер и ответ обязательны' });
@@ -72,9 +72,9 @@ router.post('/chat/:chatId', async (req: AuthRequest, res) => {
 // Update auto-responder
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { trigger, response, isActive, onlyOffline } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     // Check ownership
     const autoResponder = await prisma.autoResponder.findUnique({
@@ -105,8 +105,8 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // Delete auto-responder
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user!.userId;
+    const id = String(req.params.id);
+    const userId = req.userId!;
 
     const autoResponder = await prisma.autoResponder.findUnique({
       where: { id }

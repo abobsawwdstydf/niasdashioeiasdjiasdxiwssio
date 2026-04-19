@@ -190,7 +190,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 });
 
 // Загрузить аватар
-router.post('/avatar', uploadUserAvatar.single('avatar'), encryptUploadedFile, async (req: AuthRequest, res) => {
+router.post('/avatar', uploadUserAvatar.single('avatar') as any, encryptUploadedFile as any, async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'Файл не загружен' });

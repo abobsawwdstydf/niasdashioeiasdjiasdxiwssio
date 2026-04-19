@@ -7,8 +7,8 @@ const router = express.Router();
 // Get chat statistics for user
 router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
 
     // Check if user is member
     const member = await prisma.chatMember.findFirst({
@@ -51,7 +51,7 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 // Get user activity graph
 router.get('/activity', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
     const { days = 7 } = req.query;
 
     const daysNum = parseInt(days as string);
@@ -102,7 +102,7 @@ router.get('/activity', async (req: AuthRequest, res) => {
 // Get comprehensive user statistics
 router.get('/statistics', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     // Total messages sent
     const totalMessages = await prisma.message.count({
@@ -206,8 +206,8 @@ router.get('/statistics', async (req: AuthRequest, res) => {
 // Export chat history
 router.get('/export/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
     const { format = 'json' } = req.query;
 
     // Check if user is member
@@ -259,7 +259,7 @@ router.get('/export/chat/:chatId', async (req: AuthRequest, res) => {
 // Document preview - returns file info and download URL
 router.get('/preview/:fileId', async (req: AuthRequest, res) => {
   try {
-    const { fileId } = req.params;
+    const fileId = String(req.params.fileId);
 
     // Get file metadata from database
     const localFile = await prisma.localFile.findUnique({

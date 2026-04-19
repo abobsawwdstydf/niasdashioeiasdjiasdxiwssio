@@ -7,7 +7,7 @@ const router = Router();
 // Отметить просмотр поста в канале
 router.post('/:messageId/view', async (req: AuthRequest, res) => {
   try {
-    const { messageId } = req.params;
+    const messageId = String(req.params.messageId);
     const userId = req.userId!;
 
     // Generate a simple device ID from user agent + IP

@@ -7,8 +7,8 @@ const router = express.Router();
 // Get all tags for a chat
 router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
 
     const tags = await prisma.chatTag.findMany({
       where: { chatId, userId },
@@ -25,9 +25,9 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 // Add tag to chat
 router.post('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
+    const chatId = String(req.params.chatId);
     const { tag, color } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!tag || tag.trim().length === 0) {
       return res.status(400).json({ error: 'Тег обязателен' });
@@ -76,8 +76,8 @@ router.post('/chat/:chatId', async (req: AuthRequest, res) => {
 // Delete tag
 router.delete('/:tagId', async (req: AuthRequest, res) => {
   try {
-    const { tagId } = req.params;
-    const userId = req.user!.userId;
+    const tagId = String(req.params.tagId);
+    const userId = req.userId!;
 
     const tag = await prisma.chatTag.findUnique({
       where: { id: tagId }
@@ -101,7 +101,7 @@ router.delete('/:tagId', async (req: AuthRequest, res) => {
 // Get all user's tags
 router.get('/user', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const tags = await prisma.chatTag.findMany({
       where: { userId },

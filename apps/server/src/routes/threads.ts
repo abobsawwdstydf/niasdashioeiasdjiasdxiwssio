@@ -8,7 +8,7 @@ const router = Router();
 // Get threads for a chat
 router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const chatId = req.params.chatId;
+    const chatId = String(req.params.chatId);
     
     const member = await prisma.chatMember.findUnique({
       where: { chatId_userId: { chatId, userId: req.userId! } },
@@ -48,7 +48,7 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 // Create a thread from a message
 router.post('/chat/:chatId/thread', async (req: AuthRequest, res) => {
   try {
-    const chatId = req.params.chatId;
+    const chatId = String(req.params.chatId);
     const { messageId, title } = req.body;
 
     const member = await prisma.chatMember.findUnique({
@@ -60,7 +60,7 @@ router.post('/chat/:chatId/thread', async (req: AuthRequest, res) => {
     }
 
     const message = await prisma.message.findUnique({
-      where: { id: messageId, chatId },
+      where: { id: String(messageId), chatId },
     });
     if (!message) {
       res.status(404).json({ error: 'Сообщение не найдено' });
@@ -69,7 +69,7 @@ router.post('/chat/:chatId/thread', async (req: AuthRequest, res) => {
 
     // Check if thread already exists for this message
     const existingThread = await prisma.thread.findUnique({
-      where: { messageId },
+      where: { messageId: String(messageId) },
     });
     if (existingThread) {
       res.json(existingThread);
@@ -79,7 +79,7 @@ router.post('/chat/:chatId/thread', async (req: AuthRequest, res) => {
     const thread = await prisma.thread.create({
       data: {
         chatId,
-        messageId,
+        messageId: String(messageId),
         title: title || null,
       },
       include: {
@@ -102,7 +102,7 @@ router.post('/chat/:chatId/thread', async (req: AuthRequest, res) => {
 // Get messages in a thread
 router.get('/thread/:threadId/messages', async (req: AuthRequest, res) => {
   try {
-    const threadId = req.params.threadId;
+    const threadId = String(req.params.threadId);
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
@@ -129,7 +129,7 @@ router.get('/thread/:threadId/messages', async (req: AuthRequest, res) => {
 // Delete a thread
 router.delete('/thread/:threadId', async (req: AuthRequest, res) => {
   try {
-    const threadId = req.params.threadId;
+    const threadId = String(req.params.threadId);
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },

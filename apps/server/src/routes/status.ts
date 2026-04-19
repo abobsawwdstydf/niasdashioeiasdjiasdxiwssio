@@ -7,7 +7,7 @@ const router = express.Router();
 // Get user status
 router.get('/:userId', async (req: AuthRequest, res) => {
   try {
-    const { userId } = req.params;
+    const userId = String(req.params.userId);
 
     const status = await prisma.status.findUnique({
       where: { userId }
@@ -31,7 +31,7 @@ router.get('/:userId', async (req: AuthRequest, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   try {
     const { text, emoji, expiresIn } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'Текст статуса обязателен' });
@@ -76,7 +76,7 @@ router.post('/', async (req: AuthRequest, res) => {
 // Delete user status
 router.delete('/', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     await prisma.status.delete({
       where: { userId }

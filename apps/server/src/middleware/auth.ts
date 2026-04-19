@@ -6,7 +6,7 @@ export interface AuthRequest extends Request {
   userId?: string;
 }
 
-export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
+export function authenticateToken(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -17,7 +17,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
-    req.userId = decoded.userId;
+    (req as AuthRequest).userId = decoded.userId;
     next();
   } catch {
     res.status(401).json({ error: 'Недействительный токен' });

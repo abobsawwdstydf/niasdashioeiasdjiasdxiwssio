@@ -10,9 +10,9 @@ services:
     autoDeploy: true
     buildFilter:
       paths:
-        - apps/server/**/*
-        - apps/server/web/**/*
+        - apps/server/**
         - Dockerfile
+        - start.sh
         - render.yaml
     envVars:
       - key: NODE_ENV
@@ -20,22 +20,28 @@ services:
       - key: PORT
         value: 3001
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_HtISpB5j2how@ep-flat-haze-aijugpbg-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+        sync: false
       - key: REDIS_URL
-        value: redis://default:YmDlMjlsmXYjoFH13l0SWHPf0C23tXau@redis-18158.c14.us-east-1-2.ec2.cloud.redislabs.com:18158
+        sync: false
       - key: REDIS_SESSION_URL
-        value: redis://default:x69uHtIDnVVRf371e3HYOb4BZNfBjNHS@redis-13102.c17.us-east-1-4.ec2.cloud.redislabs.com:13102
+        sync: false
+      - key: REDIS_URLS
+        sync: false
       - key: JWT_SECRET
         sync: false
-      - key: ENCRYPTION_KEY
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
         sync: false
       - key: CORS_ORIGINS
         value: "*"
       - key: STORAGE_MODE
-        value: telegram
+        value: local
       - key: MAX_REGISTRATIONS_PER_IP
         value: "10"
     disk:
-      name: uploads
-      mountPath: /app/apps/server/uploads
+      name: nexo-storage
+      mountPath: /app/apps/server/storage
       sizeGB: 1

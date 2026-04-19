@@ -8,8 +8,8 @@ const router = express.Router();
 // Get all webhooks for a chat
 router.get('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
-    const userId = req.user!.userId;
+    const chatId = String(req.params.chatId);
+    const userId = req.userId!;
 
     // Check if user is owner/admin of the chat
     const member = await prisma.chatMember.findFirst({
@@ -39,9 +39,9 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 // Create webhook
 router.post('/chat/:chatId', async (req: AuthRequest, res) => {
   try {
-    const { chatId } = req.params;
+    const chatId = String(req.params.chatId);
     const { url, events } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     // Check if user is owner/admin
     const member = await prisma.chatMember.findFirst({
@@ -79,9 +79,9 @@ router.post('/chat/:chatId', async (req: AuthRequest, res) => {
 // Update webhook
 router.put('/:webhookId', async (req: AuthRequest, res) => {
   try {
-    const { webhookId } = req.params;
+    const webhookId = String(req.params.webhookId);
     const { url, events, isActive } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     // Get webhook and check permissions
     const webhook = await prisma.webhook.findUnique({
@@ -123,8 +123,8 @@ router.put('/:webhookId', async (req: AuthRequest, res) => {
 // Delete webhook
 router.delete('/:webhookId', async (req: AuthRequest, res) => {
   try {
-    const { webhookId } = req.params;
-    const userId = req.user!.userId;
+    const webhookId = String(req.params.webhookId);
+    const userId = req.userId!;
 
     // Get webhook and check permissions
     const webhook = await prisma.webhook.findUnique({

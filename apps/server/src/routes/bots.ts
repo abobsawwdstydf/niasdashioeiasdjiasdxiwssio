@@ -15,7 +15,7 @@ function generateBotToken(): string {
 router.post('/create', async (req: AuthRequest, res) => {
   try {
     const { name, username, description, avatar } = req.body;
-    const ownerId = req.user!.userId;
+    const ownerId = req.userId!;
 
     if (!name || !username) {
       return res.status(400).json({ error: 'Имя и username обязательны' });
@@ -58,7 +58,7 @@ router.post('/create', async (req: AuthRequest, res) => {
 // Get user's bots
 router.get('/my', async (req: AuthRequest, res) => {
   try {
-    const ownerId = req.user!.userId;
+    const ownerId = req.userId!;
 
     const bots = await prisma.bot.findMany({
       where: { ownerId },
@@ -78,8 +78,8 @@ router.get('/my', async (req: AuthRequest, res) => {
 // Get bot by ID
 router.get('/:botId', async (req: AuthRequest, res) => {
   try {
-    const { botId } = req.params;
-    const userId = req.user!.userId;
+    const botId = String(req.params.botId);
+    const userId = req.userId!;
 
     const bot = await prisma.bot.findUnique({
       where: { id: botId },
@@ -106,9 +106,9 @@ router.get('/:botId', async (req: AuthRequest, res) => {
 // Update bot
 router.put('/:botId', async (req: AuthRequest, res) => {
   try {
-    const { botId } = req.params;
+    const botId = String(req.params.botId);
     const { name, description, avatar, webhookUrl, webhookSecret, isActive } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const bot = await prisma.bot.findUnique({
       where: { id: botId }
@@ -147,8 +147,8 @@ router.put('/:botId', async (req: AuthRequest, res) => {
 // Delete bot
 router.delete('/:botId', async (req: AuthRequest, res) => {
   try {
-    const { botId } = req.params;
-    const userId = req.user!.userId;
+    const botId = String(req.params.botId);
+    const userId = req.userId!;
 
     const bot = await prisma.bot.findUnique({
       where: { id: botId }
@@ -176,9 +176,9 @@ router.delete('/:botId', async (req: AuthRequest, res) => {
 // Add command to bot
 router.post('/:botId/commands', async (req: AuthRequest, res) => {
   try {
-    const { botId } = req.params;
+    const botId = String(req.params.botId);
     const { command, description } = req.body;
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!command || !description) {
       return res.status(400).json({ error: 'Команда и описание обязательны' });
@@ -217,8 +217,9 @@ router.post('/:botId/commands', async (req: AuthRequest, res) => {
 // Delete command
 router.delete('/:botId/commands/:commandId', async (req: AuthRequest, res) => {
   try {
-    const { botId, commandId } = req.params;
-    const userId = req.user!.userId;
+    const botId = String(req.params.botId);
+    const commandId = String(req.params.commandId);
+    const userId = req.userId!;
 
     const bot = await prisma.bot.findUnique({
       where: { id: botId }
@@ -246,7 +247,7 @@ router.delete('/:botId/commands/:commandId', async (req: AuthRequest, res) => {
 // Bot API: Send message (using bot token)
 router.post('/api/:token/sendMessage', async (req, res) => {
   try {
-    const { token } = req.params;
+    const token = String(req.params.token);
     const { chatId, text, type = 'text' } = req.body;
 
     if (!text) {
@@ -309,8 +310,8 @@ router.post('/api/:token/sendMessage', async (req, res) => {
 // Regenerate bot token
 router.post('/:botId/regenerate-token', async (req: AuthRequest, res) => {
   try {
-    const { botId } = req.params;
-    const userId = req.user!.userId;
+    const botId = String(req.params.botId);
+    const userId = req.userId!;
 
     const bot = await prisma.bot.findUnique({
       where: { id: botId }

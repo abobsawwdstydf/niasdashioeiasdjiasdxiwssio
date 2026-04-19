@@ -14,6 +14,10 @@ interface AuthSocket extends Socket {
 
 const onlineUsers = new Map<string, Set<string>>();
 
+// ─── Global io instance for external access ──────────────────────────
+let _io: Server | null = null;
+export function getSocket(): Server | null { return _io; }
+
 // ─── Active group calls: chatId → Set<userId> ────────────────────────
 const activeGroupCalls = new Map<string, Set<string>>();
 
@@ -67,6 +71,7 @@ async function isChannelAdmin(chatId: string, userId: string): Promise<boolean> 
 }
 
 export function setupSocket(io: Server) {
+  _io = io;
   // On startup, re-schedule any pending scheduled messages
   rescheduleMessages(io);
   
@@ -466,7 +471,7 @@ export function setupSocket(io: Server) {
 
         io.to(`chat:${data.chatId}`).emit('new_message', {
           ...message,
-          media: transformMedia(message.media),
+          media: transformMedia((message as any).media),
           readBy: [{ userId }],
         });
 
@@ -1188,10 +1193,11 @@ export function setupSocket(io: Server) {
               chatId: data.chatId,
               senderId: userId,
               type: 'call',
-              content: null,
-              callType: 'voice', // Можно передавать из data
-              callStatus: data.status || 'completed',
-              callDuration: data.duration || 0,
+              content: JSON.stringify({
+                callType: 'voice',
+                callStatus: data.status || 'completed',
+                callDuration: data.duration || 0,
+              }),
             },
             include: {
               sender: { select: SENDER_SELECT },

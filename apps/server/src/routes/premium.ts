@@ -1,9 +1,8 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { authMiddleware } from '../middleware/auth';
+import { prisma } from '../db';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Premium prices in beavers
 const PREMIUM_PRICES = {
@@ -14,10 +13,10 @@ const PREMIUM_PRICES = {
 };
 
 // Get premium status
-router.get('/status', authMiddleware, async (req, res) => {
+router.get('/status', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+      where: { id: req.userId! },
       select: {
         isPremium: true,
         premiumUntil: true,
@@ -34,10 +33,10 @@ router.get('/status', authMiddleware, async (req, res) => {
 });
 
 // Purchase premium
-router.post('/purchase', authMiddleware, async (req, res) => {
+router.post('/purchase', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { months } = req.body;
-    const userId = req.user!.id;
+    const userId = req.userId!;
 
     // Validate months
     const premiumType = `${months}month${months > 1 ? 's' : ''}` as keyof typeof PREMIUM_PRICES;
@@ -125,10 +124,10 @@ router.get('/prices', async (req, res) => {
 });
 
 // Get purchase history
-router.get('/history', authMiddleware, async (req, res) => {
+router.get('/history', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const purchases = await prisma.premiumPurchase.findMany({
-      where: { userId: req.user!.id },
+      where: { userId: req.userId! },
       orderBy: { purchasedAt: 'desc' },
       take: 20,
     });

@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response as ExpressResponse } from 'express';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -58,7 +58,7 @@ interface QueuedRequest {
   reject: (error: Error) => void;
   messages: any[];
   stream: boolean;
-  res?: Response;
+  res?: ExpressResponse;
   timestamp: number;
 }
 
@@ -111,7 +111,7 @@ const SYSTEM_PROMPT = `Ты — Nexo AI, умный и дружелюбный а
 // СТРИМИНГ — CEREBRAS
 // ============================================
 
-async function streamCerebras(messages: any[], res: Response, key: string, isSimple: boolean): Promise<boolean> {
+async function streamCerebras(messages: any[], res: ExpressResponse, key: string, isSimple: boolean): Promise<boolean> {
   const model = isSimple ? 'llama3.1-8b' : 'qwen-3-235b-a22b-instruct-2507';
 
   const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
@@ -142,7 +142,7 @@ async function streamCerebras(messages: any[], res: Response, key: string, isSim
 // СТРИМИНГ — GROQ
 // ============================================
 
-async function streamGroq(messages: any[], res: Response, key: string): Promise<boolean> {
+async function streamGroq(messages: any[], res: ExpressResponse, key: string): Promise<boolean> {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -171,7 +171,7 @@ async function streamGroq(messages: any[], res: Response, key: string): Promise<
 // СТРИМИНГ — SAMBANOVA
 // ============================================
 
-async function streamSambaNova(messages: any[], res: Response, key: string): Promise<boolean> {
+async function streamSambaNova(messages: any[], res: ExpressResponse, key: string): Promise<boolean> {
   const response = await fetch('https://api.sambanova.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -200,7 +200,7 @@ async function streamSambaNova(messages: any[], res: Response, key: string): Pro
 // СТРИМИНГ — OPENROUTER
 // ============================================
 
-async function streamOpenRouter(messages: any[], res: Response, key: string): Promise<boolean> {
+async function streamOpenRouter(messages: any[], res: ExpressResponse, key: string): Promise<boolean> {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -231,7 +231,7 @@ async function streamOpenRouter(messages: any[], res: Response, key: string): Pr
 // SSE STREAM CONSUMER (универсальный)
 // ============================================
 
-async function consumeSSEStream(fetchResponse: Response, res: Response): Promise<boolean> {
+async function consumeSSEStream(fetchResponse: globalThis.Response, res: ExpressResponse): Promise<boolean> {
   const reader = fetchResponse.body?.getReader();
   if (!reader) return false;
 
@@ -289,7 +289,7 @@ async function requestCerebras(messages: any[], key: string, isSimple: boolean):
     throw new Error(`Cerebras ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -310,7 +310,7 @@ async function requestGroq(messages: any[], key: string): Promise<string> {
     throw new Error(`Groq ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -331,7 +331,7 @@ async function requestSambaNova(messages: any[], key: string): Promise<string> {
     throw new Error(`SambaNova ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -357,7 +357,7 @@ async function requestOpenRouter(messages: any[], key: string): Promise<string> 
     throw new Error(`OpenRouter ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -378,7 +378,7 @@ function isSimpleQuery(messages: any[]): boolean {
 // ОСНОВНОЙ БАЛАНСИРОВЩИК — СТРИМИНГ
 // ============================================
 
-async function tryStream(messages: any[], res: Response): Promise<boolean> {
+async function tryStream(messages: any[], res: ExpressResponse): Promise<boolean> {
   const isSimple = isSimpleQuery(messages);
 
   // 1. CEREBRAS
@@ -505,7 +505,7 @@ async function processQueue() {
 /**
  * POST /api/ai/chat — обычный JSON ответ
  */
-router.post('/chat', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/chat', authenticateToken, async (req: AuthRequest, res: ExpressResponse) => {
   const { messages } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
@@ -540,7 +540,7 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res: Response) 
 /**
  * POST /api/ai/chat/stream — SSE стриминг
  */
-router.post('/chat/stream', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/chat/stream', authenticateToken, async (req: AuthRequest, res: ExpressResponse) => {
   const { messages } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
@@ -582,7 +582,7 @@ router.post('/chat/stream', authenticateToken, async (req: AuthRequest, res: Res
 /**
  * GET /api/ai/status — статус всех провайдеров
  */
-router.get('/status', authenticateToken, (_req: AuthRequest, res: Response) => {
+router.get('/status', authenticateToken, (_req: AuthRequest, res: ExpressResponse) => {
   res.json({
     providers: providers.map(p => ({
       name: p.name,
@@ -598,7 +598,7 @@ router.get('/status', authenticateToken, (_req: AuthRequest, res: Response) => {
  * POST /api/ai/context — AI с контекстом из сообщения
  * Принимает messageId и chatId, загружает контекст сообщения
  */
-router.post('/context', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/context', authenticateToken, async (req: AuthRequest, res: ExpressResponse) => {
   const { messageId, chatId, question } = req.body;
 
   if (!messageId || !chatId) {
@@ -660,7 +660,7 @@ router.post('/context', authenticateToken, async (req: AuthRequest, res: Respons
  * POST /api/ai/suggestions — Умные предложения ответов
  * Анализирует последнее сообщение и предлагает 3 варианта ответа
  */
-router.post('/suggestions', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/suggestions', authenticateToken, async (req: AuthRequest, res: ExpressResponse) => {
   const { chatId, lastMessage } = req.body;
 
   if (!chatId || !lastMessage) {
@@ -697,7 +697,7 @@ router.post('/suggestions', authenticateToken, async (req: AuthRequest, res: Res
  * POST /api/ai/autocomplete — Автодополнение текста
  * Предлагает продолжение текста на основе введённого
  */
-router.post('/autocomplete', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/autocomplete', authenticateToken, async (req: AuthRequest, res: ExpressResponse) => {
   const { text } = req.body;
 
   if (!text || text.length < 3) {
@@ -727,7 +727,7 @@ router.post('/autocomplete', authenticateToken, async (req: AuthRequest, res: Re
  * POST /api/ai/grammar — Проверка и исправление грамматики
  * Исправляет ошибки в тексте и возвращает исправленную версию
  */
-router.post('/grammar', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/grammar', authenticateToken, async (req: AuthRequest, res: ExpressResponse) => {
   const { text } = req.body;
 
   if (!text) {

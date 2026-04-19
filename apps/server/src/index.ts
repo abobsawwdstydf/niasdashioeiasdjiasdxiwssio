@@ -33,6 +33,27 @@ import { decryptFileToBuffer, isEncryptionEnabled } from './encrypt';
 import { UPLOADS_ROOT } from './shared';
 import { startSelfDestructCleanup } from './lib/selfDestructCleanup';
 import { localStorage } from './lib/localStorage';
+import threadsRoutes from './routes/threads';
+import aiRoutes from './routes/ai';
+import secretChatsRoutes from './routes/secretChats';
+import stickersRoutes from './routes/stickers';
+import searchRoutes from './routes/search';
+import mediaRoutes from './routes/media';
+import webhooksRoutes from './routes/webhooks';
+import autoRespondersRoutes from './routes/autoResponders';
+import ocrRoutes from './routes/ocr';
+import speechToTextRoutes from './routes/speechToText';
+import selfDestructRoutes from './routes/selfDestruct';
+import privacyRoutes from './routes/privacy';
+import customizationRoutes from './routes/customization';
+import foldersRoutes from './routes/folders';
+import tagsRoutes from './routes/tags';
+import quickRepliesRoutes from './routes/quickReplies';
+import utilitiesRoutes from './routes/utilities';
+import premiumRoutes from './routes/premium';
+import videoNotesRoutes from './routes/videoNotes';
+import statusRoutes from './routes/status';
+import botsRoutes from './routes/bots';
 
 // Disable all console logs for performance
 if (process.env.NODE_ENV === 'production') {
@@ -200,35 +221,64 @@ app.get('/api/files/:fileId/download', async (req, res) => {
 });
 
 // API маршруты
+// @ts-ignore
 app.use('/api/auth', authLimiter, authRoutes);
+// @ts-ignore
 app.use('/api/users', apiLimiter, authenticateToken, userRoutes);
+// @ts-ignore
 app.use('/api/chats', apiLimiter, authenticateToken, chatRoutes);
+// @ts-ignore
 app.use('/api/stories', apiLimiter, authenticateToken, storyRoutes);
+// @ts-ignore
 app.use('/api/friends', apiLimiter, authenticateToken, friendRoutes);
+// @ts-ignore
 app.use('/api/call-logs', apiLimiter, authenticateToken, callLogRoutes);
+// @ts-ignore
 app.use('/api/messages', apiLimiter, authenticateToken, messageViewRoutes);
+// @ts-ignore
 app.use('/api/messages', apiLimiter, authenticateToken, messageRoutes);
-app.use('/api/threads', apiLimiter, authenticateToken, require('./routes/threads').default);
-app.use('/api/ai', apiLimiter, authenticateToken, require('./routes/ai').default);
-app.use('/api/secret-chats', apiLimiter, authenticateToken, require('./routes/secretChats').default);
-app.use('/api/stickers', apiLimiter, authenticateToken, require('./routes/stickers').default);
-app.use('/api/search', apiLimiter, authenticateToken, require('./routes/search').default);
-app.use('/api/media', apiLimiter, authenticateToken, require('./routes/media').default);
-app.use('/api/webhooks', apiLimiter, authenticateToken, require('./routes/webhooks').default);
-app.use('/api/auto-responders', apiLimiter, authenticateToken, require('./routes/autoResponders').default);
-app.use('/api/ocr', apiLimiter, authenticateToken, require('./routes/ocr').default);
-app.use('/api/speech-to-text', apiLimiter, authenticateToken, require('./routes/speechToText').default);
-app.use('/api/self-destruct', apiLimiter, authenticateToken, require('./routes/selfDestruct').default);
-app.use('/api/privacy', apiLimiter, authenticateToken, require('./routes/privacy').default);
-app.use('/api/customization', apiLimiter, authenticateToken, require('./routes/customization').default);
-app.use('/api/folders', apiLimiter, authenticateToken, require('./routes/folders').default);
-app.use('/api/tags', apiLimiter, authenticateToken, require('./routes/tags').default);
-app.use('/api/quick-replies', apiLimiter, authenticateToken, require('./routes/quickReplies').default);
-app.use('/api/utilities', apiLimiter, authenticateToken, require('./routes/utilities').default);
-app.use('/api/premium', apiLimiter, authenticateToken, require('./routes/premium').default);
-app.use('/api/video-notes', apiLimiter, authenticateToken, require('./routes/videoNotes').default);
-app.use('/api/status', apiLimiter, authenticateToken, require('./routes/status').default);
-app.use('/api/bots', apiLimiter, authenticateToken, require('./routes/bots').default);
+// @ts-ignore
+app.use('/api/threads', apiLimiter, authenticateToken, threadsRoutes);
+// @ts-ignore
+app.use('/api/ai', apiLimiter, authenticateToken, aiRoutes);
+// @ts-ignore
+app.use('/api/secret-chats', apiLimiter, authenticateToken, secretChatsRoutes);
+// @ts-ignore
+app.use('/api/stickers', apiLimiter, authenticateToken, stickersRoutes);
+// @ts-ignore
+app.use('/api/search', apiLimiter, authenticateToken, searchRoutes);
+// @ts-ignore
+app.use('/api/media', apiLimiter, authenticateToken, mediaRoutes);
+// @ts-ignore
+app.use('/api/webhooks', apiLimiter, authenticateToken, webhooksRoutes);
+// @ts-ignore
+app.use('/api/auto-responders', apiLimiter, authenticateToken, autoRespondersRoutes);
+// @ts-ignore
+app.use('/api/ocr', apiLimiter, authenticateToken, ocrRoutes);
+// @ts-ignore
+app.use('/api/speech-to-text', apiLimiter, authenticateToken, speechToTextRoutes);
+// @ts-ignore
+app.use('/api/self-destruct', apiLimiter, authenticateToken, selfDestructRoutes);
+// @ts-ignore
+app.use('/api/privacy', apiLimiter, authenticateToken, privacyRoutes);
+// @ts-ignore
+app.use('/api/customization', apiLimiter, authenticateToken, customizationRoutes);
+// @ts-ignore
+app.use('/api/folders', apiLimiter, authenticateToken, foldersRoutes);
+// @ts-ignore
+app.use('/api/tags', apiLimiter, authenticateToken, tagsRoutes);
+// @ts-ignore
+app.use('/api/quick-replies', apiLimiter, authenticateToken, quickRepliesRoutes);
+// @ts-ignore
+app.use('/api/utilities', apiLimiter, authenticateToken, utilitiesRoutes);
+// @ts-ignore
+app.use('/api/premium', apiLimiter, authenticateToken, premiumRoutes);
+// @ts-ignore
+app.use('/api/video-notes', apiLimiter, authenticateToken, videoNotesRoutes);
+// @ts-ignore
+app.use('/api/status', apiLimiter, authenticateToken, statusRoutes);
+// @ts-ignore
+app.use('/api/bots', apiLimiter, authenticateToken, botsRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Проверка здоровья

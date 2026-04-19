@@ -7,9 +7,9 @@ const router = express.Router();
 // Set self-destruct timer for a message
 router.post('/:messageId/self-destruct', async (req: AuthRequest, res) => {
   try {
-    const { messageId } = req.params;
+    const messageId = String(req.params.messageId);
     const { timer } = req.body; // Timer in seconds
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     if (!timer || timer < 5 || timer > 2592000) { // 5 sec to 30 days
       return res.status(400).json({ error: 'Таймер должен быть от 5 секунд до 30 дней' });
@@ -48,7 +48,7 @@ router.post('/:messageId/self-destruct', async (req: AuthRequest, res) => {
 // Get messages with self-destruct timers
 router.get('/self-destruct/pending', async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
 
     const messages = await prisma.message.findMany({
       where: {

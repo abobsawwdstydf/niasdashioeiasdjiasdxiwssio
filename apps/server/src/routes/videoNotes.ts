@@ -2,11 +2,10 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
+import { prisma } from '../db';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Configure multer for video upload
 const storage = multer.diskStorage({
@@ -42,9 +41,9 @@ const upload = multer({
 });
 
 // POST /api/video-notes - Upload video note
-router.post('/', authenticateToken, upload.single('video'), async (req, res) => {
+router.post('/', authenticateToken, upload.single('video') as any, async (req: AuthRequest, res) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = (req as AuthRequest).userId!;
     const { chatId, duration } = req.body;
     const file = req.file;
 
@@ -151,7 +150,7 @@ router.post('/', authenticateToken, upload.single('video'), async (req, res) => 
 // GET /api/media/video-notes/:filename - Get video note file
 router.get('/media/video-notes/:filename', async (req, res) => {
   try {
-    const { filename } = req.params;
+    const filename = String(req.params.filename);
     const filePath = path.join(process.cwd(), 'uploads', 'video-notes', filename);
 
     // Check if file exists

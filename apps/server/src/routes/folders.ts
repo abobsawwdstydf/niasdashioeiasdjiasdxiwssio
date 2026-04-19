@@ -1,16 +1,15 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * GET /api/folders - Получить все папки пользователя
  */
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
 
     const folders = await prisma.chatFolder.findMany({
       where: { userId },
@@ -43,7 +42,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
  */
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const { name, icon, color } = req.body;
 
     if (!name || name.trim().length === 0) {
@@ -83,8 +82,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
  */
 router.put('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const { id } = req.params;
+    const userId = req.userId!;
+    const id = String(req.params.id);
     const { name, icon, color, order } = req.body;
 
     // Проверяем что папка принадлежит пользователю
@@ -122,8 +121,8 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
  */
 router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const { id } = req.params;
+    const userId = req.userId!;
+    const id = String(req.params.id);
 
     // Проверяем что папка принадлежит пользователю
     const existing = await prisma.chatFolder.findFirst({
@@ -151,8 +150,8 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
  */
 router.post('/:id/chats', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const { id } = req.params;
+    const userId = req.userId!;
+    const id = String(req.params.id);
     const { chatId } = req.body;
 
     if (!chatId) {
@@ -209,8 +208,9 @@ router.post('/:id/chats', authenticateToken, async (req: AuthRequest, res: Respo
  */
 router.delete('/:id/chats/:chatId', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const { id, chatId } = req.params;
+    const userId = req.userId!;
+    const id = String(req.params.id);
+    const chatId = String(req.params.chatId);
 
     // Проверяем что папка принадлежит пользователю
     const folder = await prisma.chatFolder.findFirst({
