@@ -1,9 +1,6 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
-
-# System deps for sharp (image processing)
-RUN apk add --no-cache python3 make g++ vips-dev
 
 # ── Server dependencies ──────────────────────────────────
 COPY apps/server/package.json ./apps/server/
