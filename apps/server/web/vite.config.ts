@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { visualizer } from 'rollup-plugin-visualizer';
+// import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
   plugins: [
@@ -83,12 +83,12 @@ export default defineConfig({
         ]
       }
     }),
-    visualizer({
-      filename: './dist/stats.html',
-      open: false,
-      gzipSize: true,
-      brotliSize: true,
-    })
+    // visualizer({
+    //   filename: './dist/stats.html',
+    //   open: false,
+    //   gzipSize: true,
+    //   brotliSize: true,
+    // })
   ],
   build: {
     target: 'es2015',
@@ -105,7 +105,6 @@ export default defineConfig({
         manualChunks: {
           // Vendor chunks
           'react-vendor': ['react', 'react-dom'],
-          'router-vendor': ['react-router-dom'],
           'animation-vendor': ['framer-motion'],
           'date-vendor': ['date-fns'],
           'icons-vendor': ['lucide-react'],
