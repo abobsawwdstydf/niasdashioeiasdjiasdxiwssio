@@ -19,6 +19,8 @@
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-virtualized-auto-sizer": "^2.0.3",
+    "react-window": "^2.2.7",
     "socket.io-client": "^4.8.1",
     "vite-plugin-pwa": "^1.2.0",
     "workbox-window": "^7.4.0",

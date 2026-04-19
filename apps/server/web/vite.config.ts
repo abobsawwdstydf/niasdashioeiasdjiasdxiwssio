@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
   plugins: [
@@ -9,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'galochcka.png', 'no_bg.png', 'vortex.svg'],
+      includeAssets: ['logo.png', 'galochcka.png', 'no_bg.png', 'vortex.svg', 'offline.html'],
       manifest: {
         name: 'Nexo Messenger',
         short_name: 'Nexo',
@@ -81,8 +82,70 @@ export default defineConfig({
           }
         ]
       }
+    }),
+    visualizer({
+      filename: './dist/stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
     })
   ],
+  build: {
+    target: 'es2015',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom'],
+          'router-vendor': ['react-router-dom'],
+          'animation-vendor': ['framer-motion'],
+          'date-vendor': ['date-fns'],
+          'icons-vendor': ['lucide-react'],
+          
+          // Feature chunks
+          'chat': [
+            './src/components/ChatView.tsx',
+            './src/components/MessageBubble.tsx',
+            './src/components/MessageInput.tsx',
+          ],
+          'profile': [
+            './src/components/UserProfile.tsx',
+            './src/components/ChannelProfile.tsx',
+          ],
+          'media': [
+            './src/components/ImageLightbox.tsx',
+            './src/components/VideoPlayer.tsx',
+            './src/components/VideoNotePlayer.tsx',
+          ],
+          'modals': [
+            './src/components/CallModal.tsx',
+            './src/components/GroupCallModal.tsx',
+            './src/components/ForwardModal.tsx',
+          ],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+    sourcemap: false,
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'framer-motion',
+      'date-fns',
+      'lucide-react',
+      'zustand',
+    ],
+  },
   server: {
     host: '0.0.0.0',
     port: 6023,
