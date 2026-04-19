@@ -594,4 +594,169 @@ router.get('/status', authenticateToken, (_req: AuthRequest, res: Response) => {
   });
 });
 
+/**
+ * POST /api/ai/context — AI с контекстом из сообщения
+ * Принимает messageId и chatId, загружает контекст сообщения
+ */
+router.post('/context', authenticateToken, async (req: AuthRequest, res: Response) => {
+  const { messageId, chatId, question } = req.body;
+
+  if (!messageId || !chatId) {
+    res.status(400).json({ error: 'messageId и chatId обязательны' });
+    return;
+  }
+
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+
+    // Загружаем сообщение с контекстом
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        sender: { select: { displayName: true, username: true } },
+        replyTo: { select: { content: true, sender: { select: { displayName: true } } } },
+      },
+    });
+
+    if (!message) {
+      res.status(404).json({ error: 'Сообщение не найдено' });
+      return;
+    }
+
+    // Загружаем последние 10 сообщений из чата для контекста
+    const contextMessages = await prisma.message.findMany({
+      where: { chatId, createdAt: { lte: message.createdAt } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        sender: { select: { displayName: true, username: true } },
+      },
+    });
+
+    // Формируем контекст для AI
+    const context = contextMessages.reverse().map(m => 
+      `${m.sender.displayName || m.sender.username}: ${m.content || '[медиа]'}`
+    ).join('\n');
+
+    const aiMessages = [
+      {
+        role: 'user',
+        content: `Контекст переписки:\n${context}\n\nВопрос пользователя: ${question || 'Проанализируй это сообщение и дай совет'}`,
+      },
+    ];
+
+    const text = await tryRequest(aiMessages);
+    res.json({ text, context });
+
+    await prisma.$disconnect();
+  } catch (error: any) {
+    console.error('Ошибка AI context:', error);
+    res.status(500).json({ error: error.message || 'Ошибка обработки контекста' });
+  }
+});
+
+/**
+ * POST /api/ai/suggestions — Умные предложения ответов
+ * Анализирует последнее сообщение и предлагает 3 варианта ответа
+ */
+router.post('/suggestions', authenticateToken, async (req: AuthRequest, res: Response) => {
+  const { chatId, lastMessage } = req.body;
+
+  if (!chatId || !lastMessage) {
+    res.status(400).json({ error: 'chatId и lastMessage обязательны' });
+    return;
+  }
+
+  try {
+    const aiMessages = [
+      {
+        role: 'user',
+        content: `Последнее сообщение: "${lastMessage}"
+
+Предложи 3 варианта ответа на это сообщение. Ответы должны быть:
+1. Короткими (до 50 символов)
+2. Естественными и дружелюбными
+3. Разными по тону (формальный, дружеский, эмоциональный)
+
+Формат ответа - только 3 строки, каждая с одним вариантом ответа, без нумерации и пояснений.`,
+      },
+    ];
+
+    const text = await tryRequest(aiMessages);
+    const suggestions = text.split('\n').filter(s => s.trim()).slice(0, 3);
+    
+    res.json({ suggestions });
+  } catch (error: any) {
+    console.error('Ошибка AI suggestions:', error);
+    res.status(500).json({ error: error.message || 'Ошибка генерации предложений' });
+  }
+});
+
+/**
+ * POST /api/ai/autocomplete — Автодополнение текста
+ * Предлагает продолжение текста на основе введённого
+ */
+router.post('/autocomplete', authenticateToken, async (req: AuthRequest, res: Response) => {
+  const { text } = req.body;
+
+  if (!text || text.length < 3) {
+    res.json({ completion: '' });
+    return;
+  }
+
+  try {
+    const aiMessages = [
+      {
+        role: 'user',
+        content: `Продолжи это предложение естественным образом (максимум 10 слов): "${text}"
+
+Верни ТОЛЬКО продолжение, без повтора исходного текста и без пояснений.`,
+      },
+    ];
+
+    const completion = await tryRequest(aiMessages);
+    res.json({ completion: completion.trim() });
+  } catch (error: any) {
+    console.error('Ошибка AI autocomplete:', error);
+    res.json({ completion: '' });
+  }
+});
+
+/**
+ * POST /api/ai/grammar — Проверка и исправление грамматики
+ * Исправляет ошибки в тексте и возвращает исправленную версию
+ */
+router.post('/grammar', authenticateToken, async (req: AuthRequest, res: Response) => {
+  const { text } = req.body;
+
+  if (!text) {
+    res.status(400).json({ error: 'text обязателен' });
+    return;
+  }
+
+  try {
+    const aiMessages = [
+      {
+        role: 'user',
+        content: `Исправь грамматические и орфографические ошибки в этом тексте: "${text}"
+
+Верни ТОЛЬКО исправленный текст, без пояснений. Если ошибок нет, верни исходный текст.`,
+      },
+    ];
+
+    const corrected = await tryRequest(aiMessages);
+    const hasChanges = corrected.trim() !== text.trim();
+    
+    res.json({ 
+      corrected: corrected.trim(),
+      hasChanges,
+      original: text,
+    });
+  } catch (error: any) {
+    console.error('Ошибка AI grammar:', error);
+    res.status(500).json({ error: error.message || 'Ошибка проверки грамматики' });
+  }
+});
+
 export default router;

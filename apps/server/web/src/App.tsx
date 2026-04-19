@@ -5,6 +5,7 @@ import { useChatStore } from './stores/chatStore';
 import { api } from './lib/api';
 import AuthPage from './pages/AuthPage';
 import ChatPage from './pages/ChatPage';
+import ToastContainer from './components/ToastContainer';
 
 export default function App() {
   const { token, user, checkAuth, isLoading } = useAuthStore();
@@ -41,13 +42,16 @@ export default function App() {
   }
 
   return (
-    <AnimatePresence mode="wait">
-      {token && user ? (
-        <ChatPage key="chat" />
-      ) : (
-        <AuthPage key="auth" />
-      )}
-    </AnimatePresence>
+    <>
+      <AnimatePresence mode="wait">
+        {token && user ? (
+          <ChatPage key="chat" />
+        ) : (
+          <AuthPage key="auth" />
+        )}
+      </AnimatePresence>
+      <ToastContainer />
+    </>
   );
 }
 

@@ -19,6 +19,7 @@ import {
   Bookmark,
   ChevronDown,
   BarChart3,
+  Lock,
 } from 'lucide-react';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
@@ -45,7 +46,7 @@ import { useThemeStore } from '../stores/themeStore';
 export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCall?: (targetUser: UserBasic, type: 'voice' | 'video') => void; onStartGroupCall?: (chatId: string, chatName: string, type: 'voice' | 'video') => void }) {
   const { user } = useAuthStore();
   const { t, lang } = useLang();
-  const { chatTheme } = useThemeStore();
+  const { getChatBackground } = useThemeStore();
   const {
     activeChat,
     chats,
@@ -155,6 +156,10 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
       ? otherMember?.user.avatar
       : chat?.avatar;
   const isOnline = chat?.type === 'personal' && otherMember?.user.isOnline;
+
+  // Get custom background for this chat
+  const chatBackgroundObj = activeChat ? getChatBackground(activeChat) : null;
+  const chatBackground = chatBackgroundObj?.type === 'image' ? chatBackgroundObj.value : null;
 
   const typingInChat = typingUsers.filter((t) => t.chatId === activeChat && t.userId !== user?.id);
   const isChannel = chat?.type === 'channel';
@@ -501,7 +506,7 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
     <div
       ref={chatViewRef}
       onMouseMove={handleMouseMove}
-      className={`flex flex-col h-full w-full overflow-hidden chat-theme-${chatTheme} transition-colors duration-500 bg-surface-secondary`}
+      className={`flex flex-col h-full w-full overflow-hidden transition-colors duration-500 bg-surface-secondary`}
     >
       {/* Шапка чата */}
       {selectionMode ? (
@@ -594,7 +599,10 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
               )}
             </div>
             <div className="min-w-0 text-left">
-              <h3 className="text-base font-semibold text-white truncate drop-shadow-sm group-hover:text-accent/90 transition-colors">{chatName}</h3>
+              <div className="flex items-center gap-1.5">
+                {chat.isSecret && <Lock size={14} className="text-purple-400 flex-shrink-0" />}
+                <h3 className="text-base font-semibold text-white truncate drop-shadow-sm group-hover:text-accent/90 transition-colors">{chatName}</h3>
+              </div>
               <p className="text-xs text-zinc-400 truncate">
                 {isFavorites
                   ? t('favoritesDescription')
@@ -1066,6 +1074,13 @@ export default function ChatView({ onStartCall, onStartGroupCall }: { onStartCal
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-2 relative z-0 min-h-0"
+        style={chatBackground ? {
+          backgroundImage: `url(${chatBackground})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed'
+        } : undefined}
       >
         {isLoadingMessages ? (
           <div className="flex justify-center py-8">

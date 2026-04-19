@@ -27,6 +27,8 @@ import CameraModal from './CameraModal';
 import AttachMenu from './AttachMenu';
 import PollModal from './PollModal';
 import LocationModal from './LocationModal';
+import QuickReplyModal from './QuickReplyModal';
+import VideoNoteRecorder from './VideoNoteRecorder';
 
 interface Attachment {
   file: File;
@@ -71,6 +73,16 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [showPoll, setShowPoll] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
   const attachmentsScrollRef = useRef<HTMLDivElement>(null);
+  const [smartSuggestions, setSmartSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showGrammarCheck, setShowGrammarCheck] = useState(false);
+  const [grammarResult, setGrammarResult] = useState<{ corrected: string; hasChanges: boolean; original: string } | null>(null);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  
+  // Video notes
+  const [recordMode, setRecordMode] = useState<'voice' | 'video'>('voice');
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const filteredMembers = mentionQuery !== null && isGroup
     ? chatMembers.filter((m) => {
@@ -144,6 +156,25 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       setText(getDraft(chatId));
     }
   }, [chatId]);
+
+  // Загружаем умные предложения при получении нового сообщения
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewMessage = (message: any) => {
+      // Загружаем предложения только если сообщение не от нас и в текущем чате
+      if (message.chatId === chatId && message.senderId !== user?.id && message.content) {
+        loadSmartSuggestions(message.content);
+      }
+    };
+
+    socket.on('new_message', handleNewMessage);
+
+    return () => {
+      socket.off('new_message', handleNewMessage);
+    };
+  }, [chatId, user?.id]);
 
   useEffect(() => {
     return () => {
@@ -262,6 +293,20 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Горячие клавиши для быстрых ответов (Ctrl+1-9)
+    if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+      e.preventDefault();
+      setShowQuickReplies(true);
+      return;
+    }
+
+    // Открыть быстрые ответы по "/"
+    if (e.key === '/' && text === '') {
+      e.preventDefault();
+      setShowQuickReplies(true);
+      return;
+    }
+
     if (mentionQuery !== null && filteredMembers.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -574,6 +619,49 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     }
   };
 
+  // Загрузка умных предложений
+  const loadSmartSuggestions = async (lastMessageContent: string) => {
+    if (!lastMessageContent || lastMessageContent.length < 3) {
+      setSmartSuggestions([]);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      const response = await api.getAISuggestions(chatId, lastMessageContent);
+      setSmartSuggestions(response.suggestions || []);
+    } catch (error) {
+      console.error('Ошибка загрузки предложений:', error);
+      setSmartSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Проверка грамматики
+  const checkGrammar = async () => {
+    if (!text.trim()) return;
+
+    setShowGrammarCheck(true);
+    try {
+      const response = await api.checkGrammar(text);
+      setGrammarResult(response);
+    } catch (error) {
+      console.error('Ошибка проверки грамматики:', error);
+      setGrammarResult(null);
+    }
+  };
+
+  // Применить исправление грамматики
+  const applyGrammarFix = () => {
+    if (grammarResult?.corrected) {
+      setText(grammarResult.corrected);
+      setDraft(chatId, grammarResult.corrected);
+    }
+    setShowGrammarCheck(false);
+    setGrammarResult(null);
+  };
+
   return (
     <div
       className="z-10 px-6 pt-2 pb-6 flex-shrink-0 bg-transparent relative"
@@ -592,6 +680,52 @@ export default function MessageInput({ chatId }: MessageInputProps) {
             <div className="flex flex-col items-center gap-2 text-nexo-300">
               <FileText size={32} className="animate-bounce" />
               <p className="font-semibold">{t('dropFileHere')}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Умные предложения ответов */}
+      <AnimatePresence>
+        {smartSuggestions.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, y: 10 }}
+            animate={{ height: 'auto', opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: 10 }}
+            className="mb-2 max-w-3xl mx-auto px-1.5"
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-nexo-400">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  <circle cx="9" cy="10" r="1"/>
+                  <circle cx="15" cy="10" r="1"/>
+                  <path d="M9 14h6"/>
+                </svg>
+                <span className="font-medium">AI предлагает:</span>
+              </div>
+              <button
+                onClick={() => setSmartSuggestions([])}
+                className="ml-auto text-zinc-500 hover:text-white transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {smartSuggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setText(suggestion);
+                    setDraft(chatId, suggestion);
+                    setSmartSuggestions([]);
+                    inputRef.current?.focus();
+                  }}
+                  className="px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-nexo-500/50 text-left text-sm text-zinc-300 hover:text-white transition-all"
+                >
+                  {suggestion}
+                </button>
+              ))}
             </div>
           </motion.div>
         )}
@@ -798,7 +932,39 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               </button>
 
               <button
-                onClick={() => hasContent ? handleSend() : startRecording()}
+                onMouseDown={() => {
+                  const timer = setTimeout(() => {
+                    setRecordMode(prev => prev === 'voice' ? 'video' : 'voice');
+                  }, 1300);
+                  setPressTimer(timer);
+                }}
+                onMouseUp={() => {
+                  if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    setPressTimer(null);
+                  }
+                }}
+                onTouchStart={() => {
+                  const timer = setTimeout(() => {
+                    setRecordMode(prev => prev === 'voice' ? 'video' : 'voice');
+                  }, 1300);
+                  setPressTimer(timer);
+                }}
+                onTouchEnd={() => {
+                  if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    setPressTimer(null);
+                  }
+                }}
+                onClick={() => {
+                  if (hasContent) {
+                    handleSend();
+                  } else if (recordMode === 'video') {
+                    setShowVideoRecorder(true);
+                  } else {
+                    startRecording();
+                  }
+                }}
                 disabled={isSending || (!hasContent && isRecording)}
                 className="w-11 h-11 rounded-full bg-nexo-500 hover:bg-nexo-600 flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50 disabled:scale-95 shadow-lg shadow-nexo-500/30"
               >
@@ -806,6 +972,8 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : hasContent ? (
                   <Send size={18} className="text-white" />
+                ) : recordMode === 'video' ? (
+                  <Video size={18} className="text-white" />
                 ) : (
                   <Mic size={18} className="text-white" />
                 )}
@@ -835,6 +1003,20 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                 rows={1}
                 className="flex-1 bg-transparent text-white placeholder-zinc-500 resize-none outline-none max-h-[150px] overflow-y-auto scrollbar-hide px-2 py-2.5"
               />
+              {text.trim() && (
+                <button
+                  onClick={checkGrammar}
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-emerald-400 flex-shrink-0"
+                  title="Проверить грамматику"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={() => setShowAttachMenuState(true)}
                 className="p-2 rounded-full hover:bg-white/5 transition-colors text-zinc-400 hover:text-white flex-shrink-0"
@@ -844,7 +1026,27 @@ export default function MessageInput({ chatId }: MessageInputProps) {
               </button>
 
               <button
-                onClick={() => hasContent ? handleSend() : startRecording()}
+                onMouseDown={() => {
+                  const timer = setTimeout(() => {
+                    setRecordMode(prev => prev === 'voice' ? 'video' : 'voice');
+                  }, 1300);
+                  setPressTimer(timer);
+                }}
+                onMouseUp={() => {
+                  if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    setPressTimer(null);
+                  }
+                }}
+                onClick={() => {
+                  if (hasContent) {
+                    handleSend();
+                  } else if (recordMode === 'video') {
+                    setShowVideoRecorder(true);
+                  } else {
+                    startRecording();
+                  }
+                }}
                 disabled={isSending || (!hasContent && isRecording)}
                 className="w-11 h-11 rounded-full bg-nexo-500 hover:bg-nexo-600 flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50"
               >
@@ -852,6 +1054,8 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : hasContent ? (
                   <Send size={18} className="text-white" />
+                ) : recordMode === 'video' ? (
+                  <Video size={18} className="text-zinc-400 hover:text-white transition-colors" />
                 ) : (
                   <Mic size={18} className="text-zinc-400 hover:text-white transition-colors" />
                 )}
@@ -978,6 +1182,138 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           <LocationModal
             onClose={() => setShowLocation(false)}
             onSend={handleLocationSend}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Quick Reply Modal */}
+      <AnimatePresence>
+        {showQuickReplies && (
+          <QuickReplyModal
+            onClose={() => setShowQuickReplies(false)}
+            onSelect={(message) => {
+              setText(message);
+              setDraft(chatId, message);
+              inputRef.current?.focus();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Grammar Check Modal */}
+      <AnimatePresence>
+        {showGrammarCheck && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            onClick={() => {
+              setShowGrammarCheck(false);
+              setGrammarResult(null);
+            }}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg rounded-2xl bg-surface-secondary border border-white/10 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  <h3 className="text-lg font-semibold text-white">Проверка грамматики</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowGrammarCheck(false);
+                    setGrammarResult(null);
+                  }}
+                  className="p-2 rounded-lg hover:bg-white/5 transition-colors text-zinc-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-4">
+                {!grammarResult ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="w-12 h-12 border-4 border-nexo-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-sm text-zinc-400">Проверяю текст...</p>
+                  </div>
+                ) : grammarResult.hasChanges ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Исходный текст:</label>
+                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-zinc-300">
+                        {grammarResult.original}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Исправленный текст:</label>
+                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm text-white">
+                        {grammarResult.corrected}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={applyGrammarFix}
+                        className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-colors"
+                      >
+                        Применить исправления
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowGrammarCheck(false);
+                          setGrammarResult(null);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition-colors"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <Check size={24} className="text-emerald-400" />
+                    </div>
+                    <p className="text-sm text-zinc-300">Ошибок не найдено!</p>
+                    <button
+                      onClick={() => {
+                        setShowGrammarCheck(false);
+                        setGrammarResult(null);
+                      }}
+                      className="mt-2 px-6 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition-colors"
+                    >
+                      Закрыть
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Video Note Recorder */}
+      <AnimatePresence>
+        {showVideoRecorder && (
+          <VideoNoteRecorder
+            chatId={chatId}
+            onClose={() => setShowVideoRecorder(false)}
+            onSent={() => {
+              setShowVideoRecorder(false);
+              // Optionally show success message
+            }}
           />
         )}
       </AnimatePresence>

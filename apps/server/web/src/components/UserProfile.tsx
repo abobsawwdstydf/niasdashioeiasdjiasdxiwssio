@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, AtSign, Edit3, Check, Loader2, Image as ImageIcon, FileText, Link as LinkIcon, Download, ExternalLink, Play, UserPlus, UserMinus, UserCheck, Clock, PhoneIncoming, PhoneOutgoing, PhoneMissed, Pin, Hash, MessageSquare } from 'lucide-react';
+import { X, Calendar, AtSign, Edit3, Check, Loader2, Image as ImageIcon, FileText, Link as LinkIcon, Download, ExternalLink, Play, UserPlus, UserMinus, UserCheck, Clock, PhoneIncoming, PhoneOutgoing, PhoneMissed, Pin, Hash, MessageSquare, Lock } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -9,6 +9,8 @@ import { User, Message, FriendshipStatus, Chat } from '../lib/types';
 import ImageLightbox from './ImageLightbox';
 import { getSocket } from '../lib/socket';
 import PinChannelModal from './PinChannelModal';
+import { SecretChatModal } from './SecretChatModal';
+import { useToastStore } from '../stores/toastStore';
 
 interface UserProfileProps {
   userId: string;
@@ -23,6 +25,7 @@ type ProfileTab = MediaTab | 'calls';
 export default function UserProfile({ userId, chatId, onClose, isSelf }: UserProfileProps) {
   const { user: authUser, updateUser } = useAuthStore();
   const { t, lang } = useLang();
+  const { success, error: showError } = useToastStore();
   const [profile, setProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ProfileTab>('media');
@@ -52,6 +55,9 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
 
   // Pin channel state
   const [showPinModal, setShowPinModal] = useState(false);
+
+  // Secret chat state
+  const [showSecretChatModal, setShowSecretChatModal] = useState(false);
 
   const [isOpeningChat, setIsOpeningChat] = useState(false);
   const openingChatRef = useRef(false);
@@ -138,7 +144,7 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
       setIsEditingProfile(false);
     } catch (e) {
       console.error('Failed to update profile:', e);
-      alert(e instanceof Error ? e.message : 'Ошибка сохранения');
+      showError(e instanceof Error ? e.message : 'Ошибка сохранения');
     } finally {
       setIsSavingProfile(false);
     }
@@ -275,7 +281,7 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 50 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300, mass: 0.8 }}
-        className="fixed right-3 top-3 bottom-3 w-[360px] max-w-[calc(100%-24px)] bg-surface-secondary/80 backdrop-blur-2xl shadow-[0_0_120px_rgba(0,0,0,0.6)] border border-white/5 rounded-[2rem] z-50 flex flex-col overflow-hidden"
+        className="fixed inset-0 sm:inset-auto sm:right-3 sm:top-3 sm:bottom-3 sm:w-[360px] sm:max-w-[calc(100%-24px)] bg-surface-secondary/80 backdrop-blur-2xl shadow-[0_0_120px_rgba(0,0,0,0.6)] border-0 sm:border sm:border-white/5 rounded-none sm:rounded-[2rem] z-50 flex flex-col overflow-hidden"
       >
         {/* Шапка */}
         <div className="flex items-center justify-between p-5 border-b border-white/5 bg-white/5 relative overflow-hidden">
@@ -401,7 +407,7 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                   onClick={() => {
                     const link = `${window.location.origin}/?user=${profile.username}`;
                     navigator.clipboard.writeText(link);
-                    alert('Ссылка на профиль скопирована!');
+                    success('Ссылка на профиль скопирована!');
                   }}
                   className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-zinc-400 hover:text-white"
                   title="Копировать ссылку"
@@ -437,6 +443,17 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                 >
                   {isOpeningChat ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
                   {t('sendMessage') || 'Написать сообщение'}
+                </button>
+              )}
+
+              {/* Secret Chat button (for other users only) */}
+              {!isSelf && (
+                <button
+                  onClick={() => setShowSecretChatModal(true)}
+                  className="mt-3 flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white transition-all text-sm font-medium shadow-lg shadow-purple-500/30"
+                >
+                  <Lock size={16} />
+                  Секретный чат
                 </button>
               )}
 
@@ -974,6 +991,23 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
           />
         )}
       </AnimatePresence>
+
+      {/* Secret chat modal */}
+      {showSecretChatModal && profile && (
+        <SecretChatModal
+          isOpen={showSecretChatModal}
+          onClose={() => setShowSecretChatModal(false)}
+          userId={userId}
+          username={profile.displayName || profile.username}
+          onChatCreated={(chatId) => {
+            setShowSecretChatModal(false);
+            // Open the created secret chat
+            const { setActiveChat } = useChatStore.getState();
+            setActiveChat(chatId);
+            onClose();
+          }}
+        />
+      )}
     </>
   );
 }

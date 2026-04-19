@@ -180,6 +180,10 @@ export interface Message {
   callType?: 'voice' | 'video';
   callStatus?: 'completed' | 'missed' | 'declined' | 'failed';
   callDuration?: number;
+  // Video note fields
+  videoUrl?: string | null;
+  duration?: number | null;
+  thumbnail?: string | null;
 }
 
 export interface Chat {
@@ -202,6 +206,9 @@ export interface Chat {
   verifiedBadgeUrl?: string | null;
   verifiedBadgeType?: string | null;
   verifiedAt?: string | null;
+  // Secret chat
+  isSecret?: boolean;
+  isE2E?: boolean;
 }
 
 // ─── Socket event types ────────────────────────────────────────────────

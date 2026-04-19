@@ -41,13 +41,13 @@ import { useChatStore } from '../stores/chatStore';
 import { api } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useLang } from '../lib/i18n';
-import { useThemeStore, ChatTheme } from '../stores/themeStore';
 import { useCallSettingsStore } from '../stores/callSettingsStore';
 import { useUIThemeStore } from '../stores/uiThemeStore';
 import DatePicker from './DatePicker';
 import DevicesTab from './DevicesTab';
 import LegalPage from './LegalPage';
 import PremiumPage from '../pages/PremiumPage';
+import ThemeSettings from './ThemeSettings';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
 
 type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends' | 'premium';
@@ -60,7 +60,6 @@ interface SideMenuProps {
 export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const { user, updateUser, logout } = useAuthStore();
   const { clearStore } = useChatStore();
-  const { chatTheme, setChatTheme } = useThemeStore();
   const [notificationSettings, setNotificationSettings] = useState<{
     notifyAll: boolean;
     notifyMessages: boolean;
@@ -110,7 +109,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [birthday, setBirthday] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [themeIndex, setThemeIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [friends, setFriends] = useState<FriendWithId[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
@@ -120,19 +118,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [friendSearchLoading, setFriendSearchLoading] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
   const [legalPage, setLegalPage] = useState<'terms' | 'privacy' | null>(null);
-
-  const themeCards: { id: ChatTheme; color: string; accent: string; name: string; nameEn: string; desc: string; descEn: string; animated?: boolean; gradient?: string }[] = [
-    { id: 'midnight', color: '#0f0f13', accent: '#6366f1', name: 'Полночь', nameEn: 'Midnight', desc: 'Тёмная тема с мягкими акцентами', descEn: 'Dark theme with soft accents' },
-    { id: 'ocean', color: '#0b172a', accent: '#3b82f6', name: 'Океан', nameEn: 'Ocean', desc: 'Синяя морская тема', descEn: 'Blue sea theme', animated: true },
-    { id: 'forest', color: '#0f1c15', accent: '#10b981', name: 'Лес', nameEn: 'Forest', desc: 'Зелёная природная тема', descEn: 'Green nature theme' },
-    { id: 'sunset', color: '#1f111a', accent: '#ec4899', name: 'Закат', nameEn: 'Sunset', desc: 'Розово-фиолетовая тема', descEn: 'Pink-purple theme', gradient: 'linear-gradient(135deg, #1f111a, #150a0f)' },
-    { id: 'classic', color: '#121215', accent: '#6366f1', name: 'Классика', nameEn: 'Classic', desc: 'Классическая тёмная тема', descEn: 'Classic dark theme' },
-    { id: 'neon', color: '#0b0f19', accent: '#8b5cf6', name: 'Неон', nameEn: 'Neon', desc: 'Яркая неоновая тема', descEn: 'Bright neon theme', animated: true },
-    { id: 'aurora', color: '#022c22', accent: '#10b981', name: 'Аврора', nameEn: 'Aurora', desc: 'Зелёное северное сияние', descEn: 'Green aurora', animated: true, gradient: 'linear-gradient(135deg, #022c22, #064e3b)' },
-    { id: 'cyber', color: '#000', accent: '#f59e0b', name: 'Кибер', nameEn: 'Cyber', desc: 'Оранжевая киберпанк тема', descEn: 'Orange cyberpunk theme', animated: true },
-    { id: 'glass', color: '#0d1117', accent: '#3b82f6', name: 'Стекло', nameEn: 'Glass', desc: 'Стеклянная тема с эффектом', descEn: 'Glass effect theme', animated: true },
-    { id: 'void', color: '#000', accent: '#6366f1', name: 'Пустота', nameEn: 'Void', desc: 'Глубокая чёрная тема', descEn: 'Deep black theme', animated: true },
-  ];
 
   const changeView = (newView: SideView) => {
     setPrevView(view);
@@ -602,25 +587,13 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             </button>
           </div>
         </div>
+        {/* Кастомизация - ThemeSettings */}
         <div className="px-5 py-3">
-          <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3">Оформление</h4>
-          <button
-            onClick={() => {
-              const nextIdx = (themeIndex + 1) % themeCards.length;
-              setThemeIndex(nextIdx);
-              setChatTheme(themeCards[nextIdx].id);
-            }}
-            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-surface-tertiary/50 hover:bg-surface-hover transition-colors group"
-          >
-            <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: themeCards.find(t => t.id === chatTheme)?.accent || '#6366f1' }}>
-              <Palette size={18} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-medium text-zinc-200">Тема чата</p>
-              <p className="text-xs text-zinc-500">{lang === 'ru' ? themeCards.find(tc => tc.id === chatTheme)?.name : themeCards.find(tc => tc.id === chatTheme)?.nameEn}</p>
-            </div>
-            <ChevronRight size={18} className="text-zinc-500 group-hover:text-zinc-300 transition-colors" />
-          </button>
+          <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Palette size={14} />
+            Кастомизация
+          </h4>
+          <ThemeSettings />
         </div>
         <div className="px-5 py-3">
           <h4 className="text-xs text-zinc-500 uppercase tracking-wide mb-3">{t('privacy')}</h4>

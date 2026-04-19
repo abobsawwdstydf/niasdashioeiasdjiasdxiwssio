@@ -11,6 +11,9 @@ import {
   Settings,
   User,
   Check,
+  Folder,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -25,9 +28,20 @@ import NewChatModal from './NewChatModal';
 import UserProfile from './UserProfile';
 import SideMenu from './SideMenu';
 import StoryViewer, { CreateStoryModal } from './StoryViewer';
+import FolderModal from './FolderModal';
+import SearchPanel from './SearchPanel';
 
 // Типы навигации
 type NavTab = 'chats' | 'friends' | 'settings' | 'profile';
+
+interface Folder {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  order: number;
+  chats: Chat[];
+}
 
 interface SidebarProps {
   onOpenAI: () => void;
@@ -103,6 +117,14 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
   const [channelResults, setChannelResults] = useState<Chat[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Папки
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null); // null = все чаты
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [folderContextMenu, setFolderContextMenu] = useState<{ folderId: string; x: number; y: number } | null>(null);
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
+
   /** Определяем мобильное устройство */
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -110,6 +132,74 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+  /** Загрузка папок */
+  useEffect(() => {
+    loadFolders();
+  }, []);
+
+  const loadFolders = async () => {
+    try {
+      const data = await api.getFolders();
+      setFolders(data);
+    } catch (error) {
+      console.error('Ошибка загрузки папок:', error);
+    }
+  };
+
+  const handleCreateFolder = async (data: { name: string; icon: string; color: string }) => {
+    try {
+      await api.createFolder(data);
+      await loadFolders();
+      setShowFolderModal(false);
+    } catch (error) {
+      console.error('Ошибка создания папки:', error);
+    }
+  };
+
+  const handleUpdateFolder = async (data: { name: string; icon: string; color: string }) => {
+    if (!editingFolder) return;
+    try {
+      await api.updateFolder(editingFolder.id, data);
+      await loadFolders();
+      setShowFolderModal(false);
+      setEditingFolder(null);
+    } catch (error) {
+      console.error('Ошибка обновления папки:', error);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    if (!confirm('Удалить папку? Чаты останутся в списке.')) return;
+    try {
+      await api.deleteFolder(folderId);
+      await loadFolders();
+      if (selectedFolder === folderId) {
+        setSelectedFolder(null);
+      }
+      setFolderContextMenu(null);
+    } catch (error) {
+      console.error('Ошибка удаления папки:', error);
+    }
+  };
+
+  const handleAddChatToFolder = async (chatId: string, folderId: string) => {
+    try {
+      await api.addChatToFolder(folderId, chatId);
+      await loadFolders();
+    } catch (error) {
+      console.error('Ошибка добавления чата в папку:', error);
+    }
+  };
+
+  const handleRemoveChatFromFolder = async (chatId: string, folderId: string) => {
+    try {
+      await api.removeChatFromFolder(folderId, chatId);
+      await loadFolders();
+    } catch (error) {
+      console.error('Ошибка удаления чата из папки:', error);
+    }
+  };
 
   /** Загрузка сторисов — ТОЛЬКО с сервера */
   const loadStories = () => {
@@ -206,6 +296,15 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
 
   /** Фильтрация чатов */
   const filteredChats = chats.filter((chat) => {
+    // Фильтр по папке
+    if (selectedFolder) {
+      const folder = folders.find(f => f.id === selectedFolder);
+      if (folder && !folder.chats.some(c => c.id === chat.id)) {
+        return false;
+      }
+    }
+
+    // Фильтр по поиску
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     if (chat.name?.toLowerCase().includes(q)) return true;
@@ -364,6 +463,12 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                     ? `Найдено: ${searchResults.length} польз., ${channelResults.length} кан.`
                     : isSearching ? 'Ищем...' : 'Ничего не найдено'}
                 </span>
+                <button
+                  onClick={() => setShowSearchPanel(true)}
+                  className="text-[10px] text-nexo-400 hover:text-nexo-300 transition-colors"
+                >
+                  Расширенный поиск →
+                </button>
               </div>
             )}
           </div>
@@ -434,6 +539,78 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                 >
+                  {/* Вкладки папок */}
+                  {!searchQuery.trim() && (
+                    <div className="px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-white/5">
+                      {/* Все чаты */}
+                      <button
+                        onClick={() => setSelectedFolder(null)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                          selectedFolder === null
+                            ? 'bg-nexo-500/20 text-nexo-400 ring-1 ring-nexo-500/50'
+                            : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <MessageSquare size={14} />
+                        Все чаты
+                        <span className="text-[10px] opacity-60">({chats.length})</span>
+                      </button>
+
+                      {/* Папки */}
+                      {folders.map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => setSelectedFolder(folder.id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setFolderContextMenu({ folderId: folder.id, x: e.clientX, y: e.clientY });
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.style.opacity = '0.5';
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.style.opacity = '1';
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.style.opacity = '1';
+                            const chatId = e.dataTransfer.getData('chatId');
+                            if (chatId) {
+                              handleAddChatToFolder(chatId, folder.id);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                            selectedFolder === folder.id
+                              ? 'ring-1'
+                              : 'hover:bg-white/5'
+                          }`}
+                          style={{
+                            backgroundColor: selectedFolder === folder.id ? folder.color + '20' : 'transparent',
+                            color: selectedFolder === folder.id ? folder.color : '#a1a1aa',
+                            borderColor: selectedFolder === folder.id ? folder.color + '50' : 'transparent',
+                          }}
+                        >
+                          <span>{folder.icon}</span>
+                          {folder.name}
+                          <span className="text-[10px] opacity-60">({folder.chats.length})</span>
+                        </button>
+                      ))}
+
+                      {/* Кнопка создать папку */}
+                      <button
+                        onClick={() => {
+                          setEditingFolder(null);
+                          setShowFolderModal(true);
+                        }}
+                        className="px-2 py-1.5 rounded-lg text-zinc-400 hover:bg-white/5 hover:text-white transition-all flex items-center gap-1"
+                        title="Создать папку"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  )}
+
                   {searchQuery.trim() ? (
                     /* Результаты поиска */
                     <div className="py-2">
@@ -700,6 +877,80 @@ export default function Sidebar({ onOpenAI, onOpenFriends }: SidebarProps) {
           <CreateStoryModal
             onClose={() => setShowCreateStory(false)}
             onCreated={loadStories}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Folder Modal */}
+      <AnimatePresence>
+        {showFolderModal && (
+          <FolderModal
+            onClose={() => {
+              setShowFolderModal(false);
+              setEditingFolder(null);
+            }}
+            onSave={editingFolder ? handleUpdateFolder : handleCreateFolder}
+            initialData={editingFolder ? {
+              name: editingFolder.name,
+              icon: editingFolder.icon,
+              color: editingFolder.color,
+            } : undefined}
+            title={editingFolder ? 'Редактировать папку' : 'Создать папку'}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Folder Context Menu */}
+      {folderContextMenu && typeof document !== 'undefined' && (
+        <div
+          className="fixed inset-0 z-[9998]"
+          onClick={() => setFolderContextMenu(null)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed z-[9999] w-48 rounded-xl glass-strong shadow-2xl py-1 overflow-hidden border border-white/10"
+            style={{
+              left: Math.min(folderContextMenu.x, window.innerWidth - 200),
+              top: Math.min(folderContextMenu.y, window.innerHeight - 100),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                const folder = folders.find(f => f.id === folderContextMenu.folderId);
+                if (folder) {
+                  setEditingFolder(folder);
+                  setShowFolderModal(true);
+                }
+                setFolderContextMenu(null);
+              }}
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+            >
+              <Edit2 size={16} />
+              Редактировать
+            </button>
+            <button
+              onClick={() => handleDeleteFolder(folderContextMenu.folderId)}
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 size={16} />
+              Удалить
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Search Panel */}
+      <AnimatePresence>
+        {showSearchPanel && (
+          <SearchPanel
+            onClose={() => setShowSearchPanel(false)}
+            onSelectMessage={(messageId, chatId) => {
+              setActiveChat(chatId);
+              // TODO: Scroll to message
+            }}
           />
         )}
       </AnimatePresence>

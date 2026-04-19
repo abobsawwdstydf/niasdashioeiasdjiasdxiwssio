@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
-import { Check, CheckCheck, Image, FileText, Mic, Video, Pin, Trash2, Bookmark } from 'lucide-react';
+import { Check, CheckCheck, Image, FileText, Mic, Video, Pin, Trash2, Bookmark, Lock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
 import { useLang } from '../lib/i18n';
@@ -135,6 +135,11 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
   return (
     <div className="relative">
       <button
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('chatId', chat.id);
+        }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         className={`w-full flex items-center gap-3 px-3 py-3 transition-colors text-left ${
@@ -165,6 +170,7 @@ function ChatListItem({ chat, isActive }: ChatListItemProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
               {isPinned && <Pin size={12} className="text-nexo-400 flex-shrink-0 rotate-45" />}
+              {chat.isSecret && <Lock size={12} className="text-purple-400 flex-shrink-0" />}
               <span className="text-sm font-medium text-white truncate">{chatName}</span>
               {/* Verified badge inline - показывается для всех верифицированных чатов */}
               {isVerified && (

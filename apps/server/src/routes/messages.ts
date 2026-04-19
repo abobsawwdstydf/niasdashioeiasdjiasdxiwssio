@@ -16,6 +16,7 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 
     const member = await prisma.chatMember.findUnique({
       where: { chatId_userId: { chatId, userId: req.userId! } },
+      include: { chat: { select: { type: true } } },
     });
 
     if (!member) {
@@ -25,7 +26,10 @@ router.get('/chat/:chatId', async (req: AuthRequest, res) => {
 
     const createdAtFilter: Record<string, Date> = {};
     if (cursor) createdAtFilter.lt = new Date(cursor as string);
-    if (member.clearedAt) createdAtFilter.gt = member.clearedAt;
+    // Для каналов и групп показываем все сообщения за всё время, игнорируя clearedAt
+    if (member.clearedAt && member.chat.type === 'personal') {
+      createdAtFilter.gt = member.clearedAt;
+    }
 
     const messages = await prisma.message.findMany({
       where: {
@@ -201,8 +205,38 @@ router.put('/:id', async (req: AuthRequest, res) => {
       return;
     }
 
-    const message = await prisma.message.findUnique({ where: { id } });
-    if (!message || message.senderId !== req.userId) {
+    const message = await prisma.message.findUnique({ 
+      where: { id },
+      include: {
+        chat: {
+          select: {
+            type: true,
+            members: {
+              where: { userId: req.userId! },
+              select: { role: true }
+            }
+          }
+        }
+      }
+    });
+    
+    if (!message) {
+      res.status(404).json({ error: 'Сообщение не найдено' });
+      return;
+    }
+
+    // Для каналов только владелец может редактировать
+    const userMember = message.chat.members[0];
+    const isOwner = userMember?.role === 'owner' || userMember?.role === 'admin';
+    const isChannel = message.chat.type === 'channel';
+    
+    if (isChannel && !isOwner) {
+      res.status(403).json({ error: 'Только владелец канала может редактировать сообщения' });
+      return;
+    }
+    
+    // Для личных чатов и групп - только свои сообщения
+    if (!isChannel && message.senderId !== req.userId) {
       res.status(403).json({ error: 'Нет прав для редактирования' });
       return;
     }
@@ -226,9 +260,37 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 
     const message = await prisma.message.findUnique({
       where: { id },
-      include: { media: true },
+      include: { 
+        media: true,
+        chat: { 
+          select: { 
+            type: true,
+            members: { 
+              where: { userId: req.userId! },
+              select: { role: true }
+            }
+          }
+        }
+      },
     });
-    if (!message || message.senderId !== req.userId) {
+    
+    if (!message) {
+      res.status(404).json({ error: 'Сообщение не найдено' });
+      return;
+    }
+
+    // Проверка прав: для каналов только владелец может удалять
+    const userMember = message.chat.members[0];
+    const isOwner = userMember?.role === 'owner' || userMember?.role === 'admin';
+    const isChannel = message.chat.type === 'channel';
+    
+    if (isChannel && !isOwner) {
+      res.status(403).json({ error: 'Только владелец канала может удалять сообщения' });
+      return;
+    }
+    
+    // Для личных чатов и групп - только свои сообщения или админы
+    if (!isChannel && message.senderId !== req.userId && !isOwner) {
       res.status(403).json({ error: 'Нет прав для удаления' });
       return;
     }

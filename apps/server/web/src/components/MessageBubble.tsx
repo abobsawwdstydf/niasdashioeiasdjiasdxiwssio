@@ -43,6 +43,7 @@ import YouTubePreview from './YouTubePreview';
 import LinkEmbedPreview from './LinkEmbedPreview';
 import CodeBlock from './CodeBlock';
 import ForwardModal from './ForwardModal';
+import VideoNotePlayer from './VideoNotePlayer';
 
 interface MessageBubbleProps {
   message: Message;
@@ -714,6 +715,17 @@ function MessageBubble({
               </div>
             )}
 
+            {/* Video Note */}
+            {message.type === 'video_note' && message.videoUrl && (
+              <div className="flex justify-center py-2">
+                <VideoNotePlayer
+                  videoUrl={normalizeMediaUrl(message.videoUrl)}
+                  duration={message.duration || 0}
+                  thumbnail={message.thumbnail ? normalizeMediaUrl(message.thumbnail) : null}
+                />
+              </div>
+            )}
+
             {/* Изображения */}
             {hasImage && (
               <div className="">
@@ -1340,13 +1352,31 @@ function MessageBubble({
               </button>
 
               {message.content && (
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
-                >
-                  <Copy size={16} />
-                  {t('copy')}
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setShowContext(false);
+                      // Открываем AI чат с контекстом этого сообщения
+                      window.location.href = `/nexo-ai?messageId=${message.id}&chatId=${message.chatId}&context=${encodeURIComponent(message.content || '')}`;
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      <circle cx="9" cy="10" r="1"/>
+                      <circle cx="15" cy="10" r="1"/>
+                      <path d="M9 14h6"/>
+                    </svg>
+                    Спросить AI
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-300 hover:bg-surface-hover hover:text-white transition-colors"
+                  >
+                    <Copy size={16} />
+                    {t('copy')}
+                  </button>
+                </>
               )}
 
               {isMine && message.content && (

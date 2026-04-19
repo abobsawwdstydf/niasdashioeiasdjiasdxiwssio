@@ -1,44 +1,44 @@
-import express from 'express';
-import { prisma } from '../db';
-import { AuthRequest } from '../middleware/auth';
-import bcrypt from 'bcryptjs';
+import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import { authenticateToken } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
+const prisma = new PrismaClient();
 
-/**
- * Create secret chat with password
- */
-router.post('/secret', async (req: AuthRequest, res) => {
+// Create secret chat
+router.post('/create', authenticateToken, async (req, res) => {
   try {
-    const { participantId, password } = req.body;
-    const userId = req.userId!;
+    const { userId, password, selfDestructTimer } = req.body;
+    const currentUserId = (req as any).user.userId;
 
-    if (!participantId || !password) {
-      return res.status(400).json({ error: 'Participant ID and password required' });
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-
-    // Check if secret chat already exists
+    // Check if chat already exists
     const existingChat = await prisma.chat.findFirst({
       where: {
-        isSecret: true,
+        type: 'personal',
         members: {
           every: {
-            userId: { in: [userId, participantId] }
+            userId: {
+              in: [currentUserId, userId]
+            }
           }
         }
       }
     });
 
-    if (existingChat) {
+    if (existingChat && existingChat.isSecret) {
       return res.status(400).json({ error: 'Secret chat already exists' });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password if provided
+    let hashedPassword = null;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
 
     // Create secret chat
     const chat = await prisma.chat.create({
@@ -49,8 +49,8 @@ router.post('/secret', async (req: AuthRequest, res) => {
         secretPassword: hashedPassword,
         members: {
           create: [
-            { userId, role: 'admin' },
-            { userId: participantId, role: 'member' }
+            { userId: currentUserId },
+            { userId }
           ]
         }
       },
@@ -72,45 +72,28 @@ router.post('/secret', async (req: AuthRequest, res) => {
       }
     });
 
-    res.json(chat);
+    res.json({ chat, selfDestructTimer });
   } catch (error) {
-    console.error('Create secret chat error:', error);
+    console.error('Error creating secret chat:', error);
     res.status(500).json({ error: 'Failed to create secret chat' });
   }
 });
 
-/**
- * Verify secret chat password
- */
-router.post('/secret/:chatId/verify', async (req: AuthRequest, res) => {
+// Verify secret chat password
+router.post('/verify', authenticateToken, async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const { password } = req.body;
-    const userId = req.userId!;
+    const { chatId, password } = req.body;
 
-    if (!password) {
-      return res.status(400).json({ error: 'Password required' });
+    if (!chatId || !password) {
+      return res.status(400).json({ error: 'Chat ID and password are required' });
     }
 
     const chat = await prisma.chat.findUnique({
-      where: { id: chatId },
-      include: {
-        members: {
-          where: { userId }
-        }
-      }
+      where: { id: chatId }
     });
 
-    if (!chat || !chat.isSecret) {
+    if (!chat || !chat.isSecret || !chat.secretPassword) {
       return res.status(404).json({ error: 'Secret chat not found' });
-    }
-
-    if (chat.members.length === 0) {
-      return res.status(403).json({ error: 'Not a member of this chat' });
-    }
-
-    if (!chat.secretPassword) {
-      return res.status(400).json({ error: 'Chat password not set' });
     }
 
     const isValid = await bcrypt.compare(password, chat.secretPassword);
@@ -119,36 +102,116 @@ router.post('/secret/:chatId/verify', async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    res.json({ valid: true });
+    res.json({ success: true });
   } catch (error) {
-    console.error('Verify secret chat error:', error);
+    console.error('Error verifying password:', error);
     res.status(500).json({ error: 'Failed to verify password' });
   }
 });
 
-/**
- * Change secret chat password
- */
-router.put('/secret/:chatId/password', async (req: AuthRequest, res) => {
+// Set self-destruct timer for message
+router.post('/message/self-destruct', authenticateToken, async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const { oldPassword, newPassword } = req.body;
-    const userId = req.userId!;
+    const { messageId, timer } = req.body;
+    const currentUserId = (req as any).user.userId;
 
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ error: 'Old and new passwords required' });
+    if (!messageId || !timer) {
+      return res.status(400).json({ error: 'Message ID and timer are required' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    // Verify message belongs to user
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { chat: true }
+    });
+
+    if (!message || message.senderId !== currentUserId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!message.chat.isSecret) {
+      return res.status(400).json({ error: 'Not a secret chat' });
+    }
+
+    // Calculate self-destruct time
+    const selfDestructAt = new Date(Date.now() + timer * 1000);
+
+    // Update message
+    const updatedMessage = await prisma.message.update({
+      where: { id: messageId },
+      data: {
+        selfDestructTimer: timer,
+        selfDestructAt
+      }
+    });
+
+    res.json({ message: updatedMessage });
+  } catch (error) {
+    console.error('Error setting self-destruct timer:', error);
+    res.status(500).json({ error: 'Failed to set self-destruct timer' });
+  }
+});
+
+// Delete secret chat
+router.delete('/:chatId', authenticateToken, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const currentUserId = (req as any).user.userId;
+
+    // Verify user is member of chat
+    const member = await prisma.chatMember.findFirst({
+      where: {
+        chatId,
+        userId: currentUserId
+      }
+    });
+
+    if (!member) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Delete all messages in chat
+    await prisma.message.deleteMany({
+      where: { chatId }
+    });
+
+    // Delete chat
+    await prisma.chat.delete({
+      where: { id: chatId }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting secret chat:', error);
+    res.status(500).json({ error: 'Failed to delete secret chat' });
+  }
+});
+
+// Get secret chat settings
+router.get('/:chatId/settings', authenticateToken, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const currentUserId = (req as any).user.userId;
+
+    // Verify user is member of chat
+    const member = await prisma.chatMember.findFirst({
+      where: {
+        chatId,
+        userId: currentUserId
+      }
+    });
+
+    if (!member) {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
     const chat = await prisma.chat.findUnique({
       where: { id: chatId },
-      include: {
-        members: {
-          where: { userId, role: 'admin' }
-        }
+      select: {
+        id: true,
+        isSecret: true,
+        isE2E: true,
+        secretPassword: true
       }
     });
 
@@ -156,31 +219,57 @@ router.put('/secret/:chatId/password', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Secret chat not found' });
     }
 
-    if (chat.members.length === 0) {
-      return res.status(403).json({ error: 'Only admin can change password' });
-    }
+    res.json({
+      isSecret: chat.isSecret,
+      isE2E: chat.isE2E,
+      hasPassword: !!chat.secretPassword
+    });
+  } catch (error) {
+    console.error('Error getting secret chat settings:', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
 
-    if (!chat.secretPassword) {
-      return res.status(400).json({ error: 'Chat password not set' });
-    }
+// Report screenshot attempt
+router.post('/:chatId/screenshot', authenticateToken, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const currentUserId = (req as any).user.userId;
 
-    const isValid = await bcrypt.compare(oldPassword, chat.secretPassword);
-
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid old password' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    await prisma.chat.update({
-      where: { id: chatId },
-      data: { secretPassword: hashedPassword }
+    // Verify chat is secret
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId }
     });
 
-    res.json({ success: true });
+    if (!chat || !chat.isSecret) {
+      return res.status(400).json({ error: 'Not a secret chat' });
+    }
+
+    // Get other member
+    const members = await prisma.chatMember.findMany({
+      where: {
+        chatId,
+        userId: { not: currentUserId }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true
+          }
+        }
+      }
+    });
+
+    // Send notification to other member(s)
+    // This would be handled by WebSocket in real implementation
+    console.log(`Screenshot detected in secret chat ${chatId} by user ${currentUserId}`);
+
+    res.json({ success: true, notified: members.length });
   } catch (error) {
-    console.error('Change secret chat password error:', error);
-    res.status(500).json({ error: 'Failed to change password' });
+    console.error('Error reporting screenshot:', error);
+    res.status(500).json({ error: 'Failed to report screenshot' });
   }
 });
 

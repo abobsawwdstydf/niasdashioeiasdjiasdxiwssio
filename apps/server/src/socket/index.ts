@@ -956,8 +956,15 @@ export function setupSocket(io: Server) {
         // Verify user is member of the chat
         const member = await prisma.chatMember.findUnique({
           where: { chatId_userId: { chatId: data.chatId, userId } },
+          include: { chat: { select: { type: true } } },
         });
         if (!member) return;
+
+        // Для каналов только владелец может закреплять
+        if (member.chat.type === 'channel' && member.role !== 'owner' && member.role !== 'admin') {
+          socket.emit('error', { message: 'Только владелец канала может закреплять сообщения' });
+          return;
+        }
 
         // Upsert pin
         await prisma.pinnedMessage.upsert({
@@ -988,8 +995,15 @@ export function setupSocket(io: Server) {
       try {
         const member = await prisma.chatMember.findUnique({
           where: { chatId_userId: { chatId: data.chatId, userId } },
+          include: { chat: { select: { type: true } } },
         });
         if (!member) return;
+
+        // Для каналов только владелец может откреплять
+        if (member.chat.type === 'channel' && member.role !== 'owner' && member.role !== 'admin') {
+          socket.emit('error', { message: 'Только владелец канала может откреплять сообщения' });
+          return;
+        }
 
         await prisma.pinnedMessage.deleteMany({
           where: { chatId: data.chatId, messageId: data.messageId },
@@ -1158,11 +1172,38 @@ export function setupSocket(io: Server) {
     });
 
     // End call
-    socket.on('call_end', (data: { targetUserId: string }) => {
+    socket.on('call_end', async (data: { targetUserId: string; chatId?: string; duration?: number; status?: 'completed' | 'missed' | 'declined' }) => {
       const targetSockets = onlineUsers.get(data.targetUserId);
       if (targetSockets) {
         for (const sid of targetSockets) {
           io.to(sid).emit('call_ended', { from: userId });
+        }
+      }
+
+      // Создать системное сообщение о звонке в чате
+      if (data.chatId) {
+        try {
+          const callMessage = await prisma.message.create({
+            data: {
+              chatId: data.chatId,
+              senderId: userId,
+              type: 'call',
+              content: null,
+              callType: 'voice', // Можно передавать из data
+              callStatus: data.status || 'completed',
+              callDuration: data.duration || 0,
+            },
+            include: {
+              sender: { select: SENDER_SELECT },
+              media: true,
+              reactions: true,
+              readBy: true,
+            },
+          });
+
+          io.to(`chat:${data.chatId}`).emit('new_message', callMessage);
+        } catch (e) {
+          console.error('Failed to create call message:', e);
         }
       }
     });

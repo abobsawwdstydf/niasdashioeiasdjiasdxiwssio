@@ -539,6 +539,149 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // AI endpoints
+  async post(endpoint: string, data: any) {
+    return this.request<any>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async get(endpoint: string) {
+    return this.request<any>(endpoint, {
+      method: 'GET',
+    });
+  }
+
+  async getAIContext(messageId: string, chatId: string, question?: string) {
+    return this.request<{ text: string; context: string }>('/ai/context', {
+      method: 'POST',
+      body: JSON.stringify({ messageId, chatId, question }),
+    });
+  }
+
+  async getAISuggestions(chatId: string, lastMessage: string) {
+    return this.request<{ suggestions: string[] }>('/ai/suggestions', {
+      method: 'POST',
+      body: JSON.stringify({ chatId, lastMessage }),
+    });
+  }
+
+  async getAIAutocomplete(text: string) {
+    return this.request<{ completion: string }>('/ai/autocomplete', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async checkGrammar(text: string) {
+    return this.request<{ corrected: string; hasChanges: boolean; original: string }>('/ai/grammar', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  // Folders
+  async getFolders() {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      icon: string;
+      color: string;
+      order: number;
+      chats: Chat[];
+    }>>('/folders');
+  }
+
+  async createFolder(data: { name: string; icon: string; color: string }) {
+    return this.request<any>('/folders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateFolder(id: string, data: { name?: string; icon?: string; color?: string; order?: number }) {
+    return this.request<any>(`/folders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteFolder(id: string) {
+    return this.request<{ success: boolean }>(`/folders/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async addChatToFolder(folderId: string, chatId: string) {
+    return this.request<any>(`/folders/${folderId}/chats`, {
+      method: 'POST',
+      body: JSON.stringify({ chatId }),
+    });
+  }
+
+  async removeChatFromFolder(folderId: string, chatId: string) {
+    return this.request<{ success: boolean }>(`/folders/${folderId}/chats/${chatId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Video Notes
+  async uploadVideoNote(formData: FormData) {
+    const response = await fetch(`${API_BASE}/video-notes`, {
+      method: 'POST',
+      headers: {
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Ошибка сервера' }));
+      throw new Error(error.error || 'Ошибка загрузки видеокружка');
+    }
+
+    return response.json();
+  }
+
+  // Secret Chats
+  async createSecretChat(userId: string, password?: string, selfDestructTimer?: number) {
+    return this.request<{ chat: Chat; selfDestructTimer?: number }>('/secret-chats/create', {
+      method: 'POST',
+      body: JSON.stringify({ userId, password, selfDestructTimer }),
+    });
+  }
+
+  async verifySecretChatPassword(chatId: string, password: string) {
+    return this.request<{ success: boolean }>('/secret-chats/verify', {
+      method: 'POST',
+      body: JSON.stringify({ chatId, password }),
+    });
+  }
+
+  async setMessageSelfDestruct(messageId: string, timer: number) {
+    return this.request<{ message: Message }>('/secret-chats/message/self-destruct', {
+      method: 'POST',
+      body: JSON.stringify({ messageId, timer }),
+    });
+  }
+
+  async deleteSecretChat(chatId: string) {
+    return this.request<{ success: boolean }>(`/secret-chats/${chatId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getSecretChatSettings(chatId: string) {
+    return this.request<{ isSecret: boolean; isE2E: boolean; hasPassword: boolean }>(`/secret-chats/${chatId}/settings`);
+  }
+
+  async reportScreenshot(chatId: string) {
+    return this.request<{ success: boolean; notified: number }>(`/secret-chats/${chatId}/screenshot`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient();

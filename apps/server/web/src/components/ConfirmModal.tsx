@@ -32,7 +32,7 @@ export default function ConfirmModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto p-4"
           onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
         >
           <motion.div
@@ -43,7 +43,7 @@ export default function ConfirmModal({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="w-full max-w-[360px] mx-4 rounded-2xl bg-surface-secondary border border-border/50 shadow-2xl overflow-hidden pointer-events-auto"
+            className="w-full max-w-[360px] sm:max-w-[400px] rounded-2xl bg-surface-secondary border border-border/50 shadow-2xl overflow-hidden pointer-events-auto"
           >
             <div className="p-5 flex flex-col items-center text-center">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${danger ? 'bg-red-500/15' : 'bg-accent/15'}`}>

@@ -36,6 +36,19 @@ export default function NexoAIPage({ onClose }: { onClose?: () => void }) {
     } catch (e) {
       console.error('Failed to load AI history:', e);
     }
+
+    // Проверяем URL параметры для контекста из сообщения
+    const params = new URLSearchParams(window.location.search);
+    const messageId = params.get('messageId');
+    const chatId = params.get('chatId');
+    const context = params.get('context');
+
+    if (messageId && chatId && context) {
+      // Автоматически задаём вопрос AI о сообщении
+      setInput(`Проанализируй это сообщение: "${decodeURIComponent(context)}"`);
+      // Очищаем URL параметры
+      window.history.replaceState({}, '', '/nexo-ai');
+    }
   }, []);
 
   /** Сохранение истории в localStorage при изменении */

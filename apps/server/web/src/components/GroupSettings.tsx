@@ -160,7 +160,7 @@ export default function GroupSettings({ chat, onClose }: GroupSettingsProps) {
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 50, scale: 0.95 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed right-3 top-3 bottom-3 w-[380px] max-w-[calc(100%-24px)] bg-surface-secondary/90 backdrop-blur-3xl shadow-2xl shadow-black/80 border border-white/5 rounded-[2rem] z-50 flex flex-col overflow-hidden ring-1 ring-white/10"
+        className="fixed inset-0 sm:inset-auto sm:right-3 sm:top-3 sm:bottom-3 sm:w-[380px] sm:max-w-[calc(100%-24px)] bg-surface-secondary/90 backdrop-blur-3xl shadow-2xl shadow-black/80 border-0 sm:border sm:border-white/5 rounded-none sm:rounded-[2rem] z-50 flex flex-col overflow-hidden ring-0 sm:ring-1 sm:ring-white/10"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border/40">

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, Link as LinkIcon, Copy, BarChart3, Calendar } from 'lucide-react';
 import { api } from '../lib/api';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import Avatar from './Avatar';
+import { useToastStore } from '../stores/toastStore';
 
 interface ChannelProfileProps {
   channelId: string;
@@ -14,10 +16,13 @@ interface ChannelProfileProps {
 export default function ChannelProfile({ channelId, onClose }: ChannelProfileProps) {
   const { updateChat } = useChatStore();
   const { user } = useAuthStore();
+  const { success, error: showError } = useToastStore();
   const [channel, setChannel] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCopied, setIsCopied] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -48,6 +53,23 @@ export default function ChannelProfile({ channelId, onClose }: ChannelProfilePro
       navigator.clipboard.writeText(link);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setAvatarUploading(true);
+      const updatedChat = await api.uploadGroupAvatar(channelId, file);
+      setChannel(updatedChat);
+      updateChat(updatedChat);
+    } catch (e) {
+      console.error(e);
+      showError('Ошибка загрузки аватара');
+    } finally {
+      setAvatarUploading(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -97,7 +119,7 @@ export default function ChannelProfile({ channelId, onClose }: ChannelProfilePro
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 50 }}
-        className="fixed right-3 top-3 bottom-3 w-[380px] max-w-[calc(100%-24px)] bg-surface-secondary/90 backdrop-blur-3xl shadow-2xl border border-white/5 rounded-[2rem] z-50 flex flex-col overflow-hidden"
+        className="fixed inset-0 sm:inset-auto sm:right-3 sm:top-3 sm:bottom-3 sm:w-[380px] sm:max-w-[calc(100%-24px)] bg-surface-secondary/90 backdrop-blur-3xl shadow-2xl border-0 sm:border sm:border-white/5 rounded-none sm:rounded-[2rem] z-50 flex flex-col overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/5">
@@ -115,13 +137,43 @@ export default function ChannelProfile({ channelId, onClose }: ChannelProfilePro
           <div className="flex flex-col items-center py-8 px-6">
             <div className="relative">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-nexo-500/20 rounded-full blur-[40px] pointer-events-none" />
-              <div className="relative z-10 p-1.5 rounded-full bg-gradient-to-br from-white/10 to-transparent backdrop-blur-md border border-white/10 shadow-2xl">
+              <div className="relative z-10 p-1.5 rounded-full bg-gradient-to-br from-white/10 to-transparent backdrop-blur-md border border-white/10 shadow-2xl group">
                 {channel.avatar ? (
                   <img src={channel.avatar} alt="" className="w-32 h-32 rounded-full object-cover shadow-inner" />
                 ) : (
                   <div className="w-32 h-32 rounded-full bg-gradient-to-br from-nexo-500 to-purple-600 flex items-center justify-center text-white font-bold text-4xl shadow-inner">
                     {initials}
                   </div>
+                )}
+                
+                {/* Avatar upload button for admins */}
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={avatarUploading}
+                      className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity disabled:cursor-not-allowed"
+                    >
+                      {avatarUploading ? (
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                          </svg>
+                          <span className="text-xs text-white font-medium">Изменить</span>
+                        </div>
+                      )}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </>
                 )}
               </div>
             </div>

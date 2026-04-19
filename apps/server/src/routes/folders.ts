@@ -1,13 +1,16 @@
-import express from 'express';
-import { prisma } from '../db';
-import { AuthRequest } from '../middleware/auth';
+import { Router, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
+const prisma = new PrismaClient();
 
-// Get all folders for user
-router.get('/', async (req: AuthRequest, res) => {
+/**
+ * GET /api/folders - Получить все папки пользователя
+ */
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
 
     const folders = await prisma.chatFolder.findMany({
       where: { userId },
@@ -16,180 +19,229 @@ router.get('/', async (req: AuthRequest, res) => {
           include: {
             members: {
               where: { userId },
-              select: { isPinned: true, isMuted: true }
-            }
-          }
-        }
+              select: {
+                isMuted: true,
+                isPinned: true,
+                isArchived: true,
+              },
+            },
+          },
+        },
       },
-      orderBy: { order: 'asc' }
+      orderBy: { order: 'asc' },
     });
 
     res.json(folders);
   } catch (error) {
-    console.error('Error fetching folders:', error);
+    console.error('Ошибка получения папок:', error);
     res.status(500).json({ error: 'Ошибка получения папок' });
   }
 });
 
-// Create folder
-router.post('/', async (req: AuthRequest, res) => {
+/**
+ * POST /api/folders - Создать новую папку
+ */
+router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
+    const userId = req.user!.id;
     const { name, icon, color } = req.body;
-    const userId = req.user!.userId;
 
     if (!name || name.trim().length === 0) {
-      return res.status(400).json({ error: 'Название папки обязательно' });
+      res.status(400).json({ error: 'Название папки обязательно' });
+      return;
     }
 
-    // Get max order
+    // Получаем максимальный order для новой папки
     const maxOrder = await prisma.chatFolder.findFirst({
       where: { userId },
       orderBy: { order: 'desc' },
-      select: { order: true }
+      select: { order: true },
     });
 
     const folder = await prisma.chatFolder.create({
       data: {
         userId,
-        name,
-        icon,
-        color,
-        order: (maxOrder?.order ?? -1) + 1
-      }
+        name: name.trim(),
+        icon: icon || '📁',
+        color: color || '#6366f1',
+        order: (maxOrder?.order || 0) + 1,
+      },
+      include: {
+        chats: true,
+      },
     });
 
     res.json(folder);
   } catch (error) {
-    console.error('Error creating folder:', error);
+    console.error('Ошибка создания папки:', error);
     res.status(500).json({ error: 'Ошибка создания папки' });
   }
 });
 
-// Update folder
-router.put('/:folderId', async (req: AuthRequest, res) => {
+/**
+ * PUT /api/folders/:id - Обновить папку
+ */
+router.put('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const { folderId } = req.params;
+    const userId = req.user!.id;
+    const { id } = req.params;
     const { name, icon, color, order } = req.body;
-    const userId = req.user!.userId;
 
-    // Check ownership
-    const folder = await prisma.chatFolder.findUnique({
-      where: { id: folderId }
+    // Проверяем что папка принадлежит пользователю
+    const existing = await prisma.chatFolder.findFirst({
+      where: { id, userId },
     });
 
-    if (!folder || folder.userId !== userId) {
-      return res.status(403).json({ error: 'Нет доступа к этой папке' });
+    if (!existing) {
+      res.status(404).json({ error: 'Папка не найдена' });
+      return;
     }
 
-    const updated = await prisma.chatFolder.update({
-      where: { id: folderId },
+    const folder = await prisma.chatFolder.update({
+      where: { id },
       data: {
-        ...(name && { name }),
+        ...(name !== undefined && { name: name.trim() }),
         ...(icon !== undefined && { icon }),
         ...(color !== undefined && { color }),
-        ...(typeof order === 'number' && { order })
-      }
+        ...(order !== undefined && { order }),
+      },
+      include: {
+        chats: true,
+      },
     });
 
-    res.json(updated);
+    res.json(folder);
   } catch (error) {
-    console.error('Error updating folder:', error);
+    console.error('Ошибка обновления папки:', error);
     res.status(500).json({ error: 'Ошибка обновления папки' });
   }
 });
 
-// Delete folder
-router.delete('/:folderId', async (req: AuthRequest, res) => {
+/**
+ * DELETE /api/folders/:id - Удалить папку
+ */
+router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const { folderId } = req.params;
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
+    const { id } = req.params;
 
-    const folder = await prisma.chatFolder.findUnique({
-      where: { id: folderId }
+    // Проверяем что папка принадлежит пользователю
+    const existing = await prisma.chatFolder.findFirst({
+      where: { id, userId },
     });
 
-    if (!folder || folder.userId !== userId) {
-      return res.status(403).json({ error: 'Нет доступа к этой папке' });
+    if (!existing) {
+      res.status(404).json({ error: 'Папка не найдена' });
+      return;
     }
 
     await prisma.chatFolder.delete({
-      where: { id: folderId }
+      where: { id },
     });
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Error deleting folder:', error);
+    console.error('Ошибка удаления папки:', error);
     res.status(500).json({ error: 'Ошибка удаления папки' });
   }
 });
 
-// Add chat to folder
-router.post('/:folderId/chats/:chatId', async (req: AuthRequest, res) => {
+/**
+ * POST /api/folders/:id/chats - Добавить чат в папку
+ */
+router.post('/:id/chats', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const { folderId, chatId } = req.params;
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { chatId } = req.body;
 
-    // Check folder ownership
-    const folder = await prisma.chatFolder.findUnique({
-      where: { id: folderId }
-    });
-
-    if (!folder || folder.userId !== userId) {
-      return res.status(403).json({ error: 'Нет доступа к этой папке' });
+    if (!chatId) {
+      res.status(400).json({ error: 'chatId обязателен' });
+      return;
     }
 
-    // Check if user is member of chat
-    const member = await prisma.chatMember.findFirst({
-      where: { chatId, userId }
+    // Проверяем что папка принадлежит пользователю
+    const folder = await prisma.chatFolder.findFirst({
+      where: { id, userId },
     });
 
-    if (!member) {
-      return res.status(403).json({ error: 'Вы не являетесь участником этого чата' });
+    if (!folder) {
+      res.status(404).json({ error: 'Папка не найдена' });
+      return;
     }
 
-    // Add chat to folder (many-to-many relation)
+    // Проверяем что пользователь является участником чата
+    const membership = await prisma.chatMember.findFirst({
+      where: { chatId, userId },
+    });
+
+    if (!membership) {
+      res.status(403).json({ error: 'Вы не являетесь участником этого чата' });
+      return;
+    }
+
+    // Добавляем чат в папку
     await prisma.chatFolder.update({
-      where: { id: folderId },
+      where: { id },
       data: {
         chats: {
-          connect: { id: chatId }
-        }
-      }
+          connect: { id: chatId },
+        },
+      },
     });
 
-    res.json({ success: true });
+    const updated = await prisma.chatFolder.findUnique({
+      where: { id },
+      include: {
+        chats: true,
+      },
+    });
+
+    res.json(updated);
   } catch (error) {
-    console.error('Error adding chat to folder:', error);
+    console.error('Ошибка добавления чата в папку:', error);
     res.status(500).json({ error: 'Ошибка добавления чата в папку' });
   }
 });
 
-// Remove chat from folder
-router.delete('/:folderId/chats/:chatId', async (req: AuthRequest, res) => {
+/**
+ * DELETE /api/folders/:id/chats/:chatId - Убрать чат из папки
+ */
+router.delete('/:id/chats/:chatId', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const { folderId, chatId } = req.params;
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
+    const { id, chatId } = req.params;
 
-    const folder = await prisma.chatFolder.findUnique({
-      where: { id: folderId }
+    // Проверяем что папка принадлежит пользователю
+    const folder = await prisma.chatFolder.findFirst({
+      where: { id, userId },
     });
 
-    if (!folder || folder.userId !== userId) {
-      return res.status(403).json({ error: 'Нет доступа к этой папке' });
+    if (!folder) {
+      res.status(404).json({ error: 'Папка не найдена' });
+      return;
     }
 
+    // Убираем чат из папки
     await prisma.chatFolder.update({
-      where: { id: folderId },
+      where: { id },
       data: {
         chats: {
-          disconnect: { id: chatId }
-        }
-      }
+          disconnect: { id: chatId },
+        },
+      },
     });
 
-    res.json({ success: true });
+    const updated = await prisma.chatFolder.findUnique({
+      where: { id },
+      include: {
+        chats: true,
+      },
+    });
+
+    res.json(updated);
   } catch (error) {
-    console.error('Error removing chat from folder:', error);
+    console.error('Ошибка удаления чата из папки:', error);
     res.status(500).json({ error: 'Ошибка удаления чата из папки' });
   }
 });

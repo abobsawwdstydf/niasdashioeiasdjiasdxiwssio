@@ -198,6 +198,11 @@ model Message {
   updatedAt       DateTime  @updatedAt
   editedAt        DateTime? // When message was edited
 
+  // Video note fields
+  videoUrl   String? // URL for video_note type
+  duration   Int? // Duration in seconds for video_note
+  thumbnail  String? // Thumbnail URL for video_note
+
   // E2E Encryption
   isEncrypted      Boolean @default(false)
   encryptedContent String? // Encrypted message content
