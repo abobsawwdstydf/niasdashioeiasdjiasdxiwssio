@@ -1,19 +1,13 @@
 services:
   - type: web
     name: nexo-messenger
-    env: docker
+    env: node
     region: frankfurt
     plan: starter
-    dockerfilePath: Dockerfile
-    dockerContext: .
+    buildCommand: cd apps/server && npm install && cd web && npm install && cd .. && npm run build
+    startCommand: cd apps/server && npm start
     healthCheckPath: /api/health
     autoDeploy: true
-    buildFilter:
-      paths:
-        - apps/server/**
-        - Dockerfile
-        - start.sh
-        - render.yaml
     envVars:
       - key: NODE_ENV
         value: production
