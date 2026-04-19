@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { FixedSizeList } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
+import { FixedSizeList as List } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
 import ChatListItem from './ChatListItem';
 import type { Chat } from '../lib/types';
 
@@ -28,16 +28,16 @@ function VirtualizedChatList({ chats, activeChat }: VirtualizedChatListProps) {
 
   return (
     <AutoSizer>
-      {({ height, width }: { height: number; width: number }) => (
-        <FixedSizeList
+      {({ height, width }: any) => (
+        <List
           height={height}
           itemCount={chats.length}
-          itemSize={72} // Height of each chat item
+          itemSize={72}
           width={width}
-          overscanCount={5} // Render 5 extra items above/below viewport
+          overscanCount={5}
         >
           {Row}
-        </FixedSizeList>
+        </List>
       )}
     </AutoSizer>
   );
