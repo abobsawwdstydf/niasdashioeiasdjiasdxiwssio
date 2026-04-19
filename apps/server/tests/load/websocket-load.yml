@@ -1,0 +1,122 @@
+config:
+  target: "ws://localhost:3000"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "WebSocket connections ramp-up"
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained WebSocket load"
+  engines:
+    socketio:
+      transports: ["websocket"]
+
+scenarios:
+  - name: "WebSocket Connection and Messaging"
+    engine: socketio
+    flow:
+      # Connect to WebSocket
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "{{ authToken }}"
+      
+      # Listen for messages
+      - think: 1
+      
+      # Send typing indicator
+      - emit:
+          channel: "typing"
+          data:
+            chatId: "test-chat-id"
+            isTyping: true
+      
+      # Send message
+      - emit:
+          channel: "message"
+          data:
+            chatId: "test-chat-id"
+            text: "Load test message"
+            type: "text"
+      
+      # Wait for response
+      - think: 2
+      
+      # Send read receipt
+      - emit:
+          channel: "read"
+          data:
+            chatId: "test-chat-id"
+            messageId: "{{ messageId }}"
+      
+      # Keep connection alive
+      - think: 5
+      
+      # Disconnect
+      - emit:
+          channel: "disconnect"
+
+  - name: "WebSocket Presence Updates"
+    engine: socketio
+    flow:
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "{{ authToken }}"
+      
+      # Update online status
+      - emit:
+          channel: "presence"
+          data:
+            status: "online"
+      
+      - think: 10
+      
+      # Update to away
+      - emit:
+          channel: "presence"
+          data:
+            status: "away"
+      
+      - think: 5
+
+  - name: "WebSocket Call Signaling"
+    engine: socketio
+    flow:
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "{{ authToken }}"
+      
+      # Initiate call
+      - emit:
+          channel: "call:initiate"
+          data:
+            userId: "target-user-id"
+            type: "video"
+      
+      - think: 2
+      
+      # Send offer
+      - emit:
+          channel: "call:offer"
+          data:
+            callId: "{{ callId }}"
+            offer: "mock-sdp-offer"
+      
+      - think: 1
+      
+      # Send ICE candidate
+      - emit:
+          channel: "call:ice-candidate"
+          data:
+            callId: "{{ callId }}"
+            candidate: "mock-ice-candidate"
+      
+      - think: 5
+      
+      # End call
+      - emit:
+          channel: "call:end"
+          data:
+            callId: "{{ callId }}"
