@@ -682,6 +682,35 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // Premium
+  async getPremiumStatus() {
+    return this.request<{
+      isPremium: boolean;
+      premiumUntil: string | null;
+      premiumType: string | null;
+      beavers: number;
+    }>('/premium/status');
+  }
+
+  async purchasePremium(months: number) {
+    return this.request<{
+      success: boolean;
+      premiumUntil: string;
+      beaversRemaining: number;
+    }>('/premium/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ months }),
+    });
+  }
+
+  async getPremiumPrices() {
+    return this.request<Record<string, number>>('/premium/prices');
+  }
+
+  async getPremiumHistory() {
+    return this.request<any[]>('/premium/history');
+  }
 }
 
 export const api = new ApiClient();

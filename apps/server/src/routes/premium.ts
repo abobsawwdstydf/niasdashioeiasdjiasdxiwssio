@@ -1,25 +1,23 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
 
-// Цены на премиум (в бобрах)
+// Premium prices in beavers
 const PREMIUM_PRICES = {
   '1month': 101,
-  '3months': 270,  // Скидка 10%
-  '6months': 505,  // Скидка 17%
-  '12months': 970, // Скидка 20%
+  '3months': 270, // 10% discount
+  '6months': 505, // 17% discount
+  '12months': 970, // 20% discount
 };
 
-// Получить статус премиума текущего пользователя
-router.get('/status', authenticateToken, async (req, res) => {
+// Get premium status
+router.get('/status', authMiddleware, async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
-
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: req.user!.id },
       select: {
         isPremium: true,
         premiumUntil: true,
@@ -28,185 +26,118 @@ router.get('/status', authenticateToken, async (req, res) => {
       },
     });
 
-    if (!user) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    // Проверяем, не истек ли премиум
-    if (user.isPremium && user.premiumUntil && new Date(user.premiumUntil) < new Date()) {
-      // Премиум истек, обновляем статус
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          isPremium: false,
-          premiumType: null,
-        },
-      });
-
-      return res.json({
-        isPremium: false,
-        premiumUntil: null,
-        premiumType: null,
-        beavers: user.beavers,
-      });
-    }
-
-    res.json({
-      isPremium: user.isPremium,
-      premiumUntil: user.premiumUntil,
-      premiumType: user.premiumType,
-      beavers: user.beavers,
-    });
+    res.json(user);
   } catch (error) {
-    console.error('Error getting premium status:', error);
-    res.status(500).json({ error: 'Ошибка получения статуса премиума' });
+    console.error('Get premium status error:', error);
+    res.status(500).json({ error: 'Failed to get premium status' });
   }
 });
 
-// Купить премиум
-router.post('/purchase', authenticateToken, async (req, res) => {
+// Purchase premium
+router.post('/purchase', authMiddleware, async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
     const { months } = req.body;
+    const userId = req.user!.id;
 
-    // Валидация
-    if (!months || !['1month', '3months', '6months', '12months'].includes(months)) {
-      return res.status(400).json({ error: 'Неверный период подписки' });
+    // Validate months
+    const premiumType = `${months}month${months > 1 ? 's' : ''}` as keyof typeof PREMIUM_PRICES;
+    const price = PREMIUM_PRICES[premiumType];
+
+    if (!price) {
+      return res.status(400).json({ error: 'Invalid premium duration' });
     }
 
-    const price = PREMIUM_PRICES[months as keyof typeof PREMIUM_PRICES];
-
-    // Получаем пользователя
+    // Get user balance
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        beavers: true,
-        isPremium: true,
-        premiumUntil: true,
-      },
+      select: { beavers: true, isPremium: true, premiumUntil: true },
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Проверяем баланс
+    // Check balance
     if (user.beavers < price) {
-      return res.status(400).json({
-        error: 'Недостаточно бобров',
+      return res.status(400).json({ 
+        error: 'Insufficient beavers',
         required: price,
         current: user.beavers,
-        missing: price - user.beavers,
       });
     }
 
-    // Вычисляем дату окончания премиума
+    // Calculate expiration date
     const now = new Date();
-    let premiumUntil: Date;
+    const currentExpiry = user.isPremium && user.premiumUntil && user.premiumUntil > now
+      ? user.premiumUntil
+      : now;
+    
+    const expiresAt = new Date(currentExpiry);
+    expiresAt.setMonth(expiresAt.getMonth() + months);
 
-    if (user.isPremium && user.premiumUntil && new Date(user.premiumUntil) > now) {
-      // Продлеваем существующий премиум
-      premiumUntil = new Date(user.premiumUntil);
-    } else {
-      // Новый премиум
-      premiumUntil = new Date(now);
-    }
-
-    // Добавляем месяцы
-    const monthsToAdd = parseInt(months.replace('months', '').replace('month', ''));
-    premiumUntil.setMonth(premiumUntil.getMonth() + monthsToAdd);
-
-    // Выполняем транзакцию
-    const [updatedUser, purchase, transaction] = await prisma.$transaction([
-      // Обновляем пользователя
+    // Process purchase
+    await prisma.$transaction([
+      // Deduct beavers
       prisma.user.update({
         where: { id: userId },
         data: {
-          isPremium: true,
-          premiumUntil,
-          premiumType: months,
-          beavers: user.beavers - price,
+          beavers: { decrement: price },
           totalSpent: { increment: price },
+          isPremium: true,
+          premiumUntil: expiresAt,
+          premiumType,
         },
       }),
-      // Создаем запись о покупке
-      prisma.premiumPurchase.create({
-        data: {
-          userId,
-          months: monthsToAdd,
-          beavers: price,
-          expiresAt: premiumUntil,
-        },
-      }),
-      // Создаем транзакцию
+      // Create transaction record
       prisma.transaction.create({
         data: {
           userId,
           amount: -price,
           type: 'premium',
-          description: `Покупка премиума на ${monthsToAdd} мес.`,
+          description: `Premium subscription: ${months} month${months > 1 ? 's' : ''}`,
+        },
+      }),
+      // Create premium purchase record
+      prisma.premiumPurchase.create({
+        data: {
+          userId,
+          months,
+          beavers: price,
+          expiresAt,
         },
       }),
     ]);
 
     res.json({
       success: true,
-      isPremium: true,
-      premiumUntil: updatedUser.premiumUntil,
-      premiumType: updatedUser.premiumType,
-      beavers: updatedUser.beavers,
-      spent: price,
-      purchase: {
-        id: purchase.id,
-        months: monthsToAdd,
-        expiresAt: purchase.expiresAt,
-      },
+      premiumUntil: expiresAt,
+      beaversRemaining: user.beavers - price,
     });
   } catch (error) {
-    console.error('Error purchasing premium:', error);
-    res.status(500).json({ error: 'Ошибка покупки премиума' });
+    console.error('Purchase premium error:', error);
+    res.status(500).json({ error: 'Failed to purchase premium' });
   }
 });
 
-// Получить историю покупок премиума
-router.get('/history', authenticateToken, async (req, res) => {
-  try {
-    const userId = (req as any).user.userId;
+// Get premium prices
+router.get('/prices', async (req, res) => {
+  res.json(PREMIUM_PRICES);
+});
 
+// Get purchase history
+router.get('/history', authMiddleware, async (req, res) => {
+  try {
     const purchases = await prisma.premiumPurchase.findMany({
-      where: { userId },
+      where: { userId: req.user!.id },
       orderBy: { purchasedAt: 'desc' },
-      take: 50,
+      take: 20,
     });
 
     res.json(purchases);
   } catch (error) {
-    console.error('Error getting premium history:', error);
-    res.status(500).json({ error: 'Ошибка получения истории покупок' });
+    console.error('Get purchase history error:', error);
+    res.status(500).json({ error: 'Failed to get purchase history' });
   }
-});
-
-// Получить цены на премиум
-router.get('/prices', async (req, res) => {
-  res.json({
-    prices: PREMIUM_PRICES,
-    features: [
-      '✨ AI контекст из чатов',
-      '🤖 Умные предложения ответов от AI',
-      '📝 Автодополнение текста',
-      '✍️ Исправление грамматики и стиля',
-      '📁 Папки для чатов (неограниченно)',
-      '🔍 Умный поиск с фильтрами',
-      '⚡ Быстрые ответы (шаблоны)',
-      '🎨 Кастомные темы и фоны',
-      '📊 Расширенная статистика',
-      '💾 Экспорт в PDF/HTML/JSON',
-      '🔒 Секретные чаты',
-      '🎭 Анимированные аватары',
-      '🎵 Музыка в профиле',
-      '📈 Приоритетная поддержка',
-    ],
-  });
 });
 
 export default router;
