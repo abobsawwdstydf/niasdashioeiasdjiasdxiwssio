@@ -301,6 +301,121 @@ body {
   background-clip: text;
 }
 
+/* Микроанимации для кнопок */
+.btn-hover-lift {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.btn-hover-lift:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Анимация иконок при hover */
+.icon-hover-rotate {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.icon-hover-rotate:hover {
+  transform: rotate(15deg) scale(1.1);
+}
+
+.icon-hover-bounce {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.icon-hover-bounce:hover {
+  animation: bounce-small 0.6s ease-in-out;
+}
+
+@keyframes bounce-small {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Ripple эффект */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.ripple:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* Glow эффект при hover */
+.glow-on-hover {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.glow-on-hover::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+  filter: blur(8px);
+}
+
+.glow-on-hover:hover::before {
+  opacity: 0.6;
+}
+
+/* Shake анимация для ошибок */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Heartbeat для лайков */
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  10%, 30% { transform: scale(1.1); }
+  20%, 40% { transform: scale(0.9); }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 0.8s ease-in-out;
+}
+
+/* Spin для загрузки */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
 /* Плавное появление элементов */
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -375,6 +490,48 @@ body {
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Shimmer эффект для скелетонов */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+.skeleton-shimmer-gradient {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
 }
 
 /* ======================== */
@@ -654,4 +811,180 @@ em-emoji-picker {
 
 .density-gap {
   gap: calc(0.5rem * var(--density));
+}
+
+/* ======================== */
+/*   Адаптивность           */
+/* ======================== */
+
+/* Мобильные устройства (до 640px) */
+@media (max-width: 640px) {
+  /* Увеличенные touch targets */
+  button, a, input, textarea {
+    min-height: 44px;
+  }
+
+  /* Полноэкранные модалки */
+  .modal-mobile-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+
+  /* Компактные отступы */
+  .mobile-compact {
+    padding: 0.75rem !important;
+  }
+
+  /* Скрытие на мобилках */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Полная ширина на мобилках */
+  .mobile-full-width {
+    width: 100% !important;
+  }
+
+  /* Стек на мобилках */
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+
+  /* Уменьшенный текст */
+  .mobile-text-sm {
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Планшеты (640px - 1024px) */
+@media (min-width: 640px) and (max-width: 1024px) {
+  /* Двухколоночная сетка */
+  .tablet-grid-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Скрытие на планшетах */
+  .hide-tablet {
+    display: none !important;
+  }
+
+  /* Средние отступы */
+  .tablet-spacing {
+    padding: 1rem !important;
+  }
+}
+
+/* Landscape режим на мобилках */
+@media (max-width: 896px) and (orientation: landscape) {
+  /* Компактный header */
+  .landscape-compact-header {
+    height: 48px !important;
+    padding: 0.5rem !important;
+  }
+
+  /* Горизонтальная навигация */
+  .landscape-horizontal-nav {
+    flex-direction: row !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Скрытие в landscape */
+  .hide-landscape {
+    display: none !important;
+  }
+
+  /* Уменьшенные отступы */
+  .landscape-compact {
+    padding: 0.5rem !important;
+  }
+}
+
+/* Складные экраны (Galaxy Fold, Surface Duo) */
+@media (max-width: 280px) {
+  /* Минимальные отступы */
+  .fold-minimal {
+    padding: 0.25rem !important;
+  }
+
+  /* Очень маленький текст */
+  .fold-text-xs {
+    font-size: 0.75rem !important;
+  }
+
+  /* Скрытие на складных */
+  .hide-fold {
+    display: none !important;
+  }
+}
+
+/* Большие экраны (1920px+) */
+@media (min-width: 1920px) {
+  /* Увеличенные контейнеры */
+  .desktop-max-w {
+    max-width: 1600px !important;
+    margin: 0 auto !important;
+  }
+
+  /* Трехколоночная сетка */
+  .desktop-grid-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Темная тема для системных предпочтений */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
+/* Светлая тема для системных предпочтений */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+  }
+}
+
+/* Уменьшенная анимация для пользователей с motion sensitivity */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Высокая контрастность */
+@media (prefers-contrast: high) {
+  .glass,
+  .glass-strong,
+  .glass-subtle {
+    border-width: 2px !important;
+    border-color: currentColor !important;
+  }
+}
+
+/* Safe area для устройств с вырезами (iPhone X+) */
+@supports (padding: max(0px)) {
+  .safe-area-inset-top {
+    padding-top: max(env(safe-area-inset-top), 1rem);
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+
+  .safe-area-inset-left {
+    padding-left: max(env(safe-area-inset-left), 1rem);
+  }
+
+  .safe-area-inset-right {
+    padding-right: max(env(safe-area-inset-right), 1rem);
+  }
 }
