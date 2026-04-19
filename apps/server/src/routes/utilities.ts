@@ -99,6 +99,110 @@ router.get('/activity', async (req: AuthRequest, res) => {
   }
 });
 
+// Get comprehensive user statistics
+router.get('/statistics', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+
+    // Total messages sent
+    const totalMessages = await prisma.message.count({
+      where: { senderId: userId, isDeleted: false }
+    });
+
+    // Total media sent
+    const totalMedia = await prisma.message.count({
+      where: {
+        senderId: userId,
+        isDeleted: false,
+        type: { in: ['image', 'video', 'file', 'audio', 'voice'] }
+      }
+    });
+
+    // Top contacts (most messages exchanged)
+    const topContacts = await prisma.$queryRaw<Array<{ chatId: string; messageCount: bigint }>>`
+      SELECT "chatId", COUNT(*) as "messageCount"
+      FROM "Message"
+      WHERE "senderId" = ${userId} AND "isDeleted" = false
+      GROUP BY "chatId"
+      ORDER BY "messageCount" DESC
+      LIMIT 10
+    `;
+
+    // Get chat details for top contacts
+    const topContactsWithDetails = await Promise.all(
+      topContacts.map(async (tc) => {
+        const chat = await prisma.chat.findUnique({
+          where: { id: tc.chatId },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    avatar: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        return {
+          chatId: tc.chatId,
+          messageCount: Number(tc.messageCount),
+          chat
+        };
+      })
+    );
+
+    // Messages by hour (activity pattern)
+    const messagesByHour = await prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+      SELECT EXTRACT(HOUR FROM "createdAt") as hour, COUNT(*) as count
+      FROM "Message"
+      WHERE "senderId" = ${userId} AND "isDeleted" = false
+      GROUP BY hour
+      ORDER BY hour
+    `;
+
+    const hourlyActivity = Array.from({ length: 24 }, (_, i) => {
+      const found = messagesByHour.find(m => Number(m.hour) === i);
+      return {
+        hour: i,
+        count: found ? Number(found.count) : 0
+      };
+    });
+
+    // Total chats
+    const totalChats = await prisma.chatMember.count({
+      where: { userId }
+    });
+
+    // Account age
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true }
+    });
+
+    const accountAgeDays = user 
+      ? Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    res.json({
+      totalMessages,
+      totalMedia,
+      totalChats,
+      accountAgeDays,
+      topContacts: topContactsWithDetails,
+      hourlyActivity
+    });
+  } catch (error) {
+    console.error('Error fetching statistics:', error);
+    res.status(500).json({ error: 'Ошибка получения статистики' });
+  }
+});
+
 // Export chat history
 router.get('/export/chat/:chatId', async (req: AuthRequest, res) => {
   try {
