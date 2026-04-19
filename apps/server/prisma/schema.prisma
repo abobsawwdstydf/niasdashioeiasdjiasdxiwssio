@@ -872,3 +872,17 @@ model Transaction {
   @@index([type])
   @@index([createdAt])
 }
+
+// User status (like WhatsApp)
+model Status {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  text      String // Status text
+  emoji     String? // Optional emoji
+  expiresAt DateTime? // When status expires (null = never)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}

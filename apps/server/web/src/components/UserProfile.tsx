@@ -33,6 +33,13 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
   const [editData, setEditData] = useState({ displayName: '', bio: '', birthday: '', username: '' });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Status state
+  const [status, setStatus] = useState<{ text: string; emoji?: string; expiresAt?: string } | null>(null);
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [statusText, setStatusText] = useState('');
+  const [statusEmoji, setStatusEmoji] = useState('');
+  const [statusExpires, setStatusExpires] = useState('24');
+
   // Shared media state
   const [sharedMedia, setSharedMedia] = useState<Message[]>([]);
   const [sharedFiles, setSharedFiles] = useState<Message[]>([]);
@@ -64,6 +71,7 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
 
   useEffect(() => {
     loadProfile();
+    loadStatus();
     if (!isSelf) {
       api.getFriendshipStatus(userId).then(setFriendStatus).catch(() => {});
     }
@@ -148,6 +156,55 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
     } finally {
       setIsSavingProfile(false);
     }
+  };
+
+  const loadStatus = async () => {
+    try {
+      const data = await api.get(`/status/${userId}`);
+      setStatus(data);
+    } catch (e) {
+      console.error('Failed to load status:', e);
+    }
+  };
+
+  const handleSaveStatus = async () => {
+    if (!statusText.trim()) {
+      showError('Введите текст статуса');
+      return;
+    }
+
+    try {
+      const data = await api.post('/status', {
+        text: statusText.trim(),
+        emoji: statusEmoji || null,
+        expiresIn: statusExpires ? parseInt(statusExpires) : null
+      });
+      setStatus(data);
+      setIsEditingStatus(false);
+      success('Статус обновлён');
+    } catch (e) {
+      console.error('Failed to save status:', e);
+      showError(e instanceof Error ? e.message : 'Ошибка сохранения статуса');
+    }
+  };
+
+  const handleDeleteStatus = async () => {
+    try {
+      await api.delete('/status');
+      setStatus(null);
+      setIsEditingStatus(false);
+      success('Статус удалён');
+    } catch (e) {
+      console.error('Failed to delete status:', e);
+      showError(e instanceof Error ? e.message : 'Ошибка удаления статуса');
+    }
+  };
+
+  const startEditingStatus = () => {
+    setStatusText(status?.text || '');
+    setStatusEmoji(status?.emoji || '');
+    setStatusExpires('24');
+    setIsEditingStatus(true);
   };
 
   const handleSendFriendRequest = async () => {
@@ -526,6 +583,52 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                     <span className="text-white/30 italic">{t('notSpecified')}</span>
                   )}
                 </p>
+              </div>
+
+              {/* Статус */}
+              <div className="bg-black/20 backdrop-blur-xl border border-white/5 rounded-2xl p-4 transition-all hover:bg-black/30 hover:border-white/10 group">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                      <MessageSquare size={12} className="text-purple-400" />
+                    </div>
+                    <label className="text-xs font-semibold text-purple-200/50 uppercase tracking-widest">
+                      Статус
+                    </label>
+                  </div>
+                  {isSelf && (
+                    <button
+                      onClick={startEditingStatus}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                      title="Изменить статус"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  )}
+                </div>
+                {status ? (
+                  <div className="pl-1">
+                    <p className="text-sm text-zinc-200 leading-relaxed flex items-center gap-2">
+                      {status.emoji && <span className="text-lg">{status.emoji}</span>}
+                      <span>{status.text}</span>
+                    </p>
+                    {status.expiresAt && (
+                      <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1">
+                        <Clock size={10} />
+                        Истекает {new Date(status.expiresAt).toLocaleString('ru-RU', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/30 italic pl-1">
+                    {isSelf ? 'Установите статус' : 'Нет статуса'}
+                  </p>
+                )}
               </div>
 
               {/* Верификация */}
@@ -972,6 +1075,108 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Status Edit Modal */}
+      <AnimatePresence>
+        {isEditingStatus && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsEditingStatus(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md rounded-2xl bg-surface-secondary border border-white/10 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare size={20} className="text-purple-400" />
+                  <h3 className="text-lg font-semibold text-white">Изменить статус</h3>
+                </div>
+                <button
+                  onClick={() => setIsEditingStatus(false)}
+                  className="p-2 rounded-lg hover:bg-white/5 transition-colors text-zinc-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="text-xs text-zinc-500 mb-1.5 block">Эмодзи (необязательно)</label>
+                  <input
+                    type="text"
+                    value={statusEmoji}
+                    onChange={(e) => setStatusEmoji(e.target.value.slice(0, 2))}
+                    placeholder="😊"
+                    maxLength={2}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-2xl text-center placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-500 mb-1.5 block">Текст статуса</label>
+                  <input
+                    type="text"
+                    value={statusText}
+                    onChange={(e) => setStatusText(e.target.value.slice(0, 200))}
+                    placeholder="Чем вы занимаетесь?"
+                    maxLength={200}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    autoFocus
+                  />
+                  <p className="text-xs text-zinc-600 mt-1 text-right">{statusText.length}/200</p>
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-500 mb-1.5 block">Истекает через</label>
+                  <select
+                    value={statusExpires}
+                    onChange={(e) => setStatusExpires(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+                  >
+                    <option value="1">1 час</option>
+                    <option value="4">4 часа</option>
+                    <option value="8">8 часов</option>
+                    <option value="24">24 часа</option>
+                    <option value="168">7 дней</option>
+                    <option value="">Никогда</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleSaveStatus}
+                    disabled={!statusText.trim()}
+                    className="flex-1 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium transition-colors"
+                  >
+                    Сохранить
+                  </button>
+                  {status && (
+                    <button
+                      onClick={handleDeleteStatus}
+                      className="px-4 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-medium transition-colors"
+                    >
+                      Удалить
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsEditingStatus(false)}
+                    className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition-colors"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
