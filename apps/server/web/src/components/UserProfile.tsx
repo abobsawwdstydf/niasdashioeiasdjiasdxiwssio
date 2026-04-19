@@ -40,6 +40,10 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
   const [statusEmoji, setStatusEmoji] = useState('');
   const [statusExpires, setStatusExpires] = useState('24');
 
+  // Profile music state
+  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   // Shared media state
   const [sharedMedia, setSharedMedia] = useState<Message[]>([]);
   const [sharedFiles, setSharedFiles] = useState<Message[]>([]);
@@ -630,6 +634,54 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                   </p>
                 )}
               </div>
+
+              {/* Музыка в профиле */}
+              {profile.profileMusic && (
+                <div className="bg-gradient-to-r from-pink-500/10 to-purple-500/10 backdrop-blur-xl border border-pink-500/20 rounded-2xl p-4 transition-all hover:from-pink-500/20 hover:to-purple-500/20 hover:border-pink-500/30 group">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        if (audioRef.current) {
+                          if (isPlayingMusic) {
+                            audioRef.current.pause();
+                            setIsPlayingMusic(false);
+                          } else {
+                            audioRef.current.play();
+                            setIsPlayingMusic(true);
+                          }
+                        }
+                      }}
+                      className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-pink-500/30"
+                    >
+                      {isPlayingMusic ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <rect x="6" y="4" width="4" height="16" rx="1"/>
+                          <rect x="14" y="4" width="4" height="16" rx="1"/>
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-pink-300 flex items-center gap-1.5">
+                        🎵 Музыка профиля
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        {isPlayingMusic ? 'Воспроизводится...' : 'Нажмите для воспроизведения'}
+                      </p>
+                    </div>
+                  </div>
+                  <audio
+                    ref={audioRef}
+                    src={profile.profileMusic}
+                    onEnded={() => setIsPlayingMusic(false)}
+                    onPause={() => setIsPlayingMusic(false)}
+                    onPlay={() => setIsPlayingMusic(true)}
+                  />
+                </div>
+              )}
 
               {/* Верификация */}
               {profile.isVerified && (

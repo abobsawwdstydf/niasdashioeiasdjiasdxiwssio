@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useRef } from 'react';
 import { getInitials, generateAvatarColor } from '../lib/utils';
 import { Check } from 'lucide-react';
 
@@ -46,16 +46,55 @@ function AvatarInner({ src, name, size = 'md', className = '', online, isVerifie
 
   const hasCustomBadge = isVerified && verifiedBadgeUrl && verifiedBadgeType !== 'default';
 
+  // Detect if avatar is animated (GIF or video)
+  const isGif = src?.toLowerCase().endsWith('.gif');
+  const isVideo = src && (src.toLowerCase().endsWith('.mp4') || src.toLowerCase().endsWith('.webm'));
+  const isAnimated = isGif || isVideo;
+
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (isVideo && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (isVideo && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
   return (
     <div className={`relative shrink-0 ${className}`}>
-      <div className="relative inline-block">
+      <div 
+        className="relative inline-block"
+        onMouseEnter={isAnimated ? handleMouseEnter : undefined}
+        onMouseLeave={isAnimated ? handleMouseLeave : undefined}
+      >
         {src ? (
-          <img
-            src={src}
-            alt={name}
-            className={`${sizeClass} rounded-full object-cover select-none pointer-events-none`}
-            draggable={false}
-          />
+          isVideo ? (
+            <video
+              ref={videoRef}
+              src={src}
+              className={`${sizeClass} rounded-full object-cover select-none pointer-events-none`}
+              muted
+              loop
+              playsInline
+            />
+          ) : (
+            <img
+              src={src}
+              alt={name}
+              className={`${sizeClass} rounded-full object-cover select-none pointer-events-none ${isAnimated ? 'transition-transform hover:scale-105' : ''}`}
+              draggable={false}
+            />
+          )
         ) : (
           <div
             className={`${sizeClass} rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center text-white font-medium select-none`}

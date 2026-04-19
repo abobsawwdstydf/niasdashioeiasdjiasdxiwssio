@@ -19,6 +19,7 @@ model User {
   avatar           String?
   bio              String?
   birthday         String?
+  profileMusic     String? // URL to profile music file
   createdAt        DateTime @default(now())
   lastSeen         DateTime @default(now())
   isOnline         Boolean  @default(false)
