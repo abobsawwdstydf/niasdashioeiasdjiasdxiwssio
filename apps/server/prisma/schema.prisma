@@ -887,3 +887,38 @@ model Status {
   @@index([userId])
   @@index([expiresAt])
 }
+
+// Bots
+model Bot {
+  id          String   @id @default(uuid())
+  name        String
+  username    String   @unique
+  token       String   @unique // Bot API token
+  ownerId     String // User who created the bot
+  avatar      String?
+  description String?
+  webhookUrl  String? // Webhook URL for bot events
+  webhookSecret String? // Secret for webhook verification
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  commands BotCommand[]
+
+  @@index([ownerId])
+  @@index([token])
+  @@index([username])
+}
+
+model BotCommand {
+  id          String   @id @default(uuid())
+  botId       String
+  command     String // Command name (without /)
+  description String
+  createdAt   DateTime @default(now())
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, command])
+  @@index([botId])
+}

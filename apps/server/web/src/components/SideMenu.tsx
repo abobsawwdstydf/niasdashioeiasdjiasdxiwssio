@@ -49,10 +49,11 @@ import DevicesTab from './DevicesTab';
 import LegalPage from './LegalPage';
 import PremiumPage from '../pages/PremiumPage';
 import StatisticsPage from '../pages/StatisticsPage';
+import BotsPage from '../pages/BotsPage';
 import ThemeSettings from './ThemeSettings';
 import type { User as UserType, UserPresence, FriendRequest, FriendWithId } from '../lib/types';
 
-type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends' | 'premium' | 'statistics';
+type SideView = 'main' | 'profile' | 'settings' | 'about' | 'friends' | 'premium' | 'statistics' | 'bots';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -271,6 +272,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
     { divider: true },
     { icon: Crown, label: 'Premium', onClick: () => changeView('premium'), highlight: true },
+    { icon: BotIcon, label: 'Боты', onClick: () => changeView('bots') },
     { icon: BarChart3, label: 'Статистика', onClick: () => changeView('statistics') },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
     { divider: true },
@@ -947,6 +949,19 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
                   </div>
                   <div className="h-[calc(100%-3.5rem)] overflow-y-auto">
                     <StatisticsPage />
+                  </div>
+                </div>
+              )}
+              {view === 'bots' && (
+                <div className="h-full overflow-hidden">
+                  <div className="h-14 flex items-center gap-3 px-4 border-b border-border flex-shrink-0 bg-surface">
+                    <button onClick={() => changeView('main')} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">
+                      <ArrowLeft size={20} />
+                    </button>
+                    <h3 className="text-sm font-semibold text-white flex-1">Боты</h3>
+                  </div>
+                  <div className="h-[calc(100%-3.5rem)] overflow-y-auto">
+                    <BotsPage />
                   </div>
                 </div>
               )}
