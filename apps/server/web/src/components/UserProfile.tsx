@@ -636,7 +636,7 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
               </div>
 
               {/* Музыка в профиле */}
-              {profile.profileMusic && (
+              {(profile as any).profileMusic && (
                 <div className="bg-gradient-to-r from-pink-500/10 to-purple-500/10 backdrop-blur-xl border border-pink-500/20 rounded-2xl p-4 transition-all hover:from-pink-500/20 hover:to-purple-500/20 hover:border-pink-500/30 group">
                   <div className="flex items-center gap-3">
                     <button
@@ -675,7 +675,7 @@ export default function UserProfile({ userId, chatId, onClose, isSelf }: UserPro
                   </div>
                   <audio
                     ref={audioRef}
-                    src={profile.profileMusic}
+                    src={(profile as any).profileMusic}
                     onEnded={() => setIsPlayingMusic(false)}
                     onPause={() => setIsPlayingMusic(false)}
                     onPlay={() => setIsPlayingMusic(true)}

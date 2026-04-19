@@ -87,7 +87,7 @@ export default function BotsPage() {
     if (!confirm('Регенерировать токен? Старый токен перестанет работать.')) return;
     
     try {
-      const data = await api.post(`/bots/${botId}/regenerate-token`);
+      const data = await api.post(`/bots/${botId}/regenerate-token`, {});
       success('Токен обновлён');
       setSelectedBot(prev => prev ? { ...prev, token: data.token } : null);
       loadBots();

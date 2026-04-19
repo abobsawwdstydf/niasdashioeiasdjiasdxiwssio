@@ -56,6 +56,18 @@ class ApiClient {
     return response.json();
   }
 
+  // Generic HTTP methods
+  async delete<T = any>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  async put<T = any>(endpoint: string, data?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
   // Авторизация
   async login(phone: string, password: string) {
     return this.request<{ token: string; user: User }>('/auth/login', {

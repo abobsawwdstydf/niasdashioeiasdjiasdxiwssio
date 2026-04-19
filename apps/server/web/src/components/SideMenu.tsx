@@ -36,6 +36,7 @@ import {
   Monitor,
   Crown,
   BarChart3,
+  Bot,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -272,7 +273,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     { icon: Users, label: t('friends'), onClick: () => changeView('friends'), badge: friendRequests.length > 0 ? friendRequests.length : undefined },
     { divider: true },
     { icon: Crown, label: 'Premium', onClick: () => changeView('premium'), highlight: true },
-    { icon: BotIcon, label: 'Боты', onClick: () => changeView('bots') },
+    { icon: Bot, label: 'Боты', onClick: () => changeView('bots') },
     { icon: BarChart3, label: 'Статистика', onClick: () => changeView('statistics') },
     { icon: Settings, label: t('settings'), onClick: () => changeView('settings') },
     { divider: true },

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import Avatar from '../../components/Avatar';
 
 describe('Avatar Component', () => {
   it('should render with image src', () => {
-    render(<Avatar src="https://example.com/avatar.jpg" name="John Doe" />);
-    const img = screen.getByRole('img');
+    const { container } = render(<Avatar src="https://example.com/avatar.jpg" name="John Doe" />);
+    const img = container.querySelector('img');
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', 'https://example.com/avatar.jpg');
   });
@@ -37,7 +37,7 @@ describe('Avatar Component', () => {
   });
 
   it('should show online indicator when online', () => {
-    const { container } = render(<Avatar name="John" isOnline={true} />);
+    const { container } = render(<Avatar name="John" online={true} />);
     const onlineIndicator = container.querySelector('[class*="bg-green"]');
     expect(onlineIndicator).toBeTruthy();
   });
