@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -963,8 +963,6 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
                   <div className="h-[calc(100%-3.5rem)] overflow-y-auto">
                     <BotsPage />
                   </div>
-                </div>
-              )}
                 </div>
               )}
             </AnimatePresence>
